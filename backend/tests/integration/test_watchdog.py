@@ -11,11 +11,12 @@ from esphea.experiments.config import ExperimentConfig, NSGA2Config
 from esphea.experiments.observers import GenerationMetrics
 from esphea.experiments.registry import default_problem_registry
 from esphea.experiments.storage import snapshot_directory
+from esphea.messaging.ports import JobKind, JobRef
 from esphea.persistence.models import RunRow, RunStatus
 from esphea.persistence.repositories import ExperimentRepository, MetricsRepository, RunRepository
 from esphea.services.execution import RunService
 from esphea.services.results import ResultsService
-from esphea.services.watchdog import RecoveryAction, RunWatchdog
+from esphea.services.watchdog import RecoveryAction, RunJobs, Watchdog
 from tests.integration.conftest import FakePublisher, RecordingQueue
 
 NOW = datetime(2026, 11, 2, 12, 0, tzinfo=UTC)
@@ -26,12 +27,11 @@ GRACE = timedelta(seconds=120)
 @pytest.fixture
 def watchdog(
     sessions: sessionmaker[Session], queue: RecordingQueue, publisher: FakePublisher, runs_dir: Path
-) -> RunWatchdog:
-    return RunWatchdog(
+) -> Watchdog:
+    return Watchdog(
         sessions,
         queue=queue,
-        publisher=publisher,
-        runs_dir=runs_dir,
+        jobs=[RunJobs(runs_dir=runs_dir, publisher=publisher)],
         lease_timeout=LEASE,
         max_attempts=3,
         enqueue_grace=GRACE,
@@ -80,7 +80,7 @@ def orphan(
 
 def test_lost_worker_is_retried(
     sessions: sessionmaker[Session],
-    watchdog: RunWatchdog,
+    watchdog: Watchdog,
     queue: RecordingQueue,
     publisher: FakePublisher,
     runs_dir: Path,
@@ -93,7 +93,7 @@ def test_lost_worker_is_retried(
     run = run_of(sessions, run_id)
     assert (run.status, run.attempt, run.generation) == (RunStatus.QUEUED, 1, 0)
     assert run.error == "worker lost during attempt 1; retrying"
-    assert queue.enqueued == [(run_id, 2)]
+    assert queue.runs() == [(run_id, 2)]
     assert not snapshot_directory(runs_dir, run_id, 1).exists()
     with sessions() as session:
         assert MetricsRepository(session).for_runs([run_id]) == []
@@ -101,7 +101,7 @@ def test_lost_worker_is_retried(
 
 
 def test_gives_up_after_the_last_attempt(
-    sessions: sessionmaker[Session], watchdog: RunWatchdog, queue: RecordingQueue, runs_dir: Path
+    sessions: sessionmaker[Session], watchdog: Watchdog, queue: RecordingQueue, runs_dir: Path
 ) -> None:
     run_id = orphan(sessions, runs_dir, attempt=3, heartbeat_age=LEASE * 2)
 
@@ -115,7 +115,7 @@ def test_gives_up_after_the_last_attempt(
 
 
 def test_live_workers_are_left_alone(
-    sessions: sessionmaker[Session], watchdog: RunWatchdog, runs_dir: Path
+    sessions: sessionmaker[Session], watchdog: Watchdog, runs_dir: Path
 ) -> None:
     run_id = orphan(sessions, runs_dir, attempt=1, heartbeat_age=LEASE - timedelta(seconds=1))
     assert watchdog.sweep() == []
@@ -124,7 +124,7 @@ def test_live_workers_are_left_alone(
 
 
 def test_queued_run_with_missing_job_is_enqueued_again(
-    sessions: sessionmaker[Session], watchdog: RunWatchdog, queue: RecordingQueue
+    sessions: sessionmaker[Session], watchdog: Watchdog, queue: RecordingQueue
 ) -> None:
     lost_job = add_run(sessions)
     pending_job = add_run(sessions)
@@ -133,12 +133,12 @@ def test_queued_run_with_missing_job_is_enqueued_again(
     set_columns(sessions, lost_job, enqueued_at=old)
     set_columns(sessions, pending_job, enqueued_at=old)
     set_columns(sessions, recent, enqueued_at=NOW)
-    queue.pending.add((pending_job, 1))
+    queue.pending.add(JobRef(JobKind.RUN, pending_job, 1))
 
     [recovery] = watchdog.sweep()
 
-    assert (recovery.run_id, recovery.action) == (str(lost_job), RecoveryAction.REENQUEUED)
-    assert queue.enqueued == [(lost_job, 1)]
+    assert (recovery.job_id, recovery.action) == (str(lost_job), RecoveryAction.REENQUEUED)
+    assert queue.runs() == [(lost_job, 1)]
     enqueued_at = run_of(sessions, lost_job).enqueued_at
     assert enqueued_at is not None
     assert enqueued_at.replace(tzinfo=UTC) > old
@@ -146,13 +146,13 @@ def test_queued_run_with_missing_job_is_enqueued_again(
 
 def test_retry_completes_and_results_follow_the_new_attempt(
     sessions: sessionmaker[Session],
-    watchdog: RunWatchdog,
+    watchdog: Watchdog,
     queue: RecordingQueue,
     run_service: RunService,
     runs_dir: Path,
 ) -> None:
     run_id = orphan(sessions, runs_dir, attempt=1, heartbeat_age=LEASE * 2)
-    queue.execute = run_service  # the retry runs inline when the watchdog enqueues it
+    queue.executors[JobKind.RUN] = run_service  # the retry runs inline when enqueued
 
     watchdog.sweep()
 

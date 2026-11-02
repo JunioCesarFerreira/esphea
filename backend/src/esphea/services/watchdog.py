@@ -1,20 +1,28 @@
-"""Recovery of runs orphaned by lost workers or a lost job queue."""
+"""Recovery of jobs orphaned by lost workers or a lost job queue."""
 
 import logging
 import shutil
-from collections.abc import Callable
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy.orm import Session, sessionmaker
 
 from esphea.experiments.storage import snapshot_directory
 from esphea.messaging.events import run_status_event
-from esphea.messaging.ports import EventPublisher, JobQueue
-from esphea.persistence.models import RunRow, RunStatus
-from esphea.persistence.repositories import MetricsRepository, RunRepository
+from esphea.messaging.ports import EventPublisher, JobKind, JobQueue, JobRef
+from esphea.persistence.models import AnalysisRow, LeasedJob, RunRow, RunStatus
+from esphea.persistence.repositories import (
+    AnalysisRepository,
+    LeasedJobRepository,
+    MetricsRepository,
+    RunRepository,
+)
+from esphea.topology.storage import analysis_directory
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +35,63 @@ class RecoveryAction(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Recovery:
-    run_id: str
+    kind: JobKind
+    job_id: str
     action: RecoveryAction
     attempt: int
+
+
+class RecoverableJobs(ABC):
+    """Recovery policy of one kind of leased job."""
+
+    kind: JobKind
+
+    @abstractmethod
+    def repository(self, session: Session) -> LeasedJobRepository[Any]: ...
+
+    def discard_partial_results(self, session: Session, job: Any) -> list[Path]:
+        """Delete what the lost attempt wrote to the database; return directories to remove."""
+        return []
+
+    def notify(self, job: Any, status: RunStatus, error: str | None) -> None:  # noqa: B027
+        """Announce the new status of a recovered job (optional hook; best effort)."""
+
+
+class RunJobs(RecoverableJobs):
+    kind = JobKind.RUN
+
+    def __init__(self, *, runs_dir: Path, publisher: EventPublisher) -> None:
+        self._runs_dir = runs_dir
+        self._publisher = publisher
+
+    def repository(self, session: Session) -> RunRepository:
+        return RunRepository(session)
+
+    def discard_partial_results(self, session: Session, job: RunRow) -> list[Path]:
+        MetricsRepository(session).delete_for_run(job.id)
+        return [snapshot_directory(self._runs_dir, job.id, job.attempt)]
+
+    def notify(self, job: RunRow, status: RunStatus, error: str | None) -> None:
+        event = run_status_event(
+            job.experiment_id, job.id, status, attempt=job.attempt, error=error
+        )
+        try:
+            self._publisher.publish(job.experiment_id, event)
+        except Exception:
+            logger.warning("could not publish status of run %s", job.id, exc_info=True)
+
+
+class AnalysisJobs(RecoverableJobs):
+    kind = JobKind.ANALYSIS
+
+    def __init__(self, *, runs_dir: Path) -> None:
+        self._runs_dir = runs_dir
+
+    def repository(self, session: Session) -> AnalysisRepository:
+        return AnalysisRepository(session)
+
+    def discard_partial_results(self, session: Session, job: AnalysisRow) -> list[Path]:
+        return [analysis_directory(self._runs_dir, job.run_id, job.id, job.attempt)]
 
 
 @dataclass(slots=True)
@@ -37,22 +99,24 @@ class _Plan:
     """Side effects to perform once the database transaction has committed."""
 
     recoveries: list[Recovery] = field(default_factory=list)
-    enqueue: list[tuple[RunRow, int]] = field(default_factory=list)
-    events: list[tuple[RunRow, RunStatus, str | None]] = field(default_factory=list)
+    enqueue: list[JobRef] = field(default_factory=list)
+    notifications: list[tuple[RecoverableJobs, LeasedJob, RunStatus, str | None]] = field(
+        default_factory=list
+    )
     stale_dirs: list[Path] = field(default_factory=list)
 
 
-class RunWatchdog:
-    """Periodically repairs runs that no live worker is taking care of.
+class Watchdog:
+    """Periodically repairs leased jobs that no live worker is taking care of.
 
-    * A **running** run whose lease (heartbeat) expired lost its worker. Its
-      partial metrics and snapshots are discarded and it is queued again for a
-      new attempt, up to ``max_attempts``; after that it is marked failed.
-    * A **queued** run whose job no longer exists in the queue (e.g. Redis was
+    * A **running** job whose lease (heartbeat) expired lost its worker. Its
+      partial results are discarded and it is queued again for a new attempt,
+      up to ``max_attempts``; after that it is marked failed.
+    * A **queued** job whose queue entry no longer exists (e.g. Redis was
       restarted) is enqueued again; this does not count as an attempt.
 
     Rows are locked with ``SKIP LOCKED``, so several watchdogs never act on the
-    same run, and attempts fence the workers' writes (see ``RunRepository``).
+    same job, and attempts fence the workers' writes (see ``LeasedJobRepository``).
     """
 
     def __init__(
@@ -60,8 +124,7 @@ class RunWatchdog:
         sessions: sessionmaker[Session],
         *,
         queue: JobQueue,
-        publisher: EventPublisher,
-        runs_dir: Path,
+        jobs: Sequence[RecoverableJobs],
         lease_timeout: timedelta,
         max_attempts: int,
         enqueue_grace: timedelta,
@@ -71,65 +134,76 @@ class RunWatchdog:
             raise ValueError("max_attempts must be at least 1")
         self._sessions = sessions
         self._queue = queue
-        self._publisher = publisher
-        self._runs_dir = runs_dir
+        self._jobs = tuple(jobs)
         self._lease_timeout = lease_timeout
         self._max_attempts = max_attempts
         self._enqueue_grace = enqueue_grace
         self._clock = clock
 
     def sweep(self) -> list[Recovery]:
+        recoveries: list[Recovery] = []
+        for jobs in self._jobs:
+            recoveries.extend(self._sweep(jobs))
+        return recoveries
+
+    def _sweep(self, jobs: RecoverableJobs) -> list[Recovery]:
         plan = _Plan()
         now = self._clock()
         with self._sessions.begin() as session:
-            runs = RunRepository(session)
-            metrics = MetricsRepository(session)
-            for run in runs.lock_stale_running(now - self._lease_timeout):
-                self._recover_lost_worker(run, runs, metrics, plan)
-            for run in runs.lock_queued_before(now - self._enqueue_grace):
-                if not self._queue.is_enqueued(run.id, run.attempt + 1):
-                    runs.mark_enqueued(run)
-                    plan.enqueue.append((run, run.attempt + 1))
+            repository = jobs.repository(session)
+            for job in repository.lock_stale_running(now - self._lease_timeout):
+                self._recover_lost_worker(jobs, session, repository, job, plan)
+            for job in repository.lock_queued_before(now - self._enqueue_grace):
+                ref = JobRef(jobs.kind, job.id, job.attempt + 1)
+                if not self._queue.is_enqueued(ref):
+                    repository.mark_enqueued(job)
+                    plan.enqueue.append(ref)
                     plan.recoveries.append(
-                        Recovery(str(run.id), RecoveryAction.REENQUEUED, run.attempt + 1)
+                        Recovery(jobs.kind, str(job.id), RecoveryAction.REENQUEUED, ref.attempt)
                     )
         self._apply(plan)
         return plan.recoveries
 
     def _recover_lost_worker(
-        self, run: RunRow, runs: RunRepository, metrics: MetricsRepository, plan: _Plan
+        self,
+        jobs: RecoverableJobs,
+        session: Session,
+        repository: LeasedJobRepository[Any],
+        job: LeasedJob,
+        plan: _Plan,
     ) -> None:
-        lost = run.attempt
-        metrics.delete_for_run(run.id)
-        plan.stale_dirs.append(snapshot_directory(self._runs_dir, run.id, lost))
+        lost = job.attempt
+        plan.stale_dirs.extend(jobs.discard_partial_results(session, job))
         if lost < self._max_attempts:
-            runs.requeue(run, f"worker lost during attempt {lost}; retrying")
-            plan.enqueue.append((run, lost + 1))
-            plan.events.append((run, RunStatus.QUEUED, run.error))
-            plan.recoveries.append(Recovery(str(run.id), RecoveryAction.RETRIED, lost + 1))
+            repository.requeue(job, f"worker lost during attempt {lost}; retrying")
+            plan.enqueue.append(JobRef(jobs.kind, job.id, lost + 1))
+            plan.notifications.append((jobs, job, RunStatus.QUEUED, job.error))
+            plan.recoveries.append(
+                Recovery(jobs.kind, str(job.id), RecoveryAction.RETRIED, lost + 1)
+            )
         else:
             error = f"worker lost during attempt {lost} of {self._max_attempts}"
-            runs.fail(run, error)
-            plan.events.append((run, RunStatus.FAILED, error))
-            plan.recoveries.append(Recovery(str(run.id), RecoveryAction.FAILED, lost))
+            repository.fail(job, error)
+            plan.notifications.append((jobs, job, RunStatus.FAILED, error))
+            plan.recoveries.append(Recovery(jobs.kind, str(job.id), RecoveryAction.FAILED, lost))
 
     def _apply(self, plan: _Plan) -> None:
         for directory in plan.stale_dirs:
             shutil.rmtree(directory, ignore_errors=True)
-        for run, attempt in plan.enqueue:
+        for ref in plan.enqueue:
             try:
-                self._queue.enqueue_run(run.id, attempt)
-            except Exception:  # retried on the next sweep (the run stays queued)
-                logger.exception("could not enqueue run %s attempt %d", run.id, attempt)
-        for run, status, error in plan.events:
-            event = run_status_event(
-                run.experiment_id, run.id, status, attempt=run.attempt, error=error
-            )
-            try:
-                self._publisher.publish(run.experiment_id, event)
-            except Exception:
-                logger.warning("could not publish status of run %s", run.id, exc_info=True)
+                self._queue.enqueue(ref)
+            except Exception:  # retried on the next sweep (the job stays queued)
+                logger.exception(
+                    "could not enqueue %s %s attempt %d", ref.kind, ref.entity_id, ref.attempt
+                )
+        for jobs, job, status, error in plan.notifications:
+            jobs.notify(job, status, error)
         for recovery in plan.recoveries:
             logger.warning(
-                "run %s: %s (attempt %d)", recovery.run_id, recovery.action, recovery.attempt
+                "%s %s: %s (attempt %d)",
+                recovery.kind,
+                recovery.job_id,
+                recovery.action,
+                recovery.attempt,
             )

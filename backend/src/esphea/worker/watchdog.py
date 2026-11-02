@@ -10,7 +10,7 @@ from redis import Redis
 
 from esphea.messaging.redis import RedisEventPublisher, RqJobQueue
 from esphea.persistence.db import create_db_engine, create_session_factory
-from esphea.services.watchdog import RunWatchdog
+from esphea.services.watchdog import AnalysisJobs, RunJobs, Watchdog
 from esphea.settings import get_settings
 
 logger = logging.getLogger("esphea.watchdog")
@@ -23,13 +23,15 @@ def main() -> None:
     settings = get_settings()
     engine = create_db_engine(settings.database_url)
     redis = Redis.from_url(settings.redis_url)
-    watchdog = RunWatchdog(
+    watchdog = Watchdog(
         create_session_factory(engine),
         queue=RqJobQueue(
             redis, queue_name=settings.queue_name, job_timeout=settings.job_timeout_seconds
         ),
-        publisher=RedisEventPublisher(redis),
-        runs_dir=settings.runs_dir,
+        jobs=[
+            RunJobs(runs_dir=settings.runs_dir, publisher=RedisEventPublisher(redis)),
+            AnalysisJobs(runs_dir=settings.runs_dir),
+        ],
         lease_timeout=timedelta(seconds=settings.lease_timeout_seconds),
         max_attempts=settings.max_run_attempts,
         enqueue_grace=timedelta(seconds=settings.enqueue_grace_seconds),
@@ -45,7 +47,7 @@ def main() -> None:
     signal.signal(signal.SIGINT, request_stop)
 
     logger.info(
-        "watching runs every %.0fs (lease timeout %.0fs, up to %d attempts)",
+        "watching runs and analyses every %.0fs (lease timeout %.0fs, up to %d attempts)",
         settings.watchdog_interval_seconds,
         settings.lease_timeout_seconds,
         settings.max_run_attempts,

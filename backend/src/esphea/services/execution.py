@@ -1,7 +1,6 @@
 """Worker-side use case: execute one run attempt and record everything about it."""
 
 import logging
-import threading
 import time
 import uuid
 from collections.abc import Callable
@@ -17,84 +16,11 @@ from esphea.messaging.events import run_progress_event, run_status_event
 from esphea.messaging.ports import CancellationFlags, EventPublisher
 from esphea.persistence.models import RunStatus
 from esphea.persistence.repositories import MetricsRepository, RunRepository
+from esphea.services.leases import Lease, LeaseLostError, database_renewal
 
 logger = logging.getLogger(__name__)
 
 MAX_ERROR_LENGTH = 4000
-
-
-class LeaseLostError(RuntimeError):
-    """The attempt no longer owns its run (it was recovered by the watchdog)."""
-
-
-class RunLease:
-    """Keeps an attempt's ownership of a run alive with periodic heartbeats.
-
-    A background thread renews the lease every ``interval`` seconds. The lease
-    is considered lost when the run is no longer owned by the attempt, or when
-    no renewal succeeded for ``self_fence_after`` seconds (e.g. the database is
-    unreachable). That bound must be shorter than the watchdog's lease timeout,
-    so a cut-off worker stops before its run can be retried elsewhere.
-    """
-
-    def __init__(
-        self,
-        sessions: sessionmaker[Session],
-        run_id: uuid.UUID,
-        attempt: int,
-        *,
-        interval: float,
-        self_fence_after: float,
-        clock: Callable[[], float] = time.monotonic,
-    ) -> None:
-        if self_fence_after <= interval:
-            raise ValueError("self_fence_after must exceed the heartbeat interval")
-        self._sessions = sessions
-        self._run_id = run_id
-        self._attempt = attempt
-        self._interval = interval
-        self._self_fence_after = self_fence_after
-        self._clock = clock
-        self._last_renewal = clock()
-        self._lost = threading.Event()
-        self._stopped = threading.Event()
-        self._thread: threading.Thread | None = None
-
-    @property
-    def lost(self) -> bool:
-        return self._lost.is_set()
-
-    def renew(self) -> bool:
-        """Renew once; returns whether the lease is still held."""
-        try:
-            with self._sessions.begin() as session:
-                held = RunRepository(session).renew_lease(self._run_id, self._attempt)
-        except Exception:
-            logger.warning("heartbeat of run %s failed", self._run_id, exc_info=True)
-            held = True  # unknown: rely on the self-fencing deadline below
-        else:
-            if held:
-                self._last_renewal = self._clock()
-        if not held or self._clock() - self._last_renewal >= self._self_fence_after:
-            self._lost.set()
-        return not self.lost
-
-    def start(self) -> None:
-        self._thread = threading.Thread(
-            target=self._loop, name=f"lease-{self._run_id}", daemon=True
-        )
-        self._thread.start()
-
-    def stop(self) -> None:
-        self._stopped.set()
-        if self._thread is not None:
-            self._thread.join()
-
-    def _loop(self) -> None:
-        while not self._stopped.wait(self._interval):
-            if not self.renew():
-                logger.error("run %s: lease lost; stopping this attempt", self._run_id)
-                return
 
 
 class DatabaseMetricsSink:
@@ -227,10 +153,9 @@ class RunService:
             config = ExperimentConfig.model_validate(run.experiment.config)
 
         self._publish_status(experiment_id, run_id, RunStatus.RUNNING, attempt, generation=0)
-        lease = RunLease(
-            self._sessions,
-            run_id,
-            attempt,
+        lease = Lease(
+            database_renewal(self._sessions, RunRepository, run_id, attempt),
+            name=f"run {run_id}",
             interval=self._heartbeat_interval,
             self_fence_after=self._self_fence_after,
         )

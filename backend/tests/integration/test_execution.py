@@ -16,7 +16,8 @@ from esphea.persistence.repositories import (
     MetricsRepository,
     RunRepository,
 )
-from esphea.services.execution import RunLease, RunService, ThrottledCheck
+from esphea.services.execution import RunService, ThrottledCheck
+from esphea.services.leases import Lease, database_renewal
 from tests.integration.conftest import FakeFlags, FakePublisher
 
 
@@ -143,7 +144,7 @@ def test_lease_is_lost_when_the_run_is_recovered(sessions: sessionmaker[Session]
     run_id = add_experiment(sessions)
     with sessions.begin() as session:
         RunRepository(session).claim(run_id, 1)
-    lease = RunLease(sessions, run_id, 1, interval=1, self_fence_after=10)
+    lease = run_lease(sessions, run_id, interval=1)
     assert lease.renew()
     with sessions.begin() as session:
         run = RunRepository(session).get(run_id)
@@ -153,20 +154,23 @@ def test_lease_is_lost_when_the_run_is_recovered(sessions: sessionmaker[Session]
     assert lease.lost
 
 
-class BrokenSessions:
-    def begin(self) -> Any:
-        raise ConnectionError("database unreachable")
+def run_lease(sessions: sessionmaker[Session], run_id: uuid.UUID, interval: float) -> Lease:
+    return Lease(
+        database_renewal(sessions, RunRepository, run_id, 1),
+        name="test",
+        interval=interval,
+        self_fence_after=10 * interval,
+    )
+
+
+def unreachable_database() -> bool:
+    raise ConnectionError("database unreachable")
 
 
 def test_lease_self_fences_without_successful_heartbeats() -> None:
     now = [0.0]
-    lease = RunLease(
-        BrokenSessions(),  # type: ignore[arg-type]
-        uuid.uuid4(),
-        1,
-        interval=1,
-        self_fence_after=10,
-        clock=lambda: now[0],
+    lease = Lease(
+        unreachable_database, name="test", interval=1, self_fence_after=10, clock=lambda: now[0]
     )
     now[0] = 5
     assert lease.renew()  # failures are tolerated within the deadline
@@ -180,7 +184,7 @@ def test_lease_thread_renews_heartbeat(sessions: sessionmaker[Session]) -> None:
     with sessions.begin() as session:
         RunRepository(session).claim(run_id, 1)
     before = load(sessions, run_id).heartbeat_at
-    lease = RunLease(sessions, run_id, 1, interval=0.05, self_fence_after=5)
+    lease = run_lease(sessions, run_id, interval=0.05)
     lease.start()
     try:
         time.sleep(0.2)
