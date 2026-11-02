@@ -78,6 +78,16 @@ services:
     deploy:
       replicas: ${ESPHEA_WORKERS:-2}
 
+  watchdog:
+    <<: *backend
+    # Re-queues runs whose worker died (expired lease) and jobs lost by Redis.
+    command: ["python", "-m", "esphea.worker.watchdog"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
   frontend:
     build:
       context: ./frontend
