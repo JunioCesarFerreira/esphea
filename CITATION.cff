@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it using the metadata below."
+title: "ESPHEA: Exploratory Study of Persistent Homology in Evolutionary Algorithms"
+abstract: >-
+  Exploratory study on the use of persistent homology (Topological Data
+  Analysis) to characterize, monitor and guide evolutionary algorithms.
+authors:
+  - family-names: "Ferreira"
+    given-names: "Junio Cesar"
+type: software
+repository-code: "https://github.com/JunioCesarFerreira/esphea"
+license: MIT
+date-released: "2026-11-02"
+keywords:
+  - persistent homology
+  - topological data analysis
+  - evolutionary algorithms
+  - evolutionary computation
+  - population diversity
+  - fitness landscape analysis
