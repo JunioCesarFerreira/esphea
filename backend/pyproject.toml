@@ -9,6 +9,9 @@ dependencies = [
     "numpy>=2.3,<3",
     "pymoo>=0.6.2,<0.7",
     "moocore>=0.3,<0.4",
+    "scipy>=1.14,<2",
+    "ripser>=0.6.15,<0.7",
+    "gudhi>=3.13,<3.14",
     "pyarrow>=21",
     "pydantic>=2.11,<3",
     "pydantic-settings>=2.10,<3",
@@ -70,7 +73,7 @@ mypy_path = "src"
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["pymoo.*", "moocore.*", "pyarrow.*", "rq.*"]
+module = ["pymoo.*", "moocore.*", "pyarrow.*", "rq.*", "ripser.*", "gudhi.*", "scipy.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
