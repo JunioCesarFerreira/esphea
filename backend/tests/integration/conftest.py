@@ -51,20 +51,27 @@ class FakeSubscriber:
 
 
 class RecordingQueue:
-    """Remembers enqueued runs; ``execute`` makes it run them synchronously."""
+    """Remembers enqueued attempts; ``execute`` makes it run them synchronously."""
 
     def __init__(self) -> None:
-        self.enqueued: list[uuid.UUID] = []
-        self.cancelled: list[uuid.UUID] = []
+        self.enqueued: list[tuple[uuid.UUID, int]] = []
+        self.cancelled: list[tuple[uuid.UUID, int]] = []
+        self.pending: set[tuple[uuid.UUID, int]] = set()
         self.execute: RunService | None = None
 
-    def enqueue_run(self, run_id: uuid.UUID) -> None:
-        self.enqueued.append(run_id)
+    def enqueue_run(self, run_id: uuid.UUID, attempt: int) -> None:
+        self.enqueued.append((run_id, attempt))
+        self.pending.add((run_id, attempt))
         if self.execute is not None:
-            self.execute.execute(run_id)
+            self.pending.discard((run_id, attempt))
+            self.execute.execute(run_id, attempt)
 
-    def cancel_run(self, run_id: uuid.UUID) -> None:
-        self.cancelled.append(run_id)
+    def cancel_run(self, run_id: uuid.UUID, attempt: int) -> None:
+        self.cancelled.append((run_id, attempt))
+        self.pending.discard((run_id, attempt))
+
+    def is_enqueued(self, run_id: uuid.UUID, attempt: int) -> bool:
+        return (run_id, attempt) in self.pending
 
 
 @pytest.fixture

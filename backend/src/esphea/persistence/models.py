@@ -81,6 +81,12 @@ class RunRow(Base):
         default=RunStatus.QUEUED,
     )
     generation: Mapped[int] = mapped_column(Integer, default=0)
+    # Execution attempt that owns the run (0 = never claimed). Every write made by a
+    # worker is fenced by it, so a worker that lost the run cannot corrupt a retry.
+    attempt: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Lease renewed by the executing worker; a stale lease means the worker is gone.
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    enqueued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(Text)

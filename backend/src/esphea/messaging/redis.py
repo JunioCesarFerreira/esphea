@@ -18,8 +18,11 @@ CANCEL_FLAG_TTL_SECONDS = 7 * 24 * 3600
 RUN_TASK = "esphea.worker.tasks.execute_run"
 
 
-def _job_id(run_id: uuid.UUID) -> str:
-    return f"run-{run_id}"
+PENDING_JOB_STATUSES = frozenset({"queued", "started", "deferred", "scheduled"})
+
+
+def _job_id(run_id: uuid.UUID, attempt: int) -> str:
+    return f"run-{run_id}-{attempt}"
 
 
 class RedisEventPublisher:
@@ -72,16 +75,24 @@ class RqJobQueue:
         self._queue = Queue(queue_name, connection=redis)
         self._job_timeout = job_timeout
 
-    def enqueue_run(self, run_id: uuid.UUID) -> None:
+    def enqueue_run(self, run_id: uuid.UUID, attempt: int) -> None:
         self._queue.enqueue(
             RUN_TASK,
             str(run_id),
-            job_id=_job_id(run_id),
+            attempt,
+            job_id=_job_id(run_id, attempt),
             job_timeout=self._job_timeout,
             result_ttl=3600,
             failure_ttl=7 * 24 * 3600,
         )
 
-    def cancel_run(self, run_id: uuid.UUID) -> None:
+    def cancel_run(self, run_id: uuid.UUID, attempt: int) -> None:
         with contextlib.suppress(NoSuchJobError, InvalidJobOperation):
-            Job.fetch(_job_id(run_id), connection=self._redis).cancel()
+            Job.fetch(_job_id(run_id, attempt), connection=self._redis).cancel()
+
+    def is_enqueued(self, run_id: uuid.UUID, attempt: int) -> bool:
+        try:
+            job = Job.fetch(_job_id(run_id, attempt), connection=self._redis)
+        except NoSuchJobError:
+            return False
+        return job.get_status().value in PENDING_JOB_STATUSES

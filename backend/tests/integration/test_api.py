@@ -51,7 +51,8 @@ def test_preview_rejects_invalid_configuration(client: TestClient) -> None:
 def test_create_enqueues_one_job_per_run(client: TestClient, queue: RecordingQueue) -> None:
     created = client.post("/api/experiments", json=experiment_body()).json()
     assert created["status"] == "queued"
-    assert [run["id"] for run in created["runs"]] == [str(r) for r in queue.enqueued]
+    assert [(run["id"], 1) for run in created["runs"]] == [(str(r), a) for r, a in queue.enqueued]
+    assert all(run["attempt"] == 0 for run in created["runs"])
     assert len({run["seed"] for run in created["runs"]}) == 2
 
     listed = client.get("/api/experiments").json()
@@ -103,7 +104,9 @@ def test_cancel_queued_and_running_runs(
     experiment = client.post("/api/experiments", json=experiment_body()).json()
     cancelled = client.post(f"/api/experiments/{experiment['id']}/cancel").json()
     assert cancelled["status"] == "cancelled"
-    assert sorted(map(str, queue.cancelled)) == sorted(r["id"] for r in experiment["runs"])
+    assert sorted((str(r), a) for r, a in queue.cancelled) == sorted(
+        (r["id"], 1) for r in experiment["runs"]
+    )
     assert flags.requested == set()
 
 

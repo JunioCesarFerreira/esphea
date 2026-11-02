@@ -18,6 +18,7 @@ def run_status_event(
     run_id: uuid.UUID,
     status: RunStatus,
     *,
+    attempt: int,
     generation: int | None = None,
     error: str | None = None,
 ) -> dict[str, Any]:
@@ -26,6 +27,7 @@ def run_status_event(
         "experiment_id": str(experiment_id),
         "run_id": str(run_id),
         "status": status.value,
+        "attempt": attempt,
         "generation": generation,
         "error": error,
     }

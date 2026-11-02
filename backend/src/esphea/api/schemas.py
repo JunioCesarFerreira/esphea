@@ -71,6 +71,7 @@ class RunOut(BaseModel):
     seed: int
     status: RunStatus
     generation: int
+    attempt: int = Field(description="Execution attempt (0 = not started; >1 after recovery).")
     started_at: datetime | None
     finished_at: datetime | None
     error: str | None
@@ -83,6 +84,7 @@ class RunOut(BaseModel):
             seed=row.seed,
             status=row.status,
             generation=row.generation,
+            attempt=row.attempt,
             started_at=row.started_at,
             finished_at=row.finished_at,
             error=row.error,

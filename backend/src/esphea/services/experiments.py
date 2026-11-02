@@ -60,13 +60,13 @@ class ExperimentService:
         experiment = self._experiments.add(config)
         self._session.commit()
         # Enqueue only after commit, so workers always find the rows.
+        # A failed enqueue is retried by the watchdog, which re-enqueues queued runs
+        # whose job is missing from the queue.
         for run in experiment.runs:
             try:
-                self._queue.enqueue_run(run.id)
-            except Exception as exc:
-                logger.exception("could not enqueue run %s", run.id)
-                self._runs.finish(run.id, RunStatus.FAILED, error=f"enqueue failed: {exc}")
-                self._session.commit()
+                self._queue.enqueue_run(run.id, run.attempt + 1)
+            except Exception:
+                logger.exception("could not enqueue run %s; the watchdog will retry", run.id)
         self._session.refresh(experiment)
         return experiment
 
@@ -75,10 +75,11 @@ class ExperimentService:
         cancelled = self._runs.cancel_queued(experiment_id)
         running = self._runs.running_ids(experiment_id)
         self._session.commit()
-        for run_id in cancelled:
-            self._queue.cancel_run(run_id)
+        for run_id, attempt in cancelled:
+            self._queue.cancel_run(run_id, attempt + 1)
             self._publisher.publish(
-                experiment_id, run_status_event(experiment_id, run_id, RunStatus.CANCELLED)
+                experiment_id,
+                run_status_event(experiment_id, run_id, RunStatus.CANCELLED, attempt=attempt),
             )
         for run_id in running:
             self._cancellation.request(run_id)

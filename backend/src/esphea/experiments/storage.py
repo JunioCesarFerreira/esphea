@@ -4,7 +4,8 @@ Each stored generation contributes one row per individual of ``P_t + Q_t``
 (``P_0`` alone for generation 0). Rows are buffered and flushed into
 self-contained, zstd-compressed part files every few generations, so memory
 stays bounded and completed parts are readable while the run is in progress.
-Parts are written to a temporary name and renamed atomically.
+Parts are written to a temporary name and renamed atomically. Each execution
+attempt of a run has its own directory (:func:`snapshot_directory`).
 
 Row layout (see :data:`ROLE_POPULATION`, :data:`ROLE_OFFSPRING`):
 
@@ -25,6 +26,7 @@ f_0..f_{m-1}              objectives
 """
 
 import json
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -44,6 +46,15 @@ ROLE_OFFSPRING = 1
 SCHEMA_VERSION = 1
 _META_FILE = "meta.json"
 _PART_GLOB = "part-*.parquet"
+
+
+def snapshot_directory(root: Path, run_id: uuid.UUID, attempt: int) -> Path:
+    """Where ``attempt`` of a run stores its snapshots: ``<root>/<run-id>/attempt-<n>``.
+
+    Each attempt writes to its own directory, so a worker that lost a run can
+    never mix its files with those of the retry.
+    """
+    return root / str(run_id) / f"attempt-{attempt}"
 
 
 def _x_columns(n_var: int) -> list[str]:

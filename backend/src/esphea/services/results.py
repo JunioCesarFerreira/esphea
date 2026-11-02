@@ -12,7 +12,7 @@ from esphea.core.problem import KnownParetoFront
 from esphea.core.types import FloatArray
 from esphea.experiments.config import ExperimentConfig
 from esphea.experiments.registry import ProblemRegistry
-from esphea.experiments.storage import GenerationSnapshot, SnapshotReader
+from esphea.experiments.storage import GenerationSnapshot, SnapshotReader, snapshot_directory
 from esphea.persistence.models import RunRow
 from esphea.persistence.repositories import ExperimentRepository, MetricsRepository, RunRepository
 from esphea.services.errors import NotFoundError
@@ -91,9 +91,9 @@ class ResultsService:
         return summaries
 
     def _reader(self, run_id: uuid.UUID) -> SnapshotReader:
-        self._run(run_id)
+        run = self._run(run_id)
         try:
-            return SnapshotReader(self._runs_dir / str(run_id))
+            return SnapshotReader(snapshot_directory(self._runs_dir, run_id, run.attempt))
         except FileNotFoundError:
             raise NotFoundError(f"run {run_id} has no snapshots") from None
 

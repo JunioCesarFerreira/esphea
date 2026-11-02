@@ -6,12 +6,18 @@ from typing import Any, Protocol
 
 
 class JobQueue(Protocol):
-    def enqueue_run(self, run_id: uuid.UUID) -> None:
-        """Schedule a run for execution by a worker."""
+    """Schedules execution attempts; each attempt of a run is a distinct job."""
+
+    def enqueue_run(self, run_id: uuid.UUID, attempt: int) -> None:
+        """Schedule ``attempt`` of a run for execution by a worker."""
         ...
 
-    def cancel_run(self, run_id: uuid.UUID) -> None:
-        """Drop a run that has not been picked by a worker yet (no-op otherwise)."""
+    def cancel_run(self, run_id: uuid.UUID, attempt: int) -> None:
+        """Drop an attempt that has not been picked by a worker yet (no-op otherwise)."""
+        ...
+
+    def is_enqueued(self, run_id: uuid.UUID, attempt: int) -> bool:
+        """Whether the job of ``attempt`` is still waiting for (or held by) a worker."""
         ...
 
 

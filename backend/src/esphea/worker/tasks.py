@@ -15,7 +15,7 @@ from esphea.settings import get_settings
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
-def execute_run(run_id: str) -> str | None:
+def execute_run(run_id: str, attempt: int) -> str | None:
     settings = get_settings()
     engine = create_db_engine(settings.database_url)
     redis = Redis.from_url(settings.redis_url)
@@ -26,8 +26,10 @@ def execute_run(run_id: str) -> str | None:
             publisher=RedisEventPublisher(redis),
             cancellation=RedisCancellationFlags(redis),
             runs_dir=settings.runs_dir,
+            heartbeat_interval=settings.heartbeat_interval_seconds,
+            self_fence_after=settings.lease_timeout_seconds / 2,
         )
-        status = service.execute(uuid.UUID(run_id))
+        status = service.execute(uuid.UUID(run_id), attempt)
         return None if status is None else status.value
     finally:
         redis.close()
