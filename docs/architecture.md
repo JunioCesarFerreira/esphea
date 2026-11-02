@@ -25,6 +25,7 @@ This document describes how ESPHEA is organised, why, and how to extend it.
 | `frontend` | Static React build served by nginx, which also proxies `/api` to the API.     |
 | `api`      | Validates configurations, manages experiments, serves results and live events. |
 | `worker`   | Executes runs (one RQ job per run); scale with `docker compose up --scale worker=N`. |
+| `watchdog` | Recovers runs whose worker died (expired lease) or whose job Redis lost.      |
 | `migrate`  | One-shot Alembic migration before the API and workers start.                   |
 
 Backend containers start as root only long enough to adopt the owner of the mounted `./data`
@@ -100,7 +101,8 @@ no change to the algorithms.
 
 ### Generation snapshots
 
-Each run has a directory `data/runs/<run-id>/` with `meta.json` and `part-*.parquet` files. Each
+Each execution attempt of a run has a directory `data/runs/<run-id>/attempt-<n>/` with
+`meta.json` and `part-*.parquet` files (normally only `attempt-1`; see *Recovery* below). Each
 stored generation contributes one row per individual of `P_t ∪ Q_t`:
 
 | column                  | meaning                                                 |
@@ -127,7 +129,7 @@ Reading a run in a notebook:
 ```python
 import pyarrow.dataset as ds
 
-table = ds.dataset("data/runs/<run-id>", format="parquet").to_table()
+table = ds.dataset("data/runs/<run-id>/attempt-1", format="parquet").to_table()
 df = table.to_pandas()          # or polars.from_arrow(table)
 gen = df[df.generation == 100]
 ```
@@ -141,6 +143,26 @@ gen = df[df.generation == 100]
    most every 250 ms and forwarded by the API to the browser over a WebSocket.
 3. Cancellation is cooperative: the API sets a Redis flag that the worker checks at most every
    500 ms, so a cancelled run stops cleanly and keeps everything stored so far.
+
+### Recovery of lost workers
+
+A worker that dies in the middle of a run (crash, OOM, container killed) cannot report it, so
+ownership of a run is a **lease** held by an **attempt**:
+
+- Claiming a queued run starts attempt *n* (`attempt` column) and sets `heartbeat_at`. A thread
+  in the worker renews the heartbeat every 5 s, independently of how long a generation takes.
+- The `watchdog` service sweeps every 10 s. A running run whose heartbeat is older than 60 s
+  lost its worker: its partial metrics and snapshots are discarded and it is queued again as
+  attempt *n + 1* (seeds are fixed, so the retry is reproducible). After 3 attempts the run is
+  marked failed. A queued run whose job is missing from Redis (e.g. after a Redis restart) is
+  simply enqueued again.
+- **Fencing:** every write of a worker (metrics, progress, final status) only applies while the
+  run is still owned by its attempt, and snapshots go to a per-attempt directory. A worker that
+  was merely cut off also stops by itself after 30 s without a successful heartbeat, before the
+  watchdog can hand the run over. A late or "zombie" worker therefore can never corrupt the retry.
+
+Timings are configurable (`ESPHEA_HEARTBEAT_INTERVAL_SECONDS`, `ESPHEA_LEASE_TIMEOUT_SECONDS`,
+`ESPHEA_MAX_RUN_ATTEMPTS`, `ESPHEA_WATCHDOG_INTERVAL_SECONDS`, `ESPHEA_ENQUEUE_GRACE_SECONDS`).
 
 ## Frontend
 

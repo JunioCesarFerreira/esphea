@@ -54,7 +54,7 @@ make up          # or: docker compose up -d --build
 
 - Web interface: <http://localhost:8090>
 - API documentation: <http://localhost:8000/api/docs>
-- Generation snapshots: `./data/runs/<run-id>/*.parquet`
+- Generation snapshots: `./data/runs/<run-id>/attempt-<n>/*.parquet`
 
 Ports can be changed with `ESPHEA_UI_PORT` and `ESPHEA_API_PORT`; parallel workers with
 `ESPHEA_WORKERS` (default 2) or `docker compose up --scale worker=N`.
