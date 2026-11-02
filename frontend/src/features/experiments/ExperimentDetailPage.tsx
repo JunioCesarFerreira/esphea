@@ -12,7 +12,13 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
-import { IconChartLine, IconCode, IconList, IconChartScatter } from "@tabler/icons-react";
+import {
+  IconChartLine,
+  IconChartScatter,
+  IconCode,
+  IconList,
+  IconTopologyStar3,
+} from "@tabler/icons-react";
 import { Link, useParams } from "react-router";
 
 import { useExperimentEvents } from "../../api/events";
@@ -25,6 +31,7 @@ import { formatDateTime, formatInteger } from "../../lib/format";
 import { ConvergencePanel } from "./detail/ConvergencePanel";
 import { ObjectiveSpacePanel } from "./detail/ObjectiveSpacePanel";
 import { RunsPanel } from "./detail/RunsPanel";
+import { TopologyPanel } from "./detail/topology/TopologyPanel";
 import { ExperimentActions } from "./ExperimentActions";
 
 function Header({ experiment, connected }: { experiment: Experiment; connected: boolean }) {
@@ -80,6 +87,9 @@ function Detail({ experiment }: { experiment: Experiment }) {
           <Tabs.Tab value="convergence" leftSection={<IconChartLine size={16} />}>
             Convergence
           </Tabs.Tab>
+          <Tabs.Tab value="topology" leftSection={<IconTopologyStar3 size={16} />}>
+            Topology
+          </Tabs.Tab>
           <Tabs.Tab value="runs" leftSection={<IconList size={16} />}>
             Runs
           </Tabs.Tab>
@@ -92,6 +102,9 @@ function Detail({ experiment }: { experiment: Experiment }) {
         </Tabs.Panel>
         <Tabs.Panel value="convergence" pt="md">
           <ConvergencePanel experiment={experiment} live={live} />
+        </Tabs.Panel>
+        <Tabs.Panel value="topology" pt="md">
+          <TopologyPanel experiment={experiment} />
         </Tabs.Panel>
         <Tabs.Panel value="runs" pt="md">
           <RunsPanel experiment={experiment} live={live} />
