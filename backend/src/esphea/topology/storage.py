@@ -202,6 +202,13 @@ class TopologyResultReader:
             flags.append(truncated[mask].astype(bool))
         return PersistenceDiagram(self.max_epsilon, tuple(bars), tuple(flags))
 
+    def max_finite_death(self) -> float:
+        """Largest death of a non-truncated feature over every generation (0 if none)."""
+        table = pq.read_table(self._directory / "diagrams.parquet", columns=["death", "truncated"])
+        finite = table.filter(pc.invert(table.column("truncated"))).column("death")
+        largest = pc.max(finite).as_py()
+        return 0.0 if largest is None else float(largest)
+
     def series(self) -> pa.Table:
         return pq.read_table(self._directory / "series.parquet")
 

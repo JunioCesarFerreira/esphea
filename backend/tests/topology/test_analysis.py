@@ -90,6 +90,7 @@ def test_diagram_and_betti_curves_round_trip(snapshots: Path, tmp_path: Path) ->
     diagram = result.diagram(3)
     assert diagram.max_dimension == 1
     assert diagram.truncated[0].sum() == 1  # max_epsilon above the diameter: one component left
+    assert 0 < result.max_finite_death() < 3.0
     grid, curves = result.betti_curves(0, resolution=50)
     assert grid[-1] == 3.0
     assert curves.shape == (N_GEN + 1, 50)

@@ -115,6 +115,9 @@ class TopologySeriesOut(BaseModel):
     diameter: list[float]
     hausdorff_previous: list[float | None]
     hausdorff_final: list[float]
+    max_finite_death: float = Field(
+        description="Largest death of a feature not alive at max_epsilon, over all generations."
+    )
     dimensions: list[DimensionSeriesOut]
 
     @classmethod
@@ -149,6 +152,7 @@ class TopologySeriesOut(BaseModel):
             diameter=clouds["diameter"],
             hausdorff_previous=_optional(clouds["hausdorff_previous"]),
             hausdorff_final=clouds["hausdorff_final"],
+            max_finite_death=reader.max_finite_death(),
             dimensions=dimensions,
         )
 
