@@ -3,13 +3,21 @@
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import ColumnElement, delete, func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from esphea.experiments.config import ExperimentConfig
 from esphea.experiments.observers import GenerationMetrics
-from esphea.persistence.models import ExperimentRow, RunMetricRow, RunRow, RunStatus
+from esphea.persistence.models import (
+    AnalysisRow,
+    ExperimentRow,
+    LeasedJob,
+    RunMetricRow,
+    RunRow,
+    RunStatus,
+)
 
 
 def _now() -> datetime:
@@ -58,36 +66,38 @@ class ExperimentRepository:
         self._session.flush()
 
 
-class RunRepository:
-    """Run state transitions.
+class LeasedJobRepository[J: LeasedJob]:
+    """State transitions shared by every job executed under a lease.
 
-    A worker owns a run through its ``attempt`` number: every write made on its
+    A worker owns a job through its ``attempt`` number: every write made on its
     behalf is conditioned on ``status = running AND attempt = <its attempt>``
-    (fencing), so a worker that lost its lease can no longer change the run.
+    (fencing), so a worker that lost its lease can no longer change the job.
     """
+
+    model: type[J]
 
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def get(self, run_id: uuid.UUID) -> RunRow | None:
-        statement = (
-            select(RunRow).where(RunRow.id == run_id).options(selectinload(RunRow.experiment))
-        )
-        return self._session.scalars(statement).one_or_none()
+    def _owned(self, job_id: uuid.UUID, attempt: int) -> tuple[ColumnElement[bool], ...]:
+        model = self.model
+        return (model.id == job_id, model.status == RunStatus.RUNNING, model.attempt == attempt)
 
-    @staticmethod
-    def _owned(run_id: uuid.UUID, attempt: int) -> tuple[ColumnElement[bool], ...]:
-        return (RunRow.id == run_id, RunRow.status == RunStatus.RUNNING, RunRow.attempt == attempt)
+    def _claim_values(self) -> dict[str, object]:
+        """Extra columns reset when an attempt starts."""
+        return {}
 
-    def claim(self, run_id: uuid.UUID, attempt: int) -> bool:
-        """Atomically start ``attempt`` of a queued run; false if it is not claimable."""
+    def _reset(self, job: J) -> None:
+        """Extra columns reset when a job is queued again."""
+
+    def claim(self, job_id: uuid.UUID, attempt: int) -> bool:
+        """Atomically start ``attempt`` of a queued job; false if it is not claimable."""
+        model = self.model
         now = _now()
         result = self._session.execute(
-            update(RunRow)
+            update(model)
             .where(
-                RunRow.id == run_id,
-                RunRow.status == RunStatus.QUEUED,
-                RunRow.attempt == attempt - 1,
+                model.id == job_id, model.status == RunStatus.QUEUED, model.attempt == attempt - 1
             )
             .values(
                 status=RunStatus.RUNNING,
@@ -95,33 +105,111 @@ class RunRepository:
                 started_at=now,
                 heartbeat_at=now,
                 finished_at=None,
-                generation=0,
                 error=None,
+                **self._claim_values(),
             )
         )
         return bool(result.rowcount)  # type: ignore[attr-defined]
 
-    def renew_lease(self, run_id: uuid.UUID, attempt: int) -> bool:
-        """Refresh the heartbeat; false if the attempt no longer owns the run."""
+    def renew_lease(self, job_id: uuid.UUID, attempt: int) -> bool:
+        """Refresh the heartbeat; false if the attempt no longer owns the job."""
         result = self._session.execute(
-            update(RunRow).where(*self._owned(run_id, attempt)).values(heartbeat_at=_now())
+            update(self.model).where(*self._owned(job_id, attempt)).values(heartbeat_at=_now())
         )
         return bool(result.rowcount)  # type: ignore[attr-defined]
 
-    def lock_owned(self, run_id: uuid.UUID, attempt: int) -> bool:
-        """Lock the run row for the transaction if ``attempt`` still owns it.
+    def lock_owned(self, job_id: uuid.UUID, attempt: int) -> bool:
+        """Lock the job row for the transaction if ``attempt`` still owns it.
 
-        Serialises the worker's writes with the watchdog's recovery of the same run.
+        Serialises the worker's writes with the watchdog's recovery of the same job.
         """
-        statement = select(RunRow.id).where(*self._owned(run_id, attempt)).with_for_update()
+        statement = select(self.model.id).where(*self._owned(job_id, attempt)).with_for_update()
         return self._session.scalars(statement).first() is not None
+
+    def _update_owned(self, job_id: uuid.UUID, attempt: int, **values: object) -> bool:
+        result = self._session.execute(
+            update(self.model).where(*self._owned(job_id, attempt)).values(**values)
+        )
+        return bool(result.rowcount)  # type: ignore[attr-defined]
+
+    def _finish(
+        self,
+        job_id: uuid.UUID,
+        attempt: int,
+        status: RunStatus,
+        error: str | None,
+        **values: object,
+    ) -> bool:
+        return self._update_owned(
+            job_id, attempt, status=status, finished_at=_now(), error=error, **values
+        )
+
+    # --- recovery ---------------------------------------------------------------------
+
+    def lock_stale_running(self, cutoff: datetime) -> Sequence[J]:
+        """Running jobs whose lease expired before ``cutoff`` (locked, skipping busy rows)."""
+        model = self.model
+        statement = (
+            select(model)
+            .where(
+                model.status == RunStatus.RUNNING,
+                func.coalesce(model.heartbeat_at, model.started_at) < cutoff,
+            )
+            .with_for_update(skip_locked=True)
+        )
+        return self._session.scalars(statement).all()
+
+    def lock_queued_before(self, cutoff: datetime) -> Sequence[J]:
+        """Queued jobs enqueued before ``cutoff`` (locked, skipping busy rows)."""
+        model = self.model
+        statement = (
+            select(model)
+            .where(
+                model.status == RunStatus.QUEUED,
+                func.coalesce(model.enqueued_at, model.started_at) < cutoff,
+            )
+            .with_for_update(skip_locked=True)
+        )
+        return self._session.scalars(statement).all()
+
+    def requeue(self, job: J, note: str) -> None:
+        """Put a job whose worker was lost back in the queue (attempt counter is kept)."""
+        job.status = RunStatus.QUEUED
+        job.started_at = None
+        job.heartbeat_at = None
+        job.finished_at = None
+        job.enqueued_at = _now()
+        job.error = note
+        self._reset(job)
+
+    def mark_enqueued(self, job: J) -> None:
+        job.enqueued_at = _now()
+
+    def fail(self, job: J, error: str) -> None:
+        job.status = RunStatus.FAILED
+        job.finished_at = _now()
+        job.heartbeat_at = None
+        job.error = error
+
+
+class RunRepository(LeasedJobRepository[RunRow]):
+    model = RunRow
+
+    def get(self, run_id: uuid.UUID) -> RunRow | None:
+        statement = (
+            select(RunRow).where(RunRow.id == run_id).options(selectinload(RunRow.experiment))
+        )
+        return self._session.scalars(statement).one_or_none()
+
+    def _claim_values(self) -> dict[str, object]:
+        return {"generation": 0}
+
+    def _reset(self, job: RunRow) -> None:
+        job.generation = 0
 
     def set_generation(self, run_id: uuid.UUID, attempt: int, generation: int) -> bool:
         """Record progress; false if the attempt no longer owns the run."""
-        result = self._session.execute(
-            update(RunRow).where(*self._owned(run_id, attempt)).values(generation=generation)
-        )
-        return bool(result.rowcount)  # type: ignore[attr-defined]
+        return self._update_owned(run_id, attempt, generation=generation)
 
     def finish(
         self,
@@ -133,13 +221,8 @@ class RunRepository:
         error: str | None = None,
     ) -> bool:
         """End ``attempt`` with ``status``; false if the attempt no longer owns the run."""
-        values: dict[str, object] = {"status": status, "finished_at": _now(), "error": error}
-        if generation is not None:
-            values["generation"] = generation
-        result = self._session.execute(
-            update(RunRow).where(*self._owned(run_id, attempt)).values(**values)
-        )
-        return bool(result.rowcount)  # type: ignore[attr-defined]
+        extra: dict[str, object] = {} if generation is None else {"generation": generation}
+        return self._finish(run_id, attempt, status, error, **extra)
 
     def cancel_queued(self, experiment_id: uuid.UUID) -> list[tuple[uuid.UUID, int]]:
         """Cancel the runs that have not started; return their ids and attempts."""
@@ -157,50 +240,58 @@ class RunRepository:
         )
         return list(self._session.scalars(statement))
 
-    # --- recovery ---------------------------------------------------------------------
 
-    def lock_stale_running(self, cutoff: datetime) -> Sequence[RunRow]:
-        """Running runs whose lease expired before ``cutoff`` (locked, skipping busy rows)."""
+class AnalysisRepository(LeasedJobRepository[AnalysisRow]):
+    model = AnalysisRow
+
+    def add(self, run_id: uuid.UUID, kind: str, config: dict[str, Any]) -> AnalysisRow:
+        analysis = AnalysisRow(
+            run_id=run_id,
+            kind=kind,
+            config=config,
+            status=RunStatus.QUEUED,
+            attempt=0,
+            progress=0,
+            total=0,
+            enqueued_at=_now(),
+        )
+        self._session.add(analysis)
+        self._session.flush()
+        return analysis
+
+    def get(self, analysis_id: uuid.UUID) -> AnalysisRow | None:
         statement = (
-            select(RunRow)
-            .where(
-                RunRow.status == RunStatus.RUNNING,
-                func.coalesce(RunRow.heartbeat_at, RunRow.started_at) < cutoff,
-            )
-            .with_for_update(skip_locked=True)
+            select(AnalysisRow)
+            .where(AnalysisRow.id == analysis_id)
+            .options(selectinload(AnalysisRow.run).selectinload(RunRow.experiment))
+        )
+        return self._session.scalars(statement).one_or_none()
+
+    def list_for_run(self, run_id: uuid.UUID) -> Sequence[AnalysisRow]:
+        statement = (
+            select(AnalysisRow)
+            .where(AnalysisRow.run_id == run_id)
+            .order_by(AnalysisRow.created_at.desc())
         )
         return self._session.scalars(statement).all()
 
-    def lock_queued_before(self, cutoff: datetime) -> Sequence[RunRow]:
-        """Queued runs enqueued before ``cutoff`` (locked, skipping busy rows)."""
-        statement = (
-            select(RunRow)
-            .where(
-                RunRow.status == RunStatus.QUEUED,
-                func.coalesce(RunRow.enqueued_at, RunRow.started_at) < cutoff,
-            )
-            .with_for_update(skip_locked=True)
-        )
-        return self._session.scalars(statement).all()
+    def _claim_values(self) -> dict[str, object]:
+        return {"progress": 0}
 
-    def requeue(self, run: RunRow, note: str) -> None:
-        """Put a run whose worker was lost back in the queue (attempt counter is kept)."""
-        run.status = RunStatus.QUEUED
-        run.generation = 0
-        run.started_at = None
-        run.heartbeat_at = None
-        run.finished_at = None
-        run.enqueued_at = _now()
-        run.error = note
+    def _reset(self, job: AnalysisRow) -> None:
+        job.progress = 0
 
-    def mark_enqueued(self, run: RunRow) -> None:
-        run.enqueued_at = _now()
+    def set_progress(self, analysis_id: uuid.UUID, attempt: int, done: int, total: int) -> bool:
+        return self._update_owned(analysis_id, attempt, progress=done, total=total)
 
-    def fail(self, run: RunRow, error: str) -> None:
-        run.status = RunStatus.FAILED
-        run.finished_at = _now()
-        run.heartbeat_at = None
-        run.error = error
+    def finish(
+        self, analysis_id: uuid.UUID, attempt: int, status: RunStatus, *, error: str | None = None
+    ) -> bool:
+        return self._finish(analysis_id, attempt, status, error)
+
+    def delete(self, analysis: AnalysisRow) -> None:
+        self._session.delete(analysis)
+        self._session.flush()
 
 
 class MetricsRepository:

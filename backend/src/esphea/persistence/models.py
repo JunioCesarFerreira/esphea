@@ -1,4 +1,4 @@
-"""Relational schema: experiments, their runs and per-generation metrics.
+"""Relational schema: experiments, runs, per-generation metrics and run analyses.
 
 Bulk population data does not live here but in Parquet snapshots
 (:mod:`esphea.experiments.storage`).
@@ -66,23 +66,19 @@ class ExperimentRow(Base):
     )
 
 
-class RunRow(Base):
-    __tablename__ = "runs"
-    __table_args__ = (UniqueConstraint("experiment_id", "index"),)
+class LeasedJob:
+    """Columns of a background job executed by workers under a lease.
+
+    ``status`` reuses :class:`RunStatus` for every kind of job.
+    """
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    experiment_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("experiments.id", ondelete="CASCADE"), index=True
-    )
-    index: Mapped[int] = mapped_column(Integer)
-    seed: Mapped[int] = mapped_column(BigInteger)
     status: Mapped[RunStatus] = mapped_column(
         Enum(RunStatus, native_enum=False, length=16, values_callable=_enum_values),
         default=RunStatus.QUEUED,
     )
-    generation: Mapped[int] = mapped_column(Integer, default=0)
-    # Execution attempt that owns the run (0 = never claimed). Every write made by a
-    # worker is fenced by it, so a worker that lost the run cannot corrupt a retry.
+    # Execution attempt that owns the job (0 = never claimed). Every write made by a
+    # worker is fenced by it, so a worker that lost the job cannot corrupt a retry.
     attempt: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # Lease renewed by the executing worker; a stale lease means the worker is gone.
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -90,6 +86,18 @@ class RunRow(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(Text)
+
+
+class RunRow(LeasedJob, Base):
+    __tablename__ = "runs"
+    __table_args__ = (UniqueConstraint("experiment_id", "index"),)
+
+    experiment_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("experiments.id", ondelete="CASCADE"), index=True
+    )
+    index: Mapped[int] = mapped_column(Integer)
+    seed: Mapped[int] = mapped_column(BigInteger)
+    generation: Mapped[int] = mapped_column(Integer, default=0)
 
     experiment: Mapped[ExperimentRow] = relationship(back_populates="runs")
 
@@ -105,3 +113,18 @@ class RunMetricRow(Base):
     elapsed_seconds: Mapped[float] = mapped_column(Float)
     # Indicator name -> value. JSON keeps the schema open to new indicators.
     values: Mapped[dict[str, float]] = mapped_column(JsonType)
+
+
+class AnalysisRow(LeasedJob, Base):
+    """An analysis computed offline from the stored generations of a run."""
+
+    __tablename__ = "analyses"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    config: Mapped[dict[str, Any]] = mapped_column(JsonType)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    run: Mapped[RunRow] = relationship()
