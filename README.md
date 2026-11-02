@@ -40,7 +40,11 @@ populations *inside* each generation:
 - quality indicators (IGD, IGD+, hypervolume) from [moocore](https://multi-objective.github.io/moocore/python/);
 - every stored generation persisted as compressed Parquet, ready for notebooks;
 - a web interface to configure experiments, follow runs live, replay generations in objective
-  space (2D, 3D or parallel coordinates) and compare convergence across experiments.
+  space (2D, 3D or parallel coordinates) and compare convergence across experiments;
+- **persistent homology** of the population at every generation: Vietoris–Rips barcodes in
+  objective space up to a configurable ε, bottleneck/Wasserstein distances between generations
+  (with the Hausdorff stability bound), Betti curves and summaries, computed offline from the
+  stored generations and explored in the *Topology* tab.
 
 See [docs/architecture.md](docs/architecture.md) for the design and how to extend it.
 

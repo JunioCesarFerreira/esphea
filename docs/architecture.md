@@ -40,6 +40,7 @@ The backend (`backend/src/esphea`) is layered so that inner layers never import 
 
 ```
 core            domain: Problem, Population, operator interfaces, the evolutionary loop
+topology        persistent homology: point clouds, Vietoris-Rips, diagram distances, analyses
 problems        benchmark problems (DTLZ2)
 operators       concrete strategies (sampling, selection, SBX, PM, survival)
 algorithms      NSGA-II and NSGA-III as compositions of strategies
@@ -163,6 +164,38 @@ ownership of a run is a **lease** held by an **attempt**:
 
 Timings are configurable (`ESPHEA_HEARTBEAT_INTERVAL_SECONDS`, `ESPHEA_LEASE_TIMEOUT_SECONDS`,
 `ESPHEA_MAX_RUN_ATTEMPTS`, `ESPHEA_WATCHDOG_INTERVAL_SECONDS`, `ESPHEA_ENQUEUE_GRACE_SECONDS`).
+
+## Persistent-homology analyses
+
+Analyses are computed **offline** from the stored generations of a finished run, so the same run
+can be analysed with different parameters without re-running the algorithm. They are leased jobs
+like runs (same queue, heartbeats, fencing and watchdog recovery).
+
+For every stored generation `g` an analysis computes:
+
+1. the **point cloud** in objective space: the survivors `P_g` (default), the candidates
+   `P_{g-1} ∪ Q_{g-1}` or the first front of `P_g`;
+2. an optional **normalisation**: none (default), fixed (ideal → 0, nadir → 1, the same map for
+   every generation) or min–max per generation (shape without scale);
+3. the **Vietoris–Rips** persistence diagram (Ripser) of `H_0 … H_k` (k ≤ 2), with ε the
+   maximum *edge length*, from 0 to the configurable `max_epsilon`. Features still alive at
+   `max_epsilon` (always including the essential class of `H_0`) are truncated there, which keeps
+   all distances finite; diagrams are only comparable for the same `max_epsilon`;
+4. **distances between diagrams** (GUDHI: exact bottleneck and Wasserstein W₁ with the L∞ ground
+   metric), per dimension, to the previous stored generation and to the final one, plus the
+   **Hausdorff distance** between the clouds as the baseline of the stability theorem
+   (`d_B(D(X), D(Y)) ≤ 2·d_H(X, Y)`);
+5. summaries (number of bars, total persistence, persistent entropy) and, on request, the
+   pairwise distance matrix of up to 100 generations.
+
+Results live in `data/runs/<run-id>/analyses/<analysis-id>/attempt-<n>/` (`diagrams.parquet`,
+`series.parquet`, `clouds.parquet`, optional `matrix.parquet`, `meta.json`). Betti curves are
+derived from the diagrams on request. `GET /api/runs/{id}/epsilon-suggestion` reports the cloud
+diameters and nearest-neighbour spacing of the run to help choosing `max_epsilon` (the suggested
+value is the largest diameter, so every finite feature is captured).
+
+Note on `H_0`: populations may contain identical individuals (clones), which merge at ε = 0;
+β₀(0) therefore counts *distinct* points.
 
 ## Frontend
 
