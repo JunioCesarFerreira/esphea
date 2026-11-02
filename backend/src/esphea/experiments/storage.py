@@ -27,6 +27,7 @@ f_0..f_{m-1}              objectives
 
 import json
 import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -243,20 +244,39 @@ class SnapshotReader:
         column = dataset.to_table(columns=["generation"]).column("generation")
         return [int(g) for g in pc.unique(column).to_numpy()]
 
-    def read(self, generation: int, *, decision_variables: bool = False) -> GenerationSnapshot:
-        dataset = self._dataset()
-        if dataset is None:
-            raise KeyError(f"generation {generation} is not stored")
+    def _columns(self, want_x: bool) -> list[str]:
         columns = [
             "role", "survived", "rank", "times_selected", "parent_a", "parent_b", "mutated",
             *_f_columns(self.n_obj),
         ]  # fmt: skip
-        want_x = decision_variables and self.has_decision_variables
         if want_x:
             columns.extend(_x_columns(self.n_var))
-        table = dataset.to_table(columns=columns, filter=pc.field("generation") == generation)
+        return columns
+
+    def read(self, generation: int, *, decision_variables: bool = False) -> GenerationSnapshot:
+        dataset = self._dataset()
+        if dataset is None:
+            raise KeyError(f"generation {generation} is not stored")
+        want_x = decision_variables and self.has_decision_variables
+        table = dataset.to_table(
+            columns=self._columns(want_x), filter=pc.field("generation") == generation
+        )
         if table.num_rows == 0:
             raise KeyError(f"generation {generation} is not stored")
+        return self._snapshot(generation, table, want_x)
+
+    def iter_generations(self, *, decision_variables: bool = False) -> Iterator[GenerationSnapshot]:
+        """Every stored generation in order, reading each part file once."""
+        want_x = decision_variables and self.has_decision_variables
+        columns = ["generation", *self._columns(want_x)]
+        for part in sorted(self._directory.glob(_PART_GLOB)):
+            table = pq.read_table(part, columns=columns)
+            generations = table.column("generation").to_numpy()
+            for generation in np.unique(generations):
+                rows = table.filter(pa.array(generations == generation))
+                yield self._snapshot(int(generation), rows, want_x)
+
+    def _snapshot(self, generation: int, table: pa.Table, want_x: bool) -> GenerationSnapshot:
         role = table.column("role").to_numpy()
 
         def group(mask: BoolArray) -> SnapshotGroup:

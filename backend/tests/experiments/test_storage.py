@@ -74,3 +74,15 @@ def test_missing_generation(tmp_path: Path, dtlz2: DTLZ2) -> None:
     _, directory = run_with_snapshots(tmp_path, dtlz2, n_gen=2, every=1, per_part=10)
     with pytest.raises(KeyError):
         SnapshotReader(directory).read(99)
+
+
+def test_iterating_matches_random_access(tmp_path: Path, dtlz2: DTLZ2) -> None:
+    _, directory = run_with_snapshots(tmp_path, dtlz2, n_gen=7, every=1, per_part=3)
+    reader = SnapshotReader(directory)
+    iterated = list(reader.iter_generations(decision_variables=True))
+    assert [s.generation for s in iterated] == list(range(8))
+    for snapshot in iterated:
+        expected = reader.read(snapshot.generation, decision_variables=True)
+        np.testing.assert_array_equal(snapshot.population.F, expected.population.F)
+        np.testing.assert_array_equal(snapshot.population.X, expected.population.X)
+        assert (snapshot.offspring is None) == (expected.offspring is None)
