@@ -9,7 +9,15 @@ import {
 } from "@tanstack/react-query";
 
 import { api, unwrap } from "./client";
-import { isActive, type ExperimentConfig, type ExperimentSummary } from "./types";
+import {
+  isActive,
+  type Analysis,
+  type AnalysisConfig,
+  type ExperimentConfig,
+  type ExperimentSummary,
+  type NormalizationKind,
+  type PointCloudKind,
+} from "./types";
 
 const LIVE_REFRESH_MS = 2000;
 
@@ -24,6 +32,10 @@ export const queryKeys = {
   generations: (runId: string) => ["runs", runId, "generations"] as const,
   snapshot: (runId: string, generation: number) =>
     ["runs", runId, "generations", generation] as const,
+  analyses: (runId: string) => ["runs", runId, "analyses"] as const,
+  suggestion: (runId: string, cloud: PointCloudKind, normalization: NormalizationKind) =>
+    ["runs", runId, "epsilon", cloud, normalization] as const,
+  analysis: (id: string) => ["analyses", id] as const,
 };
 
 export function useCatalog() {
@@ -189,5 +201,133 @@ export function useSnapshot(runId: string | null, generation: number | null) {
         : skipToken,
     placeholderData: keepPreviousData,
     staleTime: Infinity, // stored generations never change
+  });
+}
+
+// --- analyses (persistent homology) ---------------------------------------------------
+
+const ANALYSIS_REFRESH_MS = 1000;
+
+export function useAnalyses(runId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.analyses(runId ?? "none"),
+    queryFn: runId
+      ? () =>
+          unwrap(api.GET("/api/runs/{run_id}/analyses", { params: { path: { run_id: runId } } }))
+      : skipToken,
+    refetchInterval: (query) =>
+      (query.state.data as Analysis[] | undefined)?.some((a) => isActive(a.status))
+        ? ANALYSIS_REFRESH_MS
+        : false,
+  });
+}
+
+export function useEpsilonSuggestion(
+  runId: string,
+  pointCloud: PointCloudKind,
+  normalization: NormalizationKind,
+) {
+  return useQuery({
+    queryKey: queryKeys.suggestion(runId, pointCloud, normalization),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/runs/{run_id}/epsilon-suggestion", {
+          params: { path: { run_id: runId }, query: { point_cloud: pointCloud, normalization } },
+        }),
+      ),
+    staleTime: Infinity,
+    retry: false,
+  });
+}
+
+export function useCreateAnalysis(runId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (config: AnalysisConfig) =>
+      unwrap(
+        api.POST("/api/runs/{run_id}/analyses", {
+          params: { path: { run_id: runId } },
+          body: config,
+        }),
+      ),
+    onSuccess: () => void client.invalidateQueries({ queryKey: queryKeys.analyses(runId) }),
+  });
+}
+
+export function useDeleteAnalysis(runId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      unwrap(api.DELETE("/api/analyses/{analysis_id}", { params: { path: { analysis_id: id } } })),
+    onSuccess: (_, id) => {
+      client.removeQueries({ queryKey: queryKeys.analysis(id) });
+      void client.invalidateQueries({ queryKey: queryKeys.analyses(runId) });
+    },
+  });
+}
+
+// Results of a completed analysis never change.
+export function useTopologySeries(analysisId: string) {
+  return useQuery({
+    queryKey: [...queryKeys.analysis(analysisId), "series"],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/analyses/{analysis_id}/series", {
+          params: { path: { analysis_id: analysisId } },
+        }),
+      ),
+    staleTime: Infinity,
+  });
+}
+
+export function useDiagram(analysisId: string, generation: number | null) {
+  return useQuery({
+    queryKey: [...queryKeys.analysis(analysisId), "diagram", generation],
+    queryFn:
+      generation === null
+        ? skipToken
+        : () =>
+            unwrap(
+              api.GET("/api/analyses/{analysis_id}/diagrams/{generation}", {
+                params: { path: { analysis_id: analysisId, generation } },
+              }),
+            ),
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useBettiCurves(analysisId: string, dimension: number) {
+  return useQuery({
+    queryKey: [...queryKeys.analysis(analysisId), "betti", dimension],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/analyses/{analysis_id}/betti", {
+          params: { path: { analysis_id: analysisId }, query: { dimension } },
+        }),
+      ),
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useDistanceMatrix(
+  analysisId: string,
+  dimension: number,
+  metric: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [...queryKeys.analysis(analysisId), "matrix", dimension, metric],
+    queryFn: enabled
+      ? () =>
+          unwrap(
+            api.GET("/api/analyses/{analysis_id}/matrix", {
+              params: { path: { analysis_id: analysisId }, query: { dimension, metric } },
+            }),
+          )
+      : skipToken,
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
   });
 }

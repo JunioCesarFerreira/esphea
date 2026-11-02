@@ -24,6 +24,15 @@ export type IndicatorSummary = Schemas["IndicatorSummaryOut"];
 export type GenerationSnapshot = Schemas["GenerationSnapshotOut"];
 export type SnapshotGroup = Schemas["SnapshotGroupOut"];
 export type ValidationIssue = Schemas["ValidationError"];
+export type Analysis = Schemas["AnalysisOut"];
+export type AnalysisConfig = Schemas["TopologyAnalysisConfig"];
+export type PointCloudKind = Schemas["PointCloudKind"];
+export type NormalizationKind = Schemas["NormalizationKind"];
+export type EpsilonSuggestion = Schemas["EpsilonSuggestionOut"];
+export type TopologySeries = Schemas["TopologySeriesOut"];
+export type Diagram = Schemas["DiagramOut"];
+export type BettiCurves = Schemas["BettiCurvesOut"];
+export type DistanceMatrix = Schemas["DistanceMatrixOut"];
 
 export interface RunStatusEvent {
   type: "run.status";

@@ -222,10 +222,205 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/analyses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Analyses */
+        get: operations["list_analyses_api_runs__run_id__analyses_get"];
+        put?: never;
+        /**
+         * Create Analysis
+         * @description Queue a persistent-homology analysis of every stored generation of a finished run.
+         */
+        post: operations["create_analysis_api_runs__run_id__analyses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/epsilon-suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest Epsilon
+         * @description Scale statistics of the run's point clouds to choose ``max_epsilon``.
+         */
+        get: operations["suggest_epsilon_api_runs__run_id__epsilon_suggestion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analyses/{analysis_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Analysis */
+        get: operations["get_analysis_api_analyses__analysis_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Analysis */
+        delete: operations["delete_analysis_api_analyses__analysis_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analyses/{analysis_id}/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Series
+         * @description Per-generation summaries and distances (to the previous and to the final generation).
+         */
+        get: operations["get_series_api_analyses__analysis_id__series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analyses/{analysis_id}/diagrams/{generation}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Diagram */
+        get: operations["get_diagram_api_analyses__analysis_id__diagrams__generation__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analyses/{analysis_id}/betti": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Betti Curves
+         * @description Betti numbers per generation over the scale grid ``0..max_epsilon``.
+         */
+        get: operations["get_betti_curves_api_analyses__analysis_id__betti_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analyses/{analysis_id}/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Distance Matrix */
+        get: operations["get_distance_matrix_api_analyses__analysis_id__matrix_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnalysisOut */
+        AnalysisOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Kind */
+            kind: string;
+            config: components["schemas"]["TopologyAnalysisConfig"];
+            status: components["schemas"]["RunStatus"];
+            /** Progress */
+            progress: number;
+            /** Total */
+            total: number;
+            /** Attempt */
+            attempt: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Error */
+            error: string | null;
+        };
+        /** BarsOut */
+        BarsOut: {
+            /** Dimension */
+            dimension: number;
+            /** Birth */
+            birth: number[];
+            /** Death */
+            death: number[];
+            /**
+             * Truncated
+             * @description Alive at max_epsilon (death capped at it).
+             */
+            truncated: boolean[];
+        };
+        /** BettiCurvesOut */
+        BettiCurvesOut: {
+            /** Dimension */
+            dimension: number;
+            /** Epsilon */
+            epsilon: number[];
+            /** Generation */
+            generation: number[];
+            /**
+             * Values
+             * @description values[i][j]: Betti number at generation i, scale j.
+             */
+            values: number[][];
+        };
         /**
          * CatalogOut
          * @description Available components with their default parameters.
@@ -258,6 +453,65 @@ export interface components {
              * @default 10
              */
             k: number;
+        };
+        /** DiagramOut */
+        DiagramOut: {
+            /** Generation */
+            generation: number;
+            /** Max Epsilon */
+            max_epsilon: number;
+            /** Dimensions */
+            dimensions: components["schemas"]["BarsOut"][];
+        };
+        /** DimensionSeriesOut */
+        DimensionSeriesOut: {
+            /** Dimension */
+            dimension: number;
+            /** N Bars */
+            n_bars: number[];
+            /** Total Persistence */
+            total_persistence: number[];
+            /** Persistent Entropy */
+            persistent_entropy: number[];
+            /** Distances */
+            distances: {
+                [key: string]: components["schemas"]["DistanceSeriesOut"];
+            };
+        };
+        /** DistanceMatrixOut */
+        DistanceMatrixOut: {
+            /** Dimension */
+            dimension: number;
+            /** Metric */
+            metric: string;
+            /** Generation */
+            generation: number[];
+            /** Values */
+            values: number[][];
+        };
+        /** DistanceSeriesOut */
+        DistanceSeriesOut: {
+            /**
+             * Previous
+             * @description To the previous stored generation.
+             */
+            previous: (number | null)[];
+            /**
+             * Final
+             * @description To the final generation.
+             */
+            final: number[];
+        };
+        /** EpsilonSuggestionOut */
+        EpsilonSuggestionOut: {
+            /** Max Diameter */
+            max_diameter: number;
+            /** Median Diameter */
+            median_diameter: number;
+            /** Median Nearest Neighbour */
+            median_nearest_neighbour: number;
+            /** Suggested Max Epsilon */
+            suggested_max_epsilon: number;
         };
         /** ExperimentConfig */
         ExperimentConfig: {
@@ -532,6 +786,11 @@ export interface components {
              */
             mutation: components["schemas"]["PMConfig"];
         };
+        /**
+         * NormalizationKind
+         * @enum {string}
+         */
+        NormalizationKind: "none" | "ideal_nadir" | "min_max";
         /** PMConfig */
         PMConfig: {
             /**
@@ -554,6 +813,11 @@ export interface components {
              */
             points: number[][] | null;
         };
+        /**
+         * PointCloudKind
+         * @enum {string}
+         */
+        PointCloudKind: "survivors" | "merged" | "first_front";
         /** RunOut */
         RunOut: {
             /**
@@ -659,6 +923,56 @@ export interface components {
         StoredGenerationsOut: {
             /** Generations */
             generations: number[];
+        };
+        /** TopologyAnalysisConfig */
+        TopologyAnalysisConfig: {
+            /**
+             * @description Which individuals of each stored generation form the point cloud.
+             * @default survivors
+             */
+            point_cloud: components["schemas"]["PointCloudKind"];
+            /**
+             * @description Scaling of the objective space before computing distances.
+             * @default none
+             */
+            normalization: components["schemas"]["NormalizationKind"];
+            /**
+             * Max Dimension
+             * @description Highest homology dimension.
+             * @default 1
+             */
+            max_dimension: number;
+            /**
+             * Max Epsilon
+             * @description Largest edge length of the Vietoris-Rips filtration (scale 0..max_epsilon).
+             */
+            max_epsilon: number;
+            /**
+             * Distance Matrix
+             * @description Also compute distances between all pairs of (up to 100) generations.
+             * @default false
+             */
+            distance_matrix: boolean;
+        };
+        /** TopologySeriesOut */
+        TopologySeriesOut: {
+            /** Generation */
+            generation: number[];
+            /** N Points */
+            n_points: number[];
+            /** Diameter */
+            diameter: number[];
+            /** Hausdorff Previous */
+            hausdorff_previous: (number | null)[];
+            /** Hausdorff Final */
+            hausdorff_final: number[];
+            /**
+             * Max Finite Death
+             * @description Largest death of a feature not alive at max_epsilon, over all generations.
+             */
+            max_finite_death: number;
+            /** Dimensions */
+            dimensions: components["schemas"]["DimensionSeriesOut"][];
         };
         /** ValidationError */
         ValidationError: {
@@ -1079,6 +1393,297 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenerationSnapshotOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_analyses_api_runs__run_id__analyses_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_analysis_api_runs__run_id__analyses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopologyAnalysisConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_epsilon_api_runs__run_id__epsilon_suggestion_get: {
+        parameters: {
+            query?: {
+                point_cloud?: components["schemas"]["PointCloudKind"];
+                normalization?: components["schemas"]["NormalizationKind"];
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpsilonSuggestionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_analysis_api_analyses__analysis_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_analysis_api_analyses__analysis_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_series_api_analyses__analysis_id__series_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopologySeriesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_diagram_api_analyses__analysis_id__diagrams__generation__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                analysis_id: string;
+                generation: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiagramOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_betti_curves_api_analyses__analysis_id__betti_get: {
+        parameters: {
+            query?: {
+                dimension?: number;
+                resolution?: number;
+            };
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BettiCurvesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_distance_matrix_api_analyses__analysis_id__matrix_get: {
+        parameters: {
+            query?: {
+                dimension?: number;
+                metric?: string;
+            };
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistanceMatrixOut"];
                 };
             };
             /** @description Validation Error */

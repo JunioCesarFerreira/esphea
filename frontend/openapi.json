@@ -566,10 +566,648 @@
           }
         }
       }
+    },
+    "/api/runs/{run_id}/analyses": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "List Analyses",
+        "operationId": "list_analyses_api_runs__run_id__analyses_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalysisOut"
+                  },
+                  "title": "Response List Analyses Api Runs  Run Id  Analyses Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Create Analysis",
+        "description": "Queue a persistent-homology analysis of every stored generation of a finished run.",
+        "operationId": "create_analysis_api_runs__run_id__analyses_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopologyAnalysisConfig"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/epsilon-suggestion": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Suggest Epsilon",
+        "description": "Scale statistics of the run's point clouds to choose ``max_epsilon``.",
+        "operationId": "suggest_epsilon_api_runs__run_id__epsilon_suggestion_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "point_cloud",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/PointCloudKind",
+              "default": "survivors"
+            }
+          },
+          {
+            "name": "normalization",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/NormalizationKind",
+              "default": "none"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpsilonSuggestionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/{analysis_id}": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Analysis",
+        "operationId": "get_analysis_api_analyses__analysis_id__get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Delete Analysis",
+        "operationId": "delete_analysis_api_analyses__analysis_id__delete",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/{analysis_id}/series": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Series",
+        "description": "Per-generation summaries and distances (to the previous and to the final generation).",
+        "operationId": "get_series_api_analyses__analysis_id__series_get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopologySeriesOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/{analysis_id}/diagrams/{generation}": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Diagram",
+        "operationId": "get_diagram_api_analyses__analysis_id__diagrams__generation__get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "generation",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Generation"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagramOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/{analysis_id}/betti": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Betti Curves",
+        "description": "Betti numbers per generation over the scale grid ``0..max_epsilon``.",
+        "operationId": "get_betti_curves_api_analyses__analysis_id__betti_get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "dimension",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2,
+              "minimum": 0,
+              "default": 0,
+              "title": "Dimension"
+            }
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 10,
+              "default": 100,
+              "title": "Resolution"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BettiCurvesOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/{analysis_id}/matrix": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Distance Matrix",
+        "operationId": "get_distance_matrix_api_analyses__analysis_id__matrix_get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "dimension",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2,
+              "minimum": 0,
+              "default": 0,
+              "title": "Dimension"
+            }
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "bottleneck",
+              "title": "Metric"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DistanceMatrixOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AnalysisOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "config": {
+            "$ref": "#/components/schemas/TopologyAnalysisConfig"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "progress": {
+            "type": "integer",
+            "title": "Progress"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "attempt": {
+            "type": "integer",
+            "title": "Attempt"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "run_id",
+          "kind",
+          "config",
+          "status",
+          "progress",
+          "total",
+          "attempt",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "error"
+        ],
+        "title": "AnalysisOut"
+      },
+      "BarsOut": {
+        "properties": {
+          "dimension": {
+            "type": "integer",
+            "title": "Dimension"
+          },
+          "birth": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Birth"
+          },
+          "death": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Death"
+          },
+          "truncated": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": "array",
+            "title": "Truncated",
+            "description": "Alive at max_epsilon (death capped at it)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "dimension",
+          "birth",
+          "death",
+          "truncated"
+        ],
+        "title": "BarsOut"
+      },
+      "BettiCurvesOut": {
+        "properties": {
+          "dimension": {
+            "type": "integer",
+            "title": "Dimension"
+          },
+          "epsilon": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Epsilon"
+          },
+          "generation": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Generation"
+          },
+          "values": {
+            "items": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Values",
+            "description": "values[i][j]: Betti number at generation i, scale j."
+          }
+        },
+        "type": "object",
+        "required": [
+          "dimension",
+          "epsilon",
+          "generation",
+          "values"
+        ],
+        "title": "BettiCurvesOut"
+      },
       "CatalogOut": {
         "properties": {
           "problems": {
@@ -645,6 +1283,175 @@
         "additionalProperties": false,
         "type": "object",
         "title": "DTLZ2Config"
+      },
+      "DiagramOut": {
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "title": "Generation"
+          },
+          "max_epsilon": {
+            "type": "number",
+            "title": "Max Epsilon"
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/BarsOut"
+            },
+            "type": "array",
+            "title": "Dimensions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generation",
+          "max_epsilon",
+          "dimensions"
+        ],
+        "title": "DiagramOut"
+      },
+      "DimensionSeriesOut": {
+        "properties": {
+          "dimension": {
+            "type": "integer",
+            "title": "Dimension"
+          },
+          "n_bars": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "N Bars"
+          },
+          "total_persistence": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Total Persistence"
+          },
+          "persistent_entropy": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Persistent Entropy"
+          },
+          "distances": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DistanceSeriesOut"
+            },
+            "type": "object",
+            "title": "Distances"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dimension",
+          "n_bars",
+          "total_persistence",
+          "persistent_entropy",
+          "distances"
+        ],
+        "title": "DimensionSeriesOut"
+      },
+      "DistanceMatrixOut": {
+        "properties": {
+          "dimension": {
+            "type": "integer",
+            "title": "Dimension"
+          },
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "generation": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Generation"
+          },
+          "values": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Values"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dimension",
+          "metric",
+          "generation",
+          "values"
+        ],
+        "title": "DistanceMatrixOut"
+      },
+      "DistanceSeriesOut": {
+        "properties": {
+          "previous": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Previous",
+            "description": "To the previous stored generation."
+          },
+          "final": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Final",
+            "description": "To the final generation."
+          }
+        },
+        "type": "object",
+        "required": [
+          "previous",
+          "final"
+        ],
+        "title": "DistanceSeriesOut"
+      },
+      "EpsilonSuggestionOut": {
+        "properties": {
+          "max_diameter": {
+            "type": "number",
+            "title": "Max Diameter"
+          },
+          "median_diameter": {
+            "type": "number",
+            "title": "Median Diameter"
+          },
+          "median_nearest_neighbour": {
+            "type": "number",
+            "title": "Median Nearest Neighbour"
+          },
+          "suggested_max_epsilon": {
+            "type": "number",
+            "title": "Suggested Max Epsilon"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_diameter",
+          "median_diameter",
+          "median_nearest_neighbour",
+          "suggested_max_epsilon"
+        ],
+        "title": "EpsilonSuggestionOut"
       },
       "ExperimentConfig": {
         "properties": {
@@ -1208,6 +2015,15 @@
         "type": "object",
         "title": "NSGA3Config"
       },
+      "NormalizationKind": {
+        "type": "string",
+        "enum": [
+          "none",
+          "ideal_nadir",
+          "min_max"
+        ],
+        "title": "NormalizationKind"
+      },
       "PMConfig": {
         "properties": {
           "eta": {
@@ -1263,6 +2079,15 @@
           "points"
         ],
         "title": "ParetoFrontOut"
+      },
+      "PointCloudKind": {
+        "type": "string",
+        "enum": [
+          "survivors",
+          "merged",
+          "first_front"
+        ],
+        "title": "PointCloudKind"
       },
       "RunOut": {
         "properties": {
@@ -1514,6 +2339,116 @@
           "generations"
         ],
         "title": "StoredGenerationsOut"
+      },
+      "TopologyAnalysisConfig": {
+        "properties": {
+          "point_cloud": {
+            "$ref": "#/components/schemas/PointCloudKind",
+            "description": "Which individuals of each stored generation form the point cloud.",
+            "default": "survivors"
+          },
+          "normalization": {
+            "$ref": "#/components/schemas/NormalizationKind",
+            "description": "Scaling of the objective space before computing distances.",
+            "default": "none"
+          },
+          "max_dimension": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Max Dimension",
+            "description": "Highest homology dimension.",
+            "default": 1
+          },
+          "max_epsilon": {
+            "type": "number",
+            "maximum": 1000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Epsilon",
+            "description": "Largest edge length of the Vietoris-Rips filtration (scale 0..max_epsilon)."
+          },
+          "distance_matrix": {
+            "type": "boolean",
+            "title": "Distance Matrix",
+            "description": "Also compute distances between all pairs of (up to 100) generations.",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "max_epsilon"
+        ],
+        "title": "TopologyAnalysisConfig"
+      },
+      "TopologySeriesOut": {
+        "properties": {
+          "generation": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Generation"
+          },
+          "n_points": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "N Points"
+          },
+          "diameter": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Diameter"
+          },
+          "hausdorff_previous": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Hausdorff Previous"
+          },
+          "hausdorff_final": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Hausdorff Final"
+          },
+          "max_finite_death": {
+            "type": "number",
+            "title": "Max Finite Death",
+            "description": "Largest death of a feature not alive at max_epsilon, over all generations."
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/DimensionSeriesOut"
+            },
+            "type": "array",
+            "title": "Dimensions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generation",
+          "n_points",
+          "diameter",
+          "hausdorff_previous",
+          "hausdorff_final",
+          "max_finite_death",
+          "dimensions"
+        ],
+        "title": "TopologySeriesOut"
       },
       "ValidationError": {
         "properties": {
