@@ -1,0 +1,79 @@
+[project]
+name = "esphea"
+version = "0.1.0"
+description = "Exploratory Study of Persistent Homology in Evolutionary Algorithms"
+license = "MIT"
+authors = [{ name = "Junio Cesar Ferreira" }]
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "numpy>=2.3,<3",
+    "pymoo>=0.6.2,<0.7",
+    "moocore>=0.3,<0.4",
+    "pyarrow>=21",
+    "pydantic>=2.11,<3",
+    "pydantic-settings>=2.10,<3",
+    "sqlalchemy>=2.0,<3",
+    "psycopg[binary]>=3.2,<4",
+    "alembic>=1.16,<2",
+    "redis>=6,<9",
+    "rq>=2.6,<3",
+    "fastapi>=0.120,<1",
+    "uvicorn[standard]>=0.35,<1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "hypothesis>=6.140",
+    "httpx>=0.28,<1",
+    "ruff>=0.14",
+    "mypy>=1.18",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/esphea"]
+
+[tool.uv]
+# Supply-chain hygiene: never resolve releases younger than this date. Bump
+# deliberately when upgrading dependencies.
+exclude-newer = "2026-10-15T00:00:00Z"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "PT", "PL", "NPY", "RUF", "TID",
+]
+ignore = [
+    "PLR0913",  # constructors of composed algorithms legitimately take many collaborators
+    "PLR2004",  # magic values are common (and clear) in numerical code and tests
+    "N803",     # `X`, `F` are the conventional names for decision/objective matrices
+    "N806",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR0915"]
+"migrations/**" = ["N999"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+packages = ["esphea"]
+
+[[tool.mypy.overrides]]
+module = ["pymoo.*", "moocore.*", "pyarrow.*", "rq.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = ["slow: long-running statistical/validation tests (deselect with -m 'not slow')"]
