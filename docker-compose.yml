@@ -1,0 +1,82 @@
+# ESPHEA local platform.
+#   docker compose up --build        # http://localhost:8080 (UI), http://localhost:8000/docs (API)
+#   docker compose up --scale worker=4
+name: esphea
+
+x-backend: &backend
+  build:
+    context: ./backend
+    target: runtime
+  image: esphea-backend:dev
+  environment:
+    ESPHEA_DATABASE_URL: postgresql+psycopg://esphea:esphea@postgres:5432/esphea
+    ESPHEA_REDIS_URL: redis://redis:6379/0
+    ESPHEA_DATA_DIR: /data
+  # Run as the host user so ./data (Parquet snapshots) stays readable from notebooks.
+  user: "${ESPHEA_UID:-1000}:${ESPHEA_GID:-1000}"
+  volumes:
+    - ./data:/data
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+    environment:
+      POSTGRES_USER: esphea
+      POSTGRES_PASSWORD: esphea
+      POSTGRES_DB: esphea
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U esphea -d esphea"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    <<: *backend
+    command: ["rq", "worker", "--url", "redis://redis:6379/0", "--logging_level", "INFO", "esphea-runs"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: ${ESPHEA_WORKERS:-2}
+
+volumes:
+  pgdata:

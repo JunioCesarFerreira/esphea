@@ -29,3 +29,10 @@ results/raw/
 .vscode/
 .idea/
 .DS_Store
+
+# Experiment data (bind-mounted into the containers)
+data/*
+!data/.gitkeep
+
+# Local environment overrides
+.env.local
