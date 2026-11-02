@@ -27,20 +27,68 @@ Evolutionary algorithms (EAs) operate on populations of candidate solutions that
 - **Test problems:** continuous benchmark functions (e.g. the BBOB/COCO suite, Rastrigin, Schwefel), combinatorial problems and multi-objective problems (ZDT, DTLZ).
 - **Evaluation:** comparison against classical diversity and performance metrics, with multiple independent runs and appropriate statistical tests.
 
-## Repository layout (proposed)
+## Current status
+
+The first milestone is an experimentation platform for **NSGA-II** and **NSGA-III** on the
+scalable **DTLZ2** benchmark, built so that persistent homology can later be applied to the
+populations *inside* each generation:
+
+- own generational loop exposing, at every generation, the parent pool `P_t`, the matings, the
+  offspring `Q_t` with their lineage and mutation flags, and the survivors `P_{t+1}`, while the
+  numerical kernels (SBX, polynomial mutation, non-dominated sorting, NSGA-III niching) come from
+  [pymoo](https://pymoo.org/), validated statistically against pymoo's native algorithms;
+- quality indicators (IGD, IGD+, hypervolume) from [moocore](https://multi-objective.github.io/moocore/python/);
+- every stored generation persisted as compressed Parquet, ready for notebooks;
+- a web interface to configure experiments, follow runs live, replay generations in objective
+  space (2D, 3D or parallel coordinates) and compare convergence across experiments.
+
+See [docs/architecture.md](docs/architecture.md) for the design and how to extend it.
+
+## Getting started
+
+Requirements: Docker (with Compose). Nothing else needs to be installed on the host.
+
+```bash
+make up          # or: ESPHEA_UID=$(id -u) ESPHEA_GID=$(id -g) docker compose up -d --build
+```
+
+- Web interface: <http://localhost:8090>
+- API documentation: <http://localhost:8000/api/docs>
+- Generation snapshots: `./data/runs/<run-id>/*.parquet`
+
+Ports can be changed with `ESPHEA_UI_PORT` and `ESPHEA_API_PORT`; parallel workers with
+`ESPHEA_WORKERS` (default 2) or `docker compose up --scale worker=N`.
+
+### Development
+
+```bash
+make help               # list all shortcuts
+make check              # backend (ruff, mypy, pytest) and frontend (eslint, tsc, vitest, build)
+make backend-validate   # slow statistical comparison with pymoo's NSGA-II/NSGA-III
+make openapi            # regenerate the frontend API types after changing the API
+```
+
+## Repository layout
 
 ```
 esphea/
-├── docs/          # notes, literature review, paper drafts
-├── src/           # implementation (EAs, PH computation, descriptors)
-├── experiments/   # experiment configurations and scripts
-├── notebooks/     # exploratory analyses
-└── results/       # processed results and figures
+├── backend/            # Python package `esphea` (algorithms, experiments, API, worker)
+│   ├── src/esphea/
+│   ├── tests/
+│   └── migrations/     # Alembic
+├── frontend/           # React + TypeScript web interface
+├── docs/               # architecture, notes, literature review, paper drafts
+├── data/               # experiment outputs (git-ignored)
+└── docker-compose.yml
 ```
 
-## Planned tooling
+## Tooling
 
-Python, with TDA libraries such as [GUDHI](https://gudhi.inria.fr/), [Ripser](https://ripser.scikit-tda.org/), [giotto-tda](https://giotto-ai.github.io/gtda-docs/) and [persim](https://persim.scikit-tda.org/), and evolutionary computation libraries such as [DEAP](https://github.com/DEAP/deap) and [pymoo](https://pymoo.org/).
+Backend: Python 3.13, NumPy, pymoo, moocore, PyArrow, FastAPI, SQLAlchemy, PostgreSQL,
+Redis and RQ. Frontend: React, TypeScript, Vite, Mantine, TanStack Query and Plotly.
+Persistent homology will use TDA libraries such as [GUDHI](https://gudhi.inria.fr/),
+[Ripser](https://ripser.scikit-tda.org/), [giotto-tda](https://giotto-ai.github.io/gtda-docs/)
+and [persim](https://persim.scikit-tda.org/).
 
 ## Introductory references
 
@@ -48,13 +96,16 @@ Python, with TDA libraries such as [GUDHI](https://gudhi.inria.fr/), [Ripser](ht
 - Carlsson, G. Topology and data. *Bulletin of the American Mathematical Society*, 46(2), 255–308, 2009.
 - Otter, N. et al. A roadmap for the computation of persistent homology. *EPJ Data Science*, 6(17), 2017.
 - Eiben, A. E.; Smith, J. E. *Introduction to Evolutionary Computing*. 2nd ed. Springer, 2015.
+- Deb, K.; Pratap, A.; Agarwal, S.; Meyarivan, T. A fast and elitist multiobjective genetic algorithm: NSGA-II. *IEEE Transactions on Evolutionary Computation*, 6(2), 182–197, 2002.
+- Deb, K.; Jain, H. An evolutionary many-objective optimization algorithm using reference-point-based nondominated sorting approach, Part I. *IEEE Transactions on Evolutionary Computation*, 18(4), 577–601, 2014.
+- Deb, K.; Thiele, L.; Laumanns, M.; Zitzler, E. Scalable test problems for evolutionary multiobjective optimization. In: *Evolutionary Multiobjective Optimization*, Springer, 105–145, 2005.
 
 ## License
 
 This repository is dual-licensed, as is common for academic work:
 
-- **Source code** (`src/`, `experiments/`, scripts and notebooks): [MIT](LICENSE).
-- **Text, figures, data and results** (`docs/`, `results/` and other non-code material): [Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE-CC-BY-4.0).
+- **Source code** (`backend/`, `frontend/`, scripts and notebooks): [MIT](LICENSE).
+- **Text, figures, data and results** (`docs/`, experiment outputs and other non-code material): [Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE-CC-BY-4.0).
 
 Both allow broad reuse, provided that **authorship is properly attributed**.
 
