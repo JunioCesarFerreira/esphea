@@ -13,16 +13,20 @@ from rq.exceptions import InvalidJobOperation, NoSuchJobError
 from rq.job import Job
 
 from esphea.messaging.events import experiment_channel
+from esphea.messaging.ports import JobKind, JobRef
 
 CANCEL_FLAG_TTL_SECONDS = 7 * 24 * 3600
-RUN_TASK = "esphea.worker.tasks.execute_run"
+TASKS: dict[JobKind, str] = {
+    JobKind.RUN: "esphea.worker.tasks.execute_run",
+    JobKind.ANALYSIS: "esphea.worker.tasks.execute_analysis",
+}
 
 
 PENDING_JOB_STATUSES = frozenset({"queued", "started", "deferred", "scheduled"})
 
 
-def _job_id(run_id: uuid.UUID, attempt: int) -> str:
-    return f"run-{run_id}-{attempt}"
+def _job_id(job: JobRef) -> str:
+    return f"{job.kind}-{job.entity_id}-{job.attempt}"
 
 
 class RedisEventPublisher:
@@ -75,24 +79,24 @@ class RqJobQueue:
         self._queue = Queue(queue_name, connection=redis)
         self._job_timeout = job_timeout
 
-    def enqueue_run(self, run_id: uuid.UUID, attempt: int) -> None:
+    def enqueue(self, job: JobRef) -> None:
         self._queue.enqueue(
-            RUN_TASK,
-            str(run_id),
-            attempt,
-            job_id=_job_id(run_id, attempt),
+            TASKS[job.kind],
+            str(job.entity_id),
+            job.attempt,
+            job_id=_job_id(job),
             job_timeout=self._job_timeout,
             result_ttl=3600,
             failure_ttl=7 * 24 * 3600,
         )
 
-    def cancel_run(self, run_id: uuid.UUID, attempt: int) -> None:
+    def cancel(self, job: JobRef) -> None:
         with contextlib.suppress(NoSuchJobError, InvalidJobOperation):
-            Job.fetch(_job_id(run_id, attempt), connection=self._redis).cancel()
+            Job.fetch(_job_id(job), connection=self._redis).cancel()
 
-    def is_enqueued(self, run_id: uuid.UUID, attempt: int) -> bool:
+    def is_enqueued(self, job: JobRef) -> bool:
         try:
-            job = Job.fetch(_job_id(run_id, attempt), connection=self._redis)
+            queued = Job.fetch(_job_id(job), connection=self._redis)
         except NoSuchJobError:
             return False
-        return job.get_status().value in PENDING_JOB_STATUSES
+        return queued.get_status().value in PENDING_JOB_STATUSES

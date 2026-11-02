@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +13,7 @@ from esphea.api.app import create_app
 from esphea.api.infrastructure import Infrastructure
 from esphea.experiments.registry import default_algorithm_registry, default_problem_registry
 from esphea.experiments.runner import RunExecutor
+from esphea.messaging.ports import JobKind, JobRef
 from esphea.persistence.db import create_db_engine, create_session_factory
 from esphea.persistence.models import Base
 from esphea.services.execution import RunService
@@ -50,28 +51,36 @@ class FakeSubscriber:
             yield message
 
 
+class Executor(Protocol):
+    def execute(self, entity_id: uuid.UUID, attempt: int) -> object: ...
+
+
 class RecordingQueue:
-    """Remembers enqueued attempts; ``execute`` makes it run them synchronously."""
+    """Remembers enqueued jobs; ``executors`` make it run them synchronously by kind."""
 
     def __init__(self) -> None:
-        self.enqueued: list[tuple[uuid.UUID, int]] = []
-        self.cancelled: list[tuple[uuid.UUID, int]] = []
-        self.pending: set[tuple[uuid.UUID, int]] = set()
-        self.execute: RunService | None = None
+        self.enqueued: list[JobRef] = []
+        self.cancelled: list[JobRef] = []
+        self.pending: set[JobRef] = set()
+        self.executors: dict[JobKind, Executor] = {}
 
-    def enqueue_run(self, run_id: uuid.UUID, attempt: int) -> None:
-        self.enqueued.append((run_id, attempt))
-        self.pending.add((run_id, attempt))
-        if self.execute is not None:
-            self.pending.discard((run_id, attempt))
-            self.execute.execute(run_id, attempt)
+    def enqueue(self, job: JobRef) -> None:
+        self.enqueued.append(job)
+        self.pending.add(job)
+        executor = self.executors.get(job.kind)
+        if executor is not None:
+            self.pending.discard(job)
+            executor.execute(job.entity_id, job.attempt)
 
-    def cancel_run(self, run_id: uuid.UUID, attempt: int) -> None:
-        self.cancelled.append((run_id, attempt))
-        self.pending.discard((run_id, attempt))
+    def cancel(self, job: JobRef) -> None:
+        self.cancelled.append(job)
+        self.pending.discard(job)
 
-    def is_enqueued(self, run_id: uuid.UUID, attempt: int) -> bool:
-        return (run_id, attempt) in self.pending
+    def is_enqueued(self, job: JobRef) -> bool:
+        return job in self.pending
+
+    def runs(self) -> list[tuple[uuid.UUID, int]]:
+        return [(job.entity_id, job.attempt) for job in self.enqueued if job.kind == JobKind.RUN]
 
 
 @pytest.fixture

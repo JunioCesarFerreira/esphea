@@ -2,22 +2,36 @@
 
 import uuid
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any, Protocol
 
 
+class JobKind(StrEnum):
+    RUN = "run"
+    ANALYSIS = "analysis"
+
+
+@dataclass(frozen=True, slots=True)
+class JobRef:
+    """One execution attempt of a leased job (each attempt is a distinct queue job)."""
+
+    kind: JobKind
+    entity_id: uuid.UUID
+    attempt: int
+
+
 class JobQueue(Protocol):
-    """Schedules execution attempts; each attempt of a run is a distinct job."""
-
-    def enqueue_run(self, run_id: uuid.UUID, attempt: int) -> None:
-        """Schedule ``attempt`` of a run for execution by a worker."""
+    def enqueue(self, job: JobRef) -> None:
+        """Schedule ``job`` for execution by a worker."""
         ...
 
-    def cancel_run(self, run_id: uuid.UUID, attempt: int) -> None:
-        """Drop an attempt that has not been picked by a worker yet (no-op otherwise)."""
+    def cancel(self, job: JobRef) -> None:
+        """Drop a job that has not been picked by a worker yet (no-op otherwise)."""
         ...
 
-    def is_enqueued(self, run_id: uuid.UUID, attempt: int) -> bool:
-        """Whether the job of ``attempt`` is still waiting for (or held by) a worker."""
+    def is_enqueued(self, job: JobRef) -> bool:
+        """Whether ``job`` is still waiting for (or held by) a worker."""
         ...
 
 

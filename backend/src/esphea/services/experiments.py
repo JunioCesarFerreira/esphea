@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from esphea.experiments.config import ExperimentConfig
 from esphea.messaging.events import run_status_event
-from esphea.messaging.ports import CancellationFlags, EventPublisher, JobQueue
+from esphea.messaging.ports import CancellationFlags, EventPublisher, JobKind, JobQueue, JobRef
 from esphea.persistence.models import ExperimentRow, RunStatus
 from esphea.persistence.repositories import ExperimentRepository, RunRepository
 from esphea.services.errors import ConflictError, NotFoundError
@@ -64,7 +64,7 @@ class ExperimentService:
         # whose job is missing from the queue.
         for run in experiment.runs:
             try:
-                self._queue.enqueue_run(run.id, run.attempt + 1)
+                self._queue.enqueue(JobRef(JobKind.RUN, run.id, run.attempt + 1))
             except Exception:
                 logger.exception("could not enqueue run %s; the watchdog will retry", run.id)
         self._session.refresh(experiment)
@@ -76,7 +76,7 @@ class ExperimentService:
         running = self._runs.running_ids(experiment_id)
         self._session.commit()
         for run_id, attempt in cancelled:
-            self._queue.cancel_run(run_id, attempt + 1)
+            self._queue.cancel(JobRef(JobKind.RUN, run_id, attempt + 1))
             self._publisher.publish(
                 experiment_id,
                 run_status_event(experiment_id, run_id, RunStatus.CANCELLED, attempt=attempt),

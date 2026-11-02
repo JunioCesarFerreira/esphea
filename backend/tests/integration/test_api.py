@@ -4,6 +4,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from esphea.messaging.ports import JobKind
 from esphea.services.execution import RunService
 from tests.integration.conftest import FakeFlags, FakePublisher, FakeSubscriber, RecordingQueue
 
@@ -51,7 +52,7 @@ def test_preview_rejects_invalid_configuration(client: TestClient) -> None:
 def test_create_enqueues_one_job_per_run(client: TestClient, queue: RecordingQueue) -> None:
     created = client.post("/api/experiments", json=experiment_body()).json()
     assert created["status"] == "queued"
-    assert [(run["id"], 1) for run in created["runs"]] == [(str(r), a) for r, a in queue.enqueued]
+    assert [(run["id"], 1) for run in created["runs"]] == [(str(r), a) for r, a in queue.runs()]
     assert all(run["attempt"] == 0 for run in created["runs"])
     assert len({run["seed"] for run in created["runs"]}) == 2
 
@@ -63,7 +64,7 @@ def test_create_enqueues_one_job_per_run(client: TestClient, queue: RecordingQue
 def test_full_lifecycle_with_inline_execution(
     client: TestClient, queue: RecordingQueue, run_service: RunService, publisher: FakePublisher
 ) -> None:
-    queue.execute = run_service
+    queue.executors[JobKind.RUN] = run_service
     experiment = client.post("/api/experiments", json=experiment_body()).json()
     detail = client.get(f"/api/experiments/{experiment['id']}").json()
     assert detail["status"] == "completed"
@@ -104,7 +105,7 @@ def test_cancel_queued_and_running_runs(
     experiment = client.post("/api/experiments", json=experiment_body()).json()
     cancelled = client.post(f"/api/experiments/{experiment['id']}/cancel").json()
     assert cancelled["status"] == "cancelled"
-    assert sorted((str(r), a) for r, a in queue.cancelled) == sorted(
+    assert sorted((str(j.entity_id), j.attempt) for j in queue.cancelled) == sorted(
         (r["id"], 1) for r in experiment["runs"]
     )
     assert flags.requested == set()
