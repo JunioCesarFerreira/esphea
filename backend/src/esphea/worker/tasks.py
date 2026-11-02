@@ -9,6 +9,7 @@ from esphea.experiments.registry import default_algorithm_registry, default_prob
 from esphea.experiments.runner import RunExecutor
 from esphea.messaging.redis import RedisCancellationFlags, RedisEventPublisher
 from esphea.persistence.db import create_db_engine, create_session_factory
+from esphea.services.analysis_execution import AnalysisExecutionService
 from esphea.services.execution import RunService
 from esphea.settings import get_settings
 
@@ -33,4 +34,21 @@ def execute_run(run_id: str, attempt: int) -> str | None:
         return None if status is None else status.value
     finally:
         redis.close()
+        engine.dispose()
+
+
+def execute_analysis(analysis_id: str, attempt: int) -> str | None:
+    settings = get_settings()
+    engine = create_db_engine(settings.database_url)
+    try:
+        service = AnalysisExecutionService(
+            create_session_factory(engine),
+            problems=default_problem_registry(),
+            runs_dir=settings.runs_dir,
+            heartbeat_interval=settings.heartbeat_interval_seconds,
+            self_fence_after=settings.lease_timeout_seconds / 2,
+        )
+        status = service.execute(uuid.UUID(analysis_id), attempt)
+        return None if status is None else status.value
+    finally:
         engine.dispose()

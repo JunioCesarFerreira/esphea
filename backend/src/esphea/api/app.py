@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 
 from esphea import __version__
 from esphea.api.infrastructure import Infrastructure, build_infrastructure
-from esphea.api.routes import experiments, runs
-from esphea.services.errors import ConflictError, NotFoundError
+from esphea.api.routes import analyses, experiments, runs
+from esphea.services.errors import ConflictError, InvalidRequestError, NotFoundError
 from esphea.settings import Settings, get_settings
 
 
@@ -51,10 +51,15 @@ def create_app(
     async def conflict(_: Request, exc: ConflictError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc)})
 
+    @app.exception_handler(InvalidRequestError)
+    async def invalid(_: Request, exc: InvalidRequestError) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": str(exc)})
+
     @app.get("/api/health", tags=["meta"])
     def health() -> dict[str, str]:
         return {"status": "ok", "version": __version__}
 
     app.include_router(experiments.router, prefix="/api")
     app.include_router(runs.router, prefix="/api")
+    app.include_router(analyses.router, prefix="/api")
     return app

@@ -7,3 +7,7 @@ class NotFoundError(LookupError):
 
 class ConflictError(RuntimeError):
     pass
+
+
+class InvalidRequestError(ValueError):
+    """A well-formed request that cannot be honoured for the targeted resource."""

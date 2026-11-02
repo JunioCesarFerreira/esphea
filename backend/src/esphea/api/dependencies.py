@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from starlette.requests import HTTPConnection
 
 from esphea.api.infrastructure import Infrastructure
+from esphea.services.analyses import AnalysisService
 from esphea.services.experiments import ExperimentService
 from esphea.services.results import ResultsService
 
@@ -46,5 +47,15 @@ def get_results_service(session: SessionDep, infrastructure: InfrastructureDep) 
     )
 
 
+def get_analysis_service(session: SessionDep, infrastructure: InfrastructureDep) -> AnalysisService:
+    return AnalysisService(
+        session,
+        queue=infrastructure.queue,
+        problems=infrastructure.problems,
+        runs_dir=infrastructure.runs_dir,
+    )
+
+
 ExperimentServiceDep = Annotated[ExperimentService, Depends(get_experiment_service)]
+AnalysisServiceDep = Annotated[AnalysisService, Depends(get_analysis_service)]
 ResultsServiceDep = Annotated[ResultsService, Depends(get_results_service)]
