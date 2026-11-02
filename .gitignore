@@ -36,3 +36,8 @@ data/*
 
 # Local environment overrides
 .env.local
+
+# Node
+node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
