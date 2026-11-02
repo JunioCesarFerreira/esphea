@@ -1,0 +1,4 @@
+/* Columns of numbers align vertically. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
