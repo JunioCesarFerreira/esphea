@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("./data")
     queue_name: str = "esphea-runs"
     job_timeout_seconds: int = 7 * 24 * 3600
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8090"]
 
     @property
     def runs_dir(self) -> Path:

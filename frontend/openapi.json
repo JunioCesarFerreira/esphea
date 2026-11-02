@@ -1,0 +1,1554 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ESPHEA API",
+    "summary": "Configure, run and inspect evolutionary multi-objective experiments.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Health",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalog": {
+      "get": {
+        "tags": [
+          "experiments"
+        ],
+        "summary": "Get Catalog",
+        "description": "Problems and algorithms available, with default parameters.",
+        "operationId": "get_catalog_api_catalog_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/experiments/preview": {
+      "post": {
+        "tags": [
+          "experiments"
+        ],
+        "summary": "Preview Experiment",
+        "description": "Validate a configuration and return the quantities derived from it.",
+        "operationId": "preview_experiment_api_experiments_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperimentConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentPreviewOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/experiments": {
+      "get": {
+        "tags": [
+          "experiments"
+        ],
+        "summary": "List Experiments",
+        "operationId": "list_experiments_api_experiments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentSummaryOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Experiments Api Experiments Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "experiments"
+        ],
+        "summary": "Create Experiment",
+        "operationId": "create_experiment_api_experiments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperimentConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/experiments/{experiment_id}": {
+      "get": {
+        "tags": [
+          "experiments"
+        ],
+        "summary": "Get Experiment",
+        "operationId": "get_experiment_api_experiments__experiment_id__get",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Experiment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "experiments"
+        ],
+        "summary": "Delete Experiment",
+        "operationId": "delete_experiment_api_experiments__experiment_id__delete",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Experiment Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/experiments/{experiment_id}/cancel": {
+      "post": {
+        "tags": [
+          "experiments"
+        ],
+        "summary": "Cancel Experiment",
+        "operationId": "cancel_experiment_api_experiments__experiment_id__cancel_post",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Experiment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/experiments/{experiment_id}/metrics": {
+      "get": {
+        "tags": [
+          "experiments"
+        ],
+        "summary": "Get Experiment Metrics",
+        "description": "Median and quartiles of each indicator across runs, per generation.",
+        "operationId": "get_experiment_metrics_api_experiments__experiment_id__metrics_get",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Experiment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/IndicatorSummaryOut"
+                  },
+                  "title": "Response Get Experiment Metrics Api Experiments  Experiment Id  Metrics Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/experiments/{experiment_id}/pareto-front": {
+      "get": {
+        "tags": [
+          "experiments"
+        ],
+        "summary": "Get Pareto Front",
+        "operationId": "get_pareto_front_api_experiments__experiment_id__pareto_front_get",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Experiment Id"
+            }
+          },
+          {
+            "name": "n_points",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20000,
+              "minimum": 10,
+              "default": 1000,
+              "title": "N Points"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParetoFrontOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/metrics": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Get Run Metrics",
+        "operationId": "get_run_metrics_api_runs__run_id__metrics_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricSeriesOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/metrics.csv": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Export Run Metrics",
+        "operationId": "export_run_metrics_api_runs__run_id__metrics_csv_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/generations": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "List Stored Generations",
+        "operationId": "list_stored_generations_api_runs__run_id__generations_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredGenerationsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/generations/{generation}": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Get Generation",
+        "description": "Parent pool, offspring (with lineage) and survival outcome of a stored generation.",
+        "operationId": "get_generation_api_runs__run_id__generations__generation__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "generation",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Generation"
+            }
+          },
+          {
+            "name": "decision_variables",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Decision Variables"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationSnapshotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CatalogOut": {
+        "properties": {
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/DTLZ2Config"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "algorithms": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/NSGA2Config"
+                },
+                {
+                  "$ref": "#/components/schemas/NSGA3Config"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "name",
+                "mapping": {
+                  "nsga2": "#/components/schemas/NSGA2Config",
+                  "nsga3": "#/components/schemas/NSGA3Config"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Algorithms"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricsConfig"
+          },
+          "snapshots": {
+            "$ref": "#/components/schemas/SnapshotConfig"
+          }
+        },
+        "type": "object",
+        "required": [
+          "problems",
+          "algorithms",
+          "metrics",
+          "snapshots"
+        ],
+        "title": "CatalogOut",
+        "description": "Available components with their default parameters."
+      },
+      "DTLZ2Config": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "const": "dtlz2",
+            "title": "Name",
+            "default": "dtlz2"
+          },
+          "n_obj": {
+            "type": "integer",
+            "maximum": 15.0,
+            "minimum": 2.0,
+            "title": "N Obj",
+            "description": "Number of objectives (M).",
+            "default": 3
+          },
+          "k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "K",
+            "description": "Distance variables; n_var = M + k - 1.",
+            "default": 10
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DTLZ2Config"
+      },
+      "ExperimentConfig": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "problem": {
+            "$ref": "#/components/schemas/DTLZ2Config",
+            "default": {
+              "name": "dtlz2",
+              "n_obj": 3,
+              "k": 10
+            }
+          },
+          "algorithm": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NSGA2Config"
+              },
+              {
+                "$ref": "#/components/schemas/NSGA3Config"
+              }
+            ],
+            "title": "Algorithm",
+            "discriminator": {
+              "propertyName": "name",
+              "mapping": {
+                "nsga2": "#/components/schemas/NSGA2Config",
+                "nsga3": "#/components/schemas/NSGA3Config"
+              }
+            }
+          },
+          "n_gen": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "N Gen",
+            "default": 250
+          },
+          "n_runs": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "N Runs",
+            "description": "Independent runs (seeds).",
+            "default": 1
+          },
+          "seed": {
+            "type": "integer",
+            "maximum": 4294967295.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "description": "Base seed of the experiment.",
+            "default": 0
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricsConfig",
+            "default": {
+              "igd": true,
+              "igd_plus": true,
+              "hv": true,
+              "every": 1,
+              "reference_front_size": 1000
+            }
+          },
+          "snapshots": {
+            "$ref": "#/components/schemas/SnapshotConfig",
+            "default": {
+              "enabled": true,
+              "every": 1,
+              "precision": "float64",
+              "decision_variables": true
+            }
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "algorithm"
+        ],
+        "title": "ExperimentConfig"
+      },
+      "ExperimentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "progress": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Progress"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem"
+          },
+          "n_obj": {
+            "type": "integer",
+            "title": "N Obj"
+          },
+          "algorithm": {
+            "type": "string",
+            "title": "Algorithm"
+          },
+          "pop_size": {
+            "type": "integer",
+            "title": "Pop Size"
+          },
+          "n_gen": {
+            "type": "integer",
+            "title": "N Gen"
+          },
+          "n_runs": {
+            "type": "integer",
+            "title": "N Runs"
+          },
+          "run_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/RunStatus"
+            },
+            "type": "object",
+            "title": "Run Counts"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ExperimentConfig"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RunOut"
+            },
+            "type": "array",
+            "title": "Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "status",
+          "progress",
+          "problem",
+          "n_obj",
+          "algorithm",
+          "pop_size",
+          "n_gen",
+          "n_runs",
+          "run_counts",
+          "config",
+          "runs"
+        ],
+        "title": "ExperimentOut"
+      },
+      "ExperimentPreviewOut": {
+        "properties": {
+          "n_var": {
+            "type": "integer",
+            "title": "N Var"
+          },
+          "n_obj": {
+            "type": "integer",
+            "title": "N Obj"
+          },
+          "pop_size": {
+            "type": "integer",
+            "title": "Pop Size"
+          },
+          "n_reference_directions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N Reference Directions"
+          },
+          "estimated_snapshot_bytes_per_run": {
+            "type": "integer",
+            "title": "Estimated Snapshot Bytes Per Run"
+          },
+          "estimated_snapshot_bytes_total": {
+            "type": "integer",
+            "title": "Estimated Snapshot Bytes Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_var",
+          "n_obj",
+          "pop_size",
+          "n_reference_directions",
+          "estimated_snapshot_bytes_per_run",
+          "estimated_snapshot_bytes_total"
+        ],
+        "title": "ExperimentPreviewOut",
+        "description": "Quantities derived from a configuration, shown while it is being edited."
+      },
+      "ExperimentSummaryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "progress": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Progress"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem"
+          },
+          "n_obj": {
+            "type": "integer",
+            "title": "N Obj"
+          },
+          "algorithm": {
+            "type": "string",
+            "title": "Algorithm"
+          },
+          "pop_size": {
+            "type": "integer",
+            "title": "Pop Size"
+          },
+          "n_gen": {
+            "type": "integer",
+            "title": "N Gen"
+          },
+          "n_runs": {
+            "type": "integer",
+            "title": "N Runs"
+          },
+          "run_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/RunStatus"
+            },
+            "type": "object",
+            "title": "Run Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "status",
+          "progress",
+          "problem",
+          "n_obj",
+          "algorithm",
+          "pop_size",
+          "n_gen",
+          "n_runs",
+          "run_counts"
+        ],
+        "title": "ExperimentSummaryOut"
+      },
+      "GenerationSnapshotOut": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "generation": {
+            "type": "integer",
+            "title": "Generation"
+          },
+          "population": {
+            "$ref": "#/components/schemas/SnapshotGroupOut"
+          },
+          "offspring": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotGroupOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "generation",
+          "population",
+          "offspring"
+        ],
+        "title": "GenerationSnapshotOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IndicatorSummaryOut": {
+        "properties": {
+          "generation": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Generation"
+          },
+          "median": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Median"
+          },
+          "q1": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Q1"
+          },
+          "q3": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Q3"
+          },
+          "n_runs": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "N Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generation",
+          "median",
+          "q1",
+          "q3",
+          "n_runs"
+        ],
+        "title": "IndicatorSummaryOut"
+      },
+      "MetricSeriesOut": {
+        "properties": {
+          "generation": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Generation"
+          },
+          "n_nondominated": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "N Nondominated"
+          },
+          "elapsed_seconds": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Elapsed Seconds"
+          },
+          "values": {
+            "additionalProperties": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Values"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generation",
+          "n_nondominated",
+          "elapsed_seconds",
+          "values"
+        ],
+        "title": "MetricSeriesOut"
+      },
+      "MetricsConfig": {
+        "properties": {
+          "igd": {
+            "type": "boolean",
+            "title": "Igd",
+            "default": true
+          },
+          "igd_plus": {
+            "type": "boolean",
+            "title": "Igd Plus",
+            "default": true
+          },
+          "hv": {
+            "type": "boolean",
+            "title": "Hv",
+            "default": true
+          },
+          "every": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Every",
+            "description": "Compute indicators every N generations.",
+            "default": 1
+          },
+          "reference_front_size": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 10.0,
+            "title": "Reference Front Size",
+            "description": "Points sampled from the true front.",
+            "default": 1000
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MetricsConfig"
+      },
+      "NSGA2Config": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "const": "nsga2",
+            "title": "Name",
+            "default": "nsga2"
+          },
+          "pop_size": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 4.0,
+            "title": "Pop Size",
+            "default": 100
+          },
+          "crossover": {
+            "$ref": "#/components/schemas/SBXConfig",
+            "default": {
+              "eta": 15.0,
+              "prob": 0.9,
+              "prob_var": 0.5
+            }
+          },
+          "mutation": {
+            "$ref": "#/components/schemas/PMConfig",
+            "default": {
+              "eta": 20.0
+            }
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "NSGA2Config"
+      },
+      "NSGA3Config": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "const": "nsga3",
+            "title": "Name",
+            "default": "nsga3"
+          },
+          "n_partitions": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "N Partitions",
+            "description": "Das-Dennis partitions (p) of the unit simplex.",
+            "default": 12
+          },
+          "pop_size": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "minimum": 4.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pop Size",
+            "description": "Null means the smallest multiple of 4 not below the number of directions."
+          },
+          "crossover": {
+            "$ref": "#/components/schemas/SBXConfig",
+            "default": {
+              "eta": 30.0,
+              "prob": 1.0,
+              "prob_var": 0.5
+            }
+          },
+          "mutation": {
+            "$ref": "#/components/schemas/PMConfig",
+            "default": {
+              "eta": 20.0
+            }
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "NSGA3Config"
+      },
+      "PMConfig": {
+        "properties": {
+          "eta": {
+            "type": "number",
+            "maximum": 1000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Eta",
+            "description": "Distribution index.",
+            "default": 20.0
+          },
+          "prob_var": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prob Var",
+            "description": "Per-variable probability; null means 1/n_var."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PMConfig"
+      },
+      "ParetoFrontOut": {
+        "properties": {
+          "points": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points",
+            "description": "Null when the front is unknown."
+          }
+        },
+        "type": "object",
+        "required": [
+          "points"
+        ],
+        "title": "ParetoFrontOut"
+      },
+      "RunOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "seed": {
+            "type": "integer",
+            "title": "Seed"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "generation": {
+            "type": "integer",
+            "title": "Generation"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "index",
+          "seed",
+          "status",
+          "generation",
+          "started_at",
+          "finished_at",
+          "error"
+        ],
+        "title": "RunOut"
+      },
+      "RunStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "RunStatus"
+      },
+      "SBXConfig": {
+        "properties": {
+          "eta": {
+            "type": "number",
+            "maximum": 1000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Eta",
+            "description": "Distribution index.",
+            "default": 15.0
+          },
+          "prob": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Prob",
+            "description": "Probability of crossover per mating.",
+            "default": 0.9
+          },
+          "prob_var": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Prob Var",
+            "description": "Per-variable recombination probability.",
+            "default": 0.5
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SBXConfig"
+      },
+      "SnapshotConfig": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          },
+          "every": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Every",
+            "description": "Store every N-th generation.",
+            "default": 1
+          },
+          "precision": {
+            "type": "string",
+            "enum": [
+              "float32",
+              "float64"
+            ],
+            "title": "Precision",
+            "default": "float64"
+          },
+          "decision_variables": {
+            "type": "boolean",
+            "title": "Decision Variables",
+            "description": "Also store X (objectives F are always stored).",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SnapshotConfig"
+      },
+      "SnapshotGroupOut": {
+        "properties": {
+          "F": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "F"
+          },
+          "X": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X"
+          },
+          "survived": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": "array",
+            "title": "Survived"
+          },
+          "rank": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Rank",
+            "description": "Rank in this generation's survival; -1 if discarded."
+          },
+          "times_selected": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Times Selected"
+          },
+          "parents": {
+            "items": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Parents",
+            "description": "Indices into the population; -1 if none."
+          },
+          "mutated": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": "array",
+            "title": "Mutated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "F",
+          "X",
+          "survived",
+          "rank",
+          "times_selected",
+          "parents",
+          "mutated"
+        ],
+        "title": "SnapshotGroupOut"
+      },
+      "StoredGenerationsOut": {
+        "properties": {
+          "generations": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Generations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generations"
+        ],
+        "title": "StoredGenerationsOut"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

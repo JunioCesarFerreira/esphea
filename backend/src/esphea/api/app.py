@@ -31,6 +31,10 @@ def create_app(
         version=__version__,
         summary="Configure, run and inspect evolutionary multi-objective experiments.",
         lifespan=lifespan,
+        # Everything lives under /api so a single reverse-proxy rule serves the frontend.
+        docs_url="/api/docs",
+        openapi_url="/api/openapi.json",
+        redoc_url=None,
     )
     app.add_middleware(
         CORSMiddleware,
