@@ -1286,6 +1286,11 @@
             "type": "integer",
             "title": "Generation"
           },
+          "attempt": {
+            "type": "integer",
+            "title": "Attempt",
+            "description": "Execution attempt (0 = not started; >1 after recovery)."
+          },
           "started_at": {
             "anyOf": [
               {
@@ -1329,6 +1334,7 @@
           "seed",
           "status",
           "generation",
+          "attempt",
           "started_at",
           "finished_at",
           "error"

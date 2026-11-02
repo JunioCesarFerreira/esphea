@@ -30,6 +30,8 @@ export interface RunStatusEvent {
   experiment_id: string;
   run_id: string;
   status: RunStatus;
+  /** Execution attempt the event refers to (> 1 after a recovered worker failure). */
+  attempt: number;
   generation: number | null;
   error: string | null;
 }

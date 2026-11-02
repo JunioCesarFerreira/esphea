@@ -568,6 +568,11 @@ export interface components {
             status: components["schemas"]["RunStatus"];
             /** Generation */
             generation: number;
+            /**
+             * Attempt
+             * @description Execution attempt (0 = not started; >1 after recovery).
+             */
+            attempt: number;
             /** Started At */
             started_at: string | null;
             /** Finished At */

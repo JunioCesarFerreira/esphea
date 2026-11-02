@@ -43,8 +43,20 @@ export function RunsPanel({ experiment, live }: { experiment: Experiment; live: 
                   <Table.Td className="tabular">{run.seed}</Table.Td>
                   <Table.Td>
                     <StatusBadge status={run.status} />
+                    {run.attempt > 1 && (
+                      <Text size="xs" c="dimmed" mt={4}>
+                        Attempt {run.attempt}
+                      </Text>
+                    )}
                     {run.error && (
-                      <Text size="xs" c="red" mt={4} maw={260} lineClamp={2} title={run.error}>
+                      <Text
+                        size="xs"
+                        c={run.status === "failed" ? "red" : "dimmed"}
+                        mt={4}
+                        maw={260}
+                        lineClamp={2}
+                        title={run.error}
+                      >
                         {run.error}
                       </Text>
                     )}
