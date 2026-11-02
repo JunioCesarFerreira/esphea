@@ -12,8 +12,8 @@ x-backend: &backend
     ESPHEA_DATABASE_URL: postgresql+psycopg://esphea:esphea@postgres:5432/esphea
     ESPHEA_REDIS_URL: redis://redis:6379/0
     ESPHEA_DATA_DIR: /data
-  # Run as the host user so ./data (Parquet snapshots) stays readable from notebooks.
-  user: "${ESPHEA_UID:-1000}:${ESPHEA_GID:-1000}"
+  # Containers adopt the owner of ./data (the host user), so Parquet snapshots stay
+  # readable from notebooks; see backend/docker-entrypoint.sh.
   volumes:
     - ./data:/data
   restart: unless-stopped

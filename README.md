@@ -49,7 +49,7 @@ See [docs/architecture.md](docs/architecture.md) for the design and how to exten
 Requirements: Docker (with Compose). Nothing else needs to be installed on the host.
 
 ```bash
-make up          # or: ESPHEA_UID=$(id -u) ESPHEA_GID=$(id -g) docker compose up -d --build
+make up          # or: docker compose up -d --build
 ```
 
 - Web interface: <http://localhost:8090>

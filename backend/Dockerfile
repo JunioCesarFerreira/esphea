@@ -35,7 +35,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
  && useradd --create-home --uid 10001 esphea \
  && mkdir -p /data \
  && chown esphea:esphea /data
-USER esphea
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENV ESPHEA_DATA_DIR=/data
+# The entrypoint starts as root only to adopt the data directory's owner, then drops
+# privileges (see docker-entrypoint.sh).
+ENTRYPOINT ["docker-entrypoint.sh"]
 EXPOSE 8000
 CMD ["uvicorn", "esphea.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

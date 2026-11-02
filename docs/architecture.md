@@ -26,6 +26,10 @@ This document describes how ESPHEA is organised, why, and how to extend it.
 | `api`      | Validates configurations, manages experiments, serves results and live events. |
 | `worker`   | Executes runs (one RQ job per run); scale with `docker compose up --scale worker=N`. |
 | `migrate`  | One-shot Alembic migration before the API and workers start.                   |
+
+Backend containers start as root only long enough to adopt the owner of the mounted `./data`
+directory, then drop privileges to that user (`backend/docker-entrypoint.sh`). Files written by
+the workers therefore belong to the host user with no configuration.
 | `postgres` | Experiment metadata, run status and per-generation indicator values.           |
 | `redis`    | Job queue (RQ), live events (pub/sub) and cooperative cancellation flags.     |
 

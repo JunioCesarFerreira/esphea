@@ -1,10 +1,10 @@
 # Developer shortcuts. Everything runs in containers; only Docker is required.
-export ESPHEA_UID ?= $(shell id -u)
-export ESPHEA_GID ?= $(shell id -g)
+# Development containers run as the host user so generated files keep their ownership.
+HOST_USER := $(shell id -u):$(shell id -g)
 
 NODE_IMAGE := node:22-trixie-slim@sha256:2117f713a417f3aff682ac8f5bc2ebbdf1beed51f36e67ab1e0fd3866b6d2d8f
-BACKEND := docker run --rm -u $(ESPHEA_UID):$(ESPHEA_GID) -e HOME=/tmp -v $(CURDIR)/backend:/app -w /app esphea-backend-dev
-NODE := docker run --rm -u $(ESPHEA_UID):$(ESPHEA_GID) -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v $(CURDIR)/frontend:/app -w /app $(NODE_IMAGE)
+BACKEND := docker run --rm -u $(HOST_USER) -e HOME=/tmp -v $(CURDIR)/backend:/app -w /app esphea-backend-dev
+NODE := docker run --rm -u $(HOST_USER) -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v $(CURDIR)/frontend:/app -w /app $(NODE_IMAGE)
 
 .PHONY: help up down logs ps backend-image backend-check backend-validate backend-format \
         frontend-install frontend-check frontend-format openapi check
