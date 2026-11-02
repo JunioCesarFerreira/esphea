@@ -54,6 +54,9 @@ export function useExperimentEvents(experimentId: string, enabled: boolean) {
       } else {
         void client.invalidateQueries({ queryKey: queryKeys.experiment(experimentId) });
         void client.invalidateQueries({ queryKey: queryKeys.experiments, exact: true });
+        // Stored generations and metrics stop polling once the run ends; refresh them so
+        // the data flushed at the end of the run shows up without reloading the page.
+        void client.invalidateQueries({ queryKey: ["runs", event.run_id] });
       }
     };
 
