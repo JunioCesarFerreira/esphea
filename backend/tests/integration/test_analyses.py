@@ -47,7 +47,9 @@ def run_id(client: TestClient, queue: RecordingQueue, run_service: RunService) -
 
 
 def create(client: TestClient, run_id: str, **config: Any) -> dict[str, Any]:
-    response = client.post(f"/api/runs/{run_id}/analyses", json={"max_epsilon": 2.0, **config})
+    response = client.post(
+        f"/api/runs/{run_id}/analyses", json={"kind": "topology", "max_epsilon": 2.0, **config}
+    )
     assert response.status_code == 201, response.text
     return dict(response.json())
 
@@ -110,10 +112,14 @@ def test_unfinished_runs_cannot_be_analysed(client: TestClient) -> None:
     body = {"name": "x", "algorithm": {"name": "nsga2", "pop_size": 20}, "n_gen": 5}
     experiment = client.post("/api/experiments", json=body).json()
     run_id = experiment["runs"][0]["id"]
-    response = client.post(f"/api/runs/{run_id}/analyses", json={"max_epsilon": 1.0})
+    response = client.post(
+        f"/api/runs/{run_id}/analyses", json={"kind": "topology", "max_epsilon": 1.0}
+    )
     assert response.status_code == 409
     assert (
-        client.post(f"/api/runs/{uuid.uuid4()}/analyses", json={"max_epsilon": 1.0}).status_code
+        client.post(
+            f"/api/runs/{uuid.uuid4()}/analyses", json={"kind": "topology", "max_epsilon": 1.0}
+        ).status_code
         == 404
     )
 

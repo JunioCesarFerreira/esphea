@@ -8,8 +8,8 @@ from typing import Self
 from pydantic import BaseModel, Field
 
 from esphea.persistence.models import AnalysisRow, RunStatus
-from esphea.services.analyses import EpsilonSuggestion
-from esphea.topology.config import TopologyAnalysisConfig
+from esphea.services.analyses import EpsilonSuggestion, RepresentativeView, ZigzagBatchSummary
+from esphea.topology.config import AnalysisConfig, parse_analysis_config
 from esphea.topology.diagram import PersistenceDiagram
 from esphea.topology.storage import TopologyResultReader
 
@@ -22,8 +22,9 @@ def _optional(values: list[float]) -> list[float | None]:
 class AnalysisOut(BaseModel):
     id: uuid.UUID
     run_id: uuid.UUID
+    batch_id: uuid.UUID | None
     kind: str
-    config: TopologyAnalysisConfig
+    config: AnalysisConfig
     status: RunStatus
     progress: int
     total: int
@@ -38,8 +39,9 @@ class AnalysisOut(BaseModel):
         return cls(
             id=row.id,
             run_id=row.run_id,
+            batch_id=row.batch_id,
             kind=row.kind,
-            config=TopologyAnalysisConfig.model_validate(row.config),
+            config=parse_analysis_config(row.kind, row.config),
             status=row.status,
             progress=row.progress,
             total=row.total,
@@ -56,6 +58,9 @@ class EpsilonSuggestionOut(BaseModel):
     median_diameter: float
     median_nearest_neighbour: float
     suggested_max_epsilon: float
+    suggested_scales: list[float] = Field(
+        description="Fixed scales for a zigzag: multiples of the nearest-neighbour spacing."
+    )
 
     @classmethod
     def from_suggestion(cls, suggestion: EpsilonSuggestion) -> Self:
@@ -64,6 +69,7 @@ class EpsilonSuggestionOut(BaseModel):
             median_diameter=suggestion.median_diameter,
             median_nearest_neighbour=suggestion.median_nearest_neighbour,
             suggested_max_epsilon=suggestion.suggested_max_epsilon,
+            suggested_scales=suggestion.suggested_scales,
         )
 
 
@@ -171,3 +177,85 @@ class DistanceMatrixOut(BaseModel):
     metric: str
     generation: list[int]
     values: list[list[float]]
+
+
+# --- zigzag ---------------------------------------------------------------------------
+
+
+class ZigzagBarsOut(BaseModel):
+    """Bars alive on steps [birth, death - 1]; step 2t is P_t and step 2t - 1 is R_t."""
+
+    epsilon: float
+    dimension: int
+    n_generations: int
+    n_steps: int
+    bar: list[int]
+    birth: list[int]
+    death: list[int]
+    kind: list[str]
+    birth_cause: list[str]
+    death_cause: list[str]
+    representative: list[bool | None] = Field(
+        description="Representative available (true), unavailable (false) or not kept (null)."
+    )
+
+
+class ZigzagEventsOut(BaseModel):
+    """Per generation t: Betti numbers at P_t and R_t, births and deaths by cause."""
+
+    epsilon: float
+    dimension: int
+    generation: list[int]
+    betti_p: list[int]
+    betti_r: list[int | None]
+    births_variation: list[int]
+    births_selection: list[int]
+    deaths_variation: list[int]
+    deaths_selection: list[int]
+
+
+class RepresentativeOut(BaseModel):
+    step: int
+    generation: int
+    is_r_step: bool
+    dimension: int
+    members: list[int]
+    points: list[list[float]]
+    simplices: list[list[int]] | None
+    component: list[int]
+
+    @classmethod
+    def from_view(cls, view: RepresentativeView) -> Self:
+        return cls(
+            step=view.step,
+            generation=view.generation,
+            is_r_step=view.is_r_step,
+            dimension=view.dimension,
+            members=view.members.tolist(),
+            points=view.points.tolist(),
+            simplices=view.simplices,
+            component=view.component.tolist(),
+        )
+
+
+class QuartilesOut(BaseModel):
+    q1: list[float]
+    median: list[float]
+    q3: list[float]
+
+
+class ZigzagBatchSummaryOut(BaseModel):
+    generation: list[int]
+    n_runs: int
+    series: dict[str, QuartilesOut]
+
+    @classmethod
+    def from_summary(cls, summary: ZigzagBatchSummary) -> Self:
+        return cls(
+            generation=summary.generations,
+            n_runs=summary.n_runs,
+            series={
+                name: QuartilesOut(q1=q.q1.tolist(), median=q.median.tolist(), q3=q.q3.tolist())
+                for name, q in summary.series.items()
+            },
+        )
