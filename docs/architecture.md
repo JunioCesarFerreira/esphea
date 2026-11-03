@@ -109,6 +109,7 @@ stored generation contributes one row per individual of `P_t ∪ Q_t`:
 | column                  | meaning                                                 |
 | ----------------------- | ------------------------------------------------------- |
 | `generation`            | `t` (0 = initial population)                            |
+| `individual_id`         | run-unique identity of the individual (schema 2)        |
 | `role`                  | 0 = parent pool `P_t`, 1 = offspring `Q_t`              |
 | `index`                 | position within its role                                |
 | `survived`              | selected into `P_{t+1}`                                 |
@@ -196,6 +197,53 @@ value is the largest diameter, so every finite feature is captured).
 
 Note on `H_0`: populations may contain identical individuals (clones), which merge at ε = 0;
 β₀(0) therefore counts *distinct* points.
+
+### Zigzag persistence across generations
+
+A zigzag analysis follows the topology of the population *through* the evolution, along the
+sequence of inclusions
+
+```
+P_0 → R_1 ← P_1 → R_2 ← P_2 → … ← P_T,      R_t = P_{t-1} ∪ Q_t
+```
+
+numbered by steps (`P_t` is step `2t`, `R_t` step `2t − 1`). Every set is replaced by its
+Vietoris–Rips complex at a **fixed scale ε** (up to five scales per analysis, H₀ … H₂).
+Individuals keep their identity along the sequence (the `individual_id` of the snapshots, so
+runs stored before schema 2 cannot be zigzagged, and every generation must be stored).
+
+A bar is alive on steps `[birth, death − 1]`. Forward arrows only insert simplices (offspring)
+and backward arrows only remove them (discarded individuals), so every event has a cause:
+
+| event | on a forward arrow `P_{t-1} → R_t` | on a backward arrow `R_t ← P_t` |
+|---|---|---|
+| birth | **variation**: e.g. offspring found a new niche | **selection**: e.g. removing a bridge splits a niche |
+| death | **variation**: e.g. offspring bridge two niches | **selection**: e.g. a niche is wiped out |
+
+The barcode is computed with Dionysus' fast zigzag (Dey and Hou), which reduces the zigzag to
+the extended persistence of a cone. Tests check, on random sequences, that the number of bars
+alive at every step equals the Betti numbers computed independently by Ripser, and the API
+reports identities such as `β(R_t) = β(P_{t-1}) + births_var(t) − deaths_var(t)`.
+
+**Representatives.** For the longest bars, the representative cycle at each step is stored
+(as individual ids); for H₀ the API expands it to the ε-connected niche. Keeping the matrix
+needed for representatives is far more expensive than the barcode (0.8 M simplices: ~60 s and
+2.4 GB, against ~5 s), so representatives are only extracted up to 500 000 simplices per scale;
+above that the scale records why they were skipped. Representatives of intervals of type
+"open at birth, closed at death" are sometimes unavailable (a Dionysus limitation) and are
+reported as such.
+
+**Cost and memory.** Each scale is limited to 3 M simplices (about 1–2 GB). Suggested scales are
+1, 1.5 and 2 × the median nearest-neighbour spacing of the *population* `P_t` (the spacing of
+`R_t` is dominated by offspring next to their parents and would isolate every individual).
+
+**Batches.** The same analysis can be queued for every finished run of an experiment; the batch
+summary gives the median and quartiles across runs of the Betti numbers and of births and deaths
+by cause, per generation.
+
+Analyses run in a **supervised child process** (`spawn`): native code such as Dionysus holds
+the GIL for long stretches, so the parent process keeps the lease heartbeat alive, relays
+progress and terminates the child if the lease is lost.
 
 ## Frontend
 

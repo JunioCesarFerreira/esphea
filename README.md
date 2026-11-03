@@ -44,7 +44,10 @@ populations *inside* each generation:
 - **persistent homology** of the population at every generation: Vietoris–Rips barcodes in
   objective space up to a configurable ε, bottleneck/Wasserstein distances between generations
   (with the Hausdorff stability bound), Betti curves and summaries, computed offline from the
-  stored generations and explored in the *Topology* tab.
+  stored generations and explored in the *Topology* tab;
+- **zigzag persistence** of P₀ → R₁ ← P₁ → … at fixed scales: niches and loops followed across
+  generations, every birth and death attributed to variation (offspring) or selection (removal),
+  representative niches/cycles in objective space and across-run summaries.
 
 See [docs/architecture.md](docs/architecture.md) for the design and how to extend it.
 
