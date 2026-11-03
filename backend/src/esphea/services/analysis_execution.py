@@ -4,7 +4,7 @@ import logging
 import shutil
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -15,12 +15,9 @@ from esphea.experiments.storage import SnapshotReader, snapshot_directory
 from esphea.persistence.models import RunStatus
 from esphea.persistence.repositories import AnalysisRepository
 from esphea.services.leases import Lease, database_renewal
-from esphea.topology.analysis import AnalysisInterruptedError, TopologyAnalyzer
-from esphea.topology.clouds import build_normalizer
-from esphea.topology.config import TopologyAnalysisConfig
-from esphea.topology.distances import BottleneckDistance, WassersteinDistance
-from esphea.topology.persistence import VietorisRips
-from esphea.topology.storage import TopologyResultWriter, analysis_directory
+from esphea.topology.config import parse_analysis_config
+from esphea.topology.runners import AnalysisContext, AnalysisRunner, default_runners
+from esphea.topology.storage import analysis_directory
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +58,13 @@ class AnalysisExecutionService:
         *,
         problems: ProblemRegistry,
         runs_dir: Path,
+        runners: Mapping[str, AnalysisRunner] | None = None,
         heartbeat_interval: float = 5.0,
         self_fence_after: float = 30.0,
     ) -> None:
         self._sessions = sessions
         self._problems = problems
+        self._runners = dict(runners or default_runners())
         self._runs_dir = runs_dir
         self._heartbeat_interval = heartbeat_interval
         self._self_fence_after = self_fence_after
@@ -79,7 +78,8 @@ class AnalysisExecutionService:
                 logger.info("analysis %s attempt %d is not claimable", analysis_id, attempt)
                 return None
             run = analysis.run
-            config = TopologyAnalysisConfig.model_validate(analysis.config)
+            kind = analysis.kind
+            config = parse_analysis_config(kind, analysis.config)
             experiment = ExperimentConfig.model_validate(run.experiment.config)
             snapshots = snapshot_directory(self._runs_dir, run.id, run.attempt)
             output = analysis_directory(self._runs_dir, run.id, analysis_id, attempt)
@@ -92,28 +92,20 @@ class AnalysisExecutionService:
         )
         lease.start()
         try:
-            analyzer = TopologyAnalyzer(
+            context = AnalysisContext(
+                snapshots=SnapshotReader(snapshots),
+                problem=self._problems.build(experiment.problem),
+                population_size=experiment.pop_size,
+            )
+            self._runners[kind].run(
                 config,
-                computer=VietorisRips(),
-                distances=[BottleneckDistance(), WassersteinDistance(1)],
-                normalizer=build_normalizer(
-                    config.normalization, self._problems.build(experiment.problem)
-                ),
-            )
-            writer = TopologyResultWriter(
+                context,
                 output,
-                max_dimension=config.max_dimension,
-                max_epsilon=config.max_epsilon,
-                metrics=analyzer.metric_names,
-            )
-            analyzer.analyze(
-                SnapshotReader(snapshots),
-                writer,
                 progress=_ProgressRecorder(self._sessions, analysis_id, attempt),
                 should_stop=lambda: lease.lost,
             )
         except Exception as exc:
-            if lease.lost or isinstance(exc, AnalysisInterruptedError):
+            if lease.lost or isinstance(exc, InterruptedError):
                 logger.warning("analysis %s attempt %d lost its lease", analysis_id, attempt)
                 shutil.rmtree(output, ignore_errors=True)
                 return None
