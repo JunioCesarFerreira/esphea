@@ -147,7 +147,7 @@ def zigzag_complex(
     seen: dict[tuple[int, ...], None] = {}
     for generation in range(1, sequence.n_generations + 1):
         if should_stop():
-            raise InterruptedError
+            raise InterruptedError("the zigzag analysis was asked to stop")
         ids = sequence.members(step_of_r(generation))
         pairs = cKDTree(sequence.points[ids]).query_pairs(epsilon, output_type="ndarray")
         cliques = [tuple(sorted((int(ids[a]), int(ids[b])))) for a, b in pairs]
@@ -315,3 +315,24 @@ def _segments(
             current, start = simplices, step
     if current:
         yield RepresentativeSegment(start, steps[-1], current)
+
+
+def epsilon_components(
+    points: FloatArray, members: IntArray, epsilon: float, seeds: set[int]
+) -> IntArray:
+    """Members connected (within ``epsilon`` steps) to any of the ``seeds`` individuals."""
+    index = {int(m): i for i, m in enumerate(members)}
+    pairs = cKDTree(points[members]).query_pairs(epsilon, output_type="ndarray")
+    neighbours: dict[int, list[int]] = {}
+    for a, b in pairs:
+        neighbours.setdefault(int(a), []).append(int(b))
+        neighbours.setdefault(int(b), []).append(int(a))
+    frontier = [index[s] for s in seeds if s in index]
+    reached = set(frontier)
+    while frontier:
+        node = frontier.pop()
+        for other in neighbours.get(node, []):
+            if other not in reached:
+                reached.add(other)
+                frontier.append(other)
+    return np.sort(members[sorted(reached)]).astype(np.intp)

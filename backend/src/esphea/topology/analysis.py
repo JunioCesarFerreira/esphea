@@ -16,7 +16,7 @@ from esphea.topology.storage import GenerationTopology, TopologyResultWriter
 MATRIX_MAX_GENERATIONS = 100
 
 
-class AnalysisInterruptedError(RuntimeError):
+class AnalysisInterruptedError(InterruptedError):
     """Raised when ``should_stop`` asks the analysis to stop."""
 
 
