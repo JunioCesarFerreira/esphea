@@ -36,6 +36,8 @@ export const queryKeys = {
   suggestion: (runId: string, cloud: PointCloudKind, normalization: NormalizationKind) =>
     ["runs", runId, "epsilon", cloud, normalization] as const,
   analysis: (id: string) => ["analyses", id] as const,
+  experimentAnalyses: (id: string) => ["experiments", id, "analyses"] as const,
+  batch: (id: string) => ["batches", id] as const,
 };
 
 export function useCatalog() {
@@ -254,6 +256,25 @@ export function useCreateAnalysis(runId: string) {
   });
 }
 
+/** The same analysis for every finished run of an experiment (one batch). */
+export function useCreateAnalysisBatch(experimentId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (config: AnalysisConfig) =>
+      unwrap(
+        api.POST("/api/experiments/{experiment_id}/analyses", {
+          params: { path: { experiment_id: experimentId } },
+          body: config,
+        }),
+      ),
+    onSuccess: (created) => {
+      for (const runId of new Set(created.map((a) => a.run_id))) {
+        void client.invalidateQueries({ queryKey: queryKeys.analyses(runId) });
+      }
+    },
+  });
+}
+
 export function useDeleteAnalysis(runId: string) {
   const client = useQueryClient();
   return useMutation({
@@ -327,6 +348,103 @@ export function useDistanceMatrix(
             }),
           )
       : skipToken,
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  });
+}
+
+// --- zigzag ---------------------------------------------------------------------------
+
+export function useZigzagBars(
+  analysisId: string,
+  epsilonIndex: number,
+  dimension: number,
+  minLifetime: number,
+) {
+  return useQuery({
+    queryKey: [
+      ...queryKeys.analysis(analysisId),
+      "zigzag-bars",
+      epsilonIndex,
+      dimension,
+      minLifetime,
+    ],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/analyses/{analysis_id}/zigzag/bars", {
+          params: {
+            path: { analysis_id: analysisId },
+            query: { epsilon_index: epsilonIndex, dimension, min_lifetime: minLifetime },
+          },
+        }),
+      ),
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useZigzagEvents(analysisId: string, epsilonIndex: number, dimension: number) {
+  return useQuery({
+    queryKey: [...queryKeys.analysis(analysisId), "zigzag-events", epsilonIndex, dimension],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/analyses/{analysis_id}/zigzag/events", {
+          params: {
+            path: { analysis_id: analysisId },
+            query: { epsilon_index: epsilonIndex, dimension },
+          },
+        }),
+      ),
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useZigzagRepresentative(
+  analysisId: string,
+  epsilonIndex: number,
+  bar: number | null,
+  step: number | null,
+) {
+  return useQuery({
+    queryKey: [...queryKeys.analysis(analysisId), "zigzag-rep", epsilonIndex, bar, step],
+    queryFn:
+      bar === null || step === null
+        ? skipToken
+        : () =>
+            unwrap(
+              api.GET("/api/analyses/{analysis_id}/zigzag/representative", {
+                params: {
+                  path: { analysis_id: analysisId },
+                  query: { epsilon_index: epsilonIndex, bar, step },
+                },
+              }),
+            ),
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useZigzagBatchSummary(
+  batchId: string | null,
+  epsilonIndex: number,
+  dimension: number,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [...queryKeys.batch(batchId ?? "none"), "zigzag", epsilonIndex, dimension],
+    queryFn:
+      batchId && enabled
+        ? () =>
+            unwrap(
+              api.GET("/api/analysis-batches/{batch_id}/zigzag-summary", {
+                params: {
+                  path: { batch_id: batchId },
+                  query: { epsilon_index: epsilonIndex, dimension },
+                },
+              }),
+            )
+        : skipToken,
     staleTime: Infinity,
     placeholderData: keepPreviousData,
   });

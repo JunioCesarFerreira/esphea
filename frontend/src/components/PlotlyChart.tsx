@@ -23,10 +23,23 @@ interface PlotlyChartProps {
   layout: Partial<Layout>;
   height?: number;
   ariaLabel: string;
+  /** Called with the ``customdata`` of a clicked point (when it has one). */
+  onPointClick?: (customdata: unknown) => void;
 }
 
+type ClickablePlot = HTMLElement & {
+  on?: (event: string, handler: (event: { points?: { customdata?: unknown }[] }) => void) => void;
+  removeAllListeners?: (event: string) => void;
+};
+
 /** Thin imperative wrapper: ``Plotly.react`` on every change, ``purge`` on unmount. */
-export function PlotlyChart({ data, layout, height = 480, ariaLabel }: PlotlyChartProps) {
+export function PlotlyChart({
+  data,
+  layout,
+  height = 480,
+  ariaLabel,
+  onPointClick,
+}: PlotlyChartProps) {
   const container = useRef<HTMLDivElement>(null);
   const [plotly, setPlotly] = useState<PlotlyModule | null>(null);
 
@@ -43,6 +56,22 @@ export function PlotlyChart({ data, layout, height = 480, ariaLabel }: PlotlyCha
     if (!plotly || !element) return;
     void plotly.react(element, data, { ...layout, height, autosize: true }, CONFIG);
   }, [plotly, data, layout, height]);
+
+  useEffect(() => {
+    const element = container.current as ClickablePlot | null;
+    if (!plotly || !element || !onPointClick) return;
+    // Plotly attaches ``on`` to the element once it has been plotted.
+    const attach = window.setTimeout(() => {
+      element.on?.("plotly_click", (event) => {
+        const customdata = event.points?.[0]?.customdata;
+        if (customdata !== undefined && customdata !== null) onPointClick(customdata);
+      });
+    });
+    return () => {
+      window.clearTimeout(attach);
+      element.removeAllListeners?.("plotly_click");
+    };
+  }, [plotly, onPointClick, data]);
 
   useEffect(() => {
     const element = container.current;

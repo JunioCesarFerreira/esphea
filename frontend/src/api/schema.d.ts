@@ -234,9 +234,33 @@ export interface paths {
         put?: never;
         /**
          * Create Analysis
-         * @description Queue a persistent-homology analysis of every stored generation of a finished run.
+         * @description Queue an analysis (``topology`` or ``zigzag``) of a finished run.
          */
         post: operations["create_analysis_api_runs__run_id__analyses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/experiments/{experiment_id}/analyses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Experiment Analyses
+         * @description Analyses of every run of an experiment (batches share a ``batch_id``).
+         */
+        get: operations["list_experiment_analyses_api_experiments__experiment_id__analyses_get"];
+        put?: never;
+        /**
+         * Create Analysis Batch
+         * @description Queue the same analysis for every finished run of an experiment, as one batch.
+         */
+        post: operations["create_analysis_batch_api_experiments__experiment_id__analyses_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -355,6 +379,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/analyses/{analysis_id}/zigzag/bars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Zigzag Bars */
+        get: operations["get_zigzag_bars_api_analyses__analysis_id__zigzag_bars_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analyses/{analysis_id}/zigzag/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Zigzag Events */
+        get: operations["get_zigzag_events_api_analyses__analysis_id__zigzag_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analyses/{analysis_id}/zigzag/representative": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Zigzag Representative
+         * @description The population at ``step`` and the representative cycle of ``bar`` there.
+         */
+        get: operations["get_zigzag_representative_api_analyses__analysis_id__zigzag_representative_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analysis-batches/{batch_id}/zigzag-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Zigzag Batch Summary
+         * @description Median and quartiles across the runs of a batch, per generation.
+         */
+        get: operations["get_zigzag_batch_summary_api_analysis_batches__batch_id__zigzag_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -371,9 +469,12 @@ export interface components {
              * Format: uuid
              */
             run_id: string;
+            /** Batch Id */
+            batch_id: string | null;
             /** Kind */
             kind: string;
-            config: components["schemas"]["TopologyAnalysisConfig"];
+            /** Config */
+            config: components["schemas"]["TopologyAnalysisConfig"] | components["schemas"]["ZigzagAnalysisConfig"];
             status: components["schemas"]["RunStatus"];
             /** Progress */
             progress: number;
@@ -512,6 +613,11 @@ export interface components {
             median_nearest_neighbour: number;
             /** Suggested Max Epsilon */
             suggested_max_epsilon: number;
+            /**
+             * Suggested Scales
+             * @description Fixed scales for a zigzag: multiples of the population's spacing.
+             */
+            suggested_scales: number[];
         };
         /** ExperimentConfig */
         ExperimentConfig: {
@@ -818,6 +924,34 @@ export interface components {
          * @enum {string}
          */
         PointCloudKind: "survivors" | "merged" | "first_front";
+        /** QuartilesOut */
+        QuartilesOut: {
+            /** Q1 */
+            q1: number[];
+            /** Median */
+            median: number[];
+            /** Q3 */
+            q3: number[];
+        };
+        /** RepresentativeOut */
+        RepresentativeOut: {
+            /** Step */
+            step: number;
+            /** Generation */
+            generation: number;
+            /** Is R Step */
+            is_r_step: boolean;
+            /** Dimension */
+            dimension: number;
+            /** Members */
+            members: number[];
+            /** Points */
+            points: number[][];
+            /** Simplices */
+            simplices: number[][] | null;
+            /** Component */
+            component: number[];
+        };
         /** RunOut */
         RunOut: {
             /**
@@ -924,8 +1058,16 @@ export interface components {
             /** Generations */
             generations: number[];
         };
-        /** TopologyAnalysisConfig */
+        /**
+         * TopologyAnalysisConfig
+         * @description Vietoris-Rips persistence of every stored generation, and distances between them.
+         */
         TopologyAnalysisConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "topology";
             /**
              * @description Which individuals of each stored generation form the point cloud.
              * @default survivors
@@ -986,6 +1128,112 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * ZigzagAnalysisConfig
+         * @description Zigzag persistence of P_{t-1} -> R_t <- P_t at fixed Vietoris-Rips scales.
+         */
+        ZigzagAnalysisConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "zigzag";
+            /**
+             * Epsilons
+             * @description Fixed scales (edge lengths); one zigzag barcode per scale.
+             */
+            epsilons: number[];
+            /**
+             * Max Dimension
+             * @description Highest homology dimension.
+             * @default 0
+             */
+            max_dimension: number;
+            /**
+             * @description 'none' or 'ideal_nadir' (a per-generation scaling would break the inclusions).
+             * @default none
+             */
+            normalization: components["schemas"]["NormalizationKind"];
+            /**
+             * Representatives
+             * @description Longest bars per dimension and scale whose representative cycles are kept.
+             * @default 10
+             */
+            representatives: number;
+        };
+        /**
+         * ZigzagBarsOut
+         * @description Bars alive on steps [birth, death - 1]; step 2t is P_t and step 2t - 1 is R_t.
+         */
+        ZigzagBarsOut: {
+            /** Epsilon */
+            epsilon: number;
+            /** Dimension */
+            dimension: number;
+            /** N Generations */
+            n_generations: number;
+            /** N Steps */
+            n_steps: number;
+            /** N Simplices */
+            n_simplices: number | null;
+            /**
+             * Representatives Skipped
+             * @description Why representatives were not extracted at this scale (null otherwise).
+             */
+            representatives_skipped: string | null;
+            /** Bar */
+            bar: number[];
+            /** Birth */
+            birth: number[];
+            /** Death */
+            death: number[];
+            /** Kind */
+            kind: string[];
+            /** Birth Cause */
+            birth_cause: string[];
+            /** Death Cause */
+            death_cause: string[];
+            /**
+             * Representative
+             * @description Representative available (true), unavailable (false) or not kept (null).
+             */
+            representative: (boolean | null)[];
+        };
+        /** ZigzagBatchSummaryOut */
+        ZigzagBatchSummaryOut: {
+            /** Generation */
+            generation: number[];
+            /** N Runs */
+            n_runs: number;
+            /** Series */
+            series: {
+                [key: string]: components["schemas"]["QuartilesOut"];
+            };
+        };
+        /**
+         * ZigzagEventsOut
+         * @description Per generation t: Betti numbers at P_t and R_t, births and deaths by cause.
+         */
+        ZigzagEventsOut: {
+            /** Epsilon */
+            epsilon: number;
+            /** Dimension */
+            dimension: number;
+            /** Generation */
+            generation: number[];
+            /** Betti P */
+            betti_p: number[];
+            /** Betti R */
+            betti_r: (number | null)[];
+            /** Births Variation */
+            births_variation: number[];
+            /** Births Selection */
+            births_selection: number[];
+            /** Deaths Variation */
+            deaths_variation: number[];
+            /** Deaths Selection */
+            deaths_selection: number[];
         };
     };
     responses: never;
@@ -1448,7 +1696,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TopologyAnalysisConfig"];
+                "application/json": components["schemas"]["TopologyAnalysisConfig"] | components["schemas"]["ZigzagAnalysisConfig"];
             };
         };
         responses: {
@@ -1459,6 +1707,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalysisOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_experiment_analyses_api_experiments__experiment_id__analyses_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_analysis_batch_api_experiments__experiment_id__analyses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopologyAnalysisConfig"] | components["schemas"]["ZigzagAnalysisConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisOut"][];
                 };
             };
             /** @description Validation Error */
@@ -1684,6 +1998,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DistanceMatrixOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_zigzag_bars_api_analyses__analysis_id__zigzag_bars_get: {
+        parameters: {
+            query?: {
+                epsilon_index?: number;
+                dimension?: number;
+                min_lifetime?: number;
+            };
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZigzagBarsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_zigzag_events_api_analyses__analysis_id__zigzag_events_get: {
+        parameters: {
+            query?: {
+                epsilon_index?: number;
+                dimension?: number;
+            };
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZigzagEventsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_zigzag_representative_api_analyses__analysis_id__zigzag_representative_get: {
+        parameters: {
+            query: {
+                bar: number;
+                step: number;
+                epsilon_index?: number;
+            };
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepresentativeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_zigzag_batch_summary_api_analysis_batches__batch_id__zigzag_summary_get: {
+        parameters: {
+            query?: {
+                epsilon_index?: number;
+                dimension?: number;
+            };
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZigzagBatchSummaryOut"];
                 };
             };
             /** @description Validation Error */

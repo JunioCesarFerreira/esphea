@@ -618,7 +618,7 @@
           "analyses"
         ],
         "summary": "Create Analysis",
-        "description": "Queue a persistent-homology analysis of every stored generation of a finished run.",
+        "description": "Queue an analysis (``topology`` or ``zigzag``) of a finished run.",
         "operationId": "create_analysis_api_runs__run_id__analyses_post",
         "parameters": [
           {
@@ -637,7 +637,22 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TopologyAnalysisConfig"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TopologyAnalysisConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ZigzagAnalysisConfig"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "topology": "#/components/schemas/TopologyAnalysisConfig",
+                    "zigzag": "#/components/schemas/ZigzagAnalysisConfig"
+                  }
+                },
+                "title": "Config"
               }
             }
           }
@@ -649,6 +664,125 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AnalysisOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/experiments/{experiment_id}/analyses": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "List Experiment Analyses",
+        "description": "Analyses of every run of an experiment (batches share a ``batch_id``).",
+        "operationId": "list_experiment_analyses_api_experiments__experiment_id__analyses_get",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Experiment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalysisOut"
+                  },
+                  "title": "Response List Experiment Analyses Api Experiments  Experiment Id  Analyses Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Create Analysis Batch",
+        "description": "Queue the same analysis for every finished run of an experiment, as one batch.",
+        "operationId": "create_analysis_batch_api_experiments__experiment_id__analyses_post",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Experiment Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TopologyAnalysisConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ZigzagAnalysisConfig"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "topology": "#/components/schemas/TopologyAnalysisConfig",
+                    "zigzag": "#/components/schemas/ZigzagAnalysisConfig"
+                  }
+                },
+                "title": "Config"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalysisOut"
+                  },
+                  "title": "Response Create Analysis Batch Api Experiments  Experiment Id  Analyses Post"
                 }
               }
             }
@@ -1033,6 +1167,290 @@
           }
         }
       }
+    },
+    "/api/analyses/{analysis_id}/zigzag/bars": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Zigzag Bars",
+        "operationId": "get_zigzag_bars_api_analyses__analysis_id__zigzag_bars_get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "epsilon_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Epsilon Index"
+            }
+          },
+          {
+            "name": "dimension",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2,
+              "minimum": 0,
+              "default": 0,
+              "title": "Dimension"
+            }
+          },
+          {
+            "name": "min_lifetime",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Min Lifetime"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZigzagBarsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/{analysis_id}/zigzag/events": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Zigzag Events",
+        "operationId": "get_zigzag_events_api_analyses__analysis_id__zigzag_events_get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "epsilon_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Epsilon Index"
+            }
+          },
+          {
+            "name": "dimension",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2,
+              "minimum": 0,
+              "default": 0,
+              "title": "Dimension"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZigzagEventsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/{analysis_id}/zigzag/representative": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Zigzag Representative",
+        "description": "The population at ``step`` and the representative cycle of ``bar`` there.",
+        "operationId": "get_zigzag_representative_api_analyses__analysis_id__zigzag_representative_get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "bar",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Bar"
+            }
+          },
+          {
+            "name": "step",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "title": "Step"
+            }
+          },
+          {
+            "name": "epsilon_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Epsilon Index"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepresentativeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis-batches/{batch_id}/zigzag-summary": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Zigzag Batch Summary",
+        "description": "Median and quartiles across the runs of a batch, per generation.",
+        "operationId": "get_zigzag_batch_summary_api_analysis_batches__batch_id__zigzag_summary_get",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "epsilon_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Epsilon Index"
+            }
+          },
+          {
+            "name": "dimension",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2,
+              "minimum": 0,
+              "default": 0,
+              "title": "Dimension"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZigzagBatchSummaryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1049,12 +1467,39 @@
             "format": "uuid",
             "title": "Run Id"
           },
+          "batch_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
           "kind": {
             "type": "string",
             "title": "Kind"
           },
           "config": {
-            "$ref": "#/components/schemas/TopologyAnalysisConfig"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TopologyAnalysisConfig"
+              },
+              {
+                "$ref": "#/components/schemas/ZigzagAnalysisConfig"
+              }
+            ],
+            "title": "Config",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "topology": "#/components/schemas/TopologyAnalysisConfig",
+                "zigzag": "#/components/schemas/ZigzagAnalysisConfig"
+              }
+            }
           },
           "status": {
             "$ref": "#/components/schemas/RunStatus"
@@ -1116,6 +1561,7 @@
         "required": [
           "id",
           "run_id",
+          "batch_id",
           "kind",
           "config",
           "status",
@@ -1442,6 +1888,14 @@
           "suggested_max_epsilon": {
             "type": "number",
             "title": "Suggested Max Epsilon"
+          },
+          "suggested_scales": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Suggested Scales",
+            "description": "Fixed scales for a zigzag: multiples of the population's spacing."
           }
         },
         "type": "object",
@@ -1449,7 +1903,8 @@
           "max_diameter",
           "median_diameter",
           "median_nearest_neighbour",
-          "suggested_max_epsilon"
+          "suggested_max_epsilon",
+          "suggested_scales"
         ],
         "title": "EpsilonSuggestionOut"
       },
@@ -2089,6 +2544,111 @@
         ],
         "title": "PointCloudKind"
       },
+      "QuartilesOut": {
+        "properties": {
+          "q1": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Q1"
+          },
+          "median": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Median"
+          },
+          "q3": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Q3"
+          }
+        },
+        "type": "object",
+        "required": [
+          "q1",
+          "median",
+          "q3"
+        ],
+        "title": "QuartilesOut"
+      },
+      "RepresentativeOut": {
+        "properties": {
+          "step": {
+            "type": "integer",
+            "title": "Step"
+          },
+          "generation": {
+            "type": "integer",
+            "title": "Generation"
+          },
+          "is_r_step": {
+            "type": "boolean",
+            "title": "Is R Step"
+          },
+          "dimension": {
+            "type": "integer",
+            "title": "Dimension"
+          },
+          "members": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Members"
+          },
+          "points": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Points"
+          },
+          "simplices": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Simplices"
+          },
+          "component": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Component"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "generation",
+          "is_r_step",
+          "dimension",
+          "members",
+          "points",
+          "simplices",
+          "component"
+        ],
+        "title": "RepresentativeOut"
+      },
       "RunOut": {
         "properties": {
           "id": {
@@ -2342,6 +2902,12 @@
       },
       "TopologyAnalysisConfig": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "const": "topology",
+            "title": "Kind",
+            "default": "topology"
+          },
           "point_cloud": {
             "$ref": "#/components/schemas/PointCloudKind",
             "description": "Which individuals of each stored generation form the point cloud.",
@@ -2379,7 +2945,8 @@
         "required": [
           "max_epsilon"
         ],
-        "title": "TopologyAnalysisConfig"
+        "title": "TopologyAnalysisConfig",
+        "description": "Vietoris-Rips persistence of every stored generation, and distances between them."
       },
       "TopologySeriesOut": {
         "properties": {
@@ -2489,6 +3056,283 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "ZigzagAnalysisConfig": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "zigzag",
+            "title": "Kind",
+            "default": "zigzag"
+          },
+          "epsilons": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Epsilons",
+            "description": "Fixed scales (edge lengths); one zigzag barcode per scale."
+          },
+          "max_dimension": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Max Dimension",
+            "description": "Highest homology dimension.",
+            "default": 0
+          },
+          "normalization": {
+            "$ref": "#/components/schemas/NormalizationKind",
+            "description": "'none' or 'ideal_nadir' (a per-generation scaling would break the inclusions).",
+            "default": "none"
+          },
+          "representatives": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 0.0,
+            "title": "Representatives",
+            "description": "Longest bars per dimension and scale whose representative cycles are kept.",
+            "default": 10
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "epsilons"
+        ],
+        "title": "ZigzagAnalysisConfig",
+        "description": "Zigzag persistence of P_{t-1} -> R_t <- P_t at fixed Vietoris-Rips scales."
+      },
+      "ZigzagBarsOut": {
+        "properties": {
+          "epsilon": {
+            "type": "number",
+            "title": "Epsilon"
+          },
+          "dimension": {
+            "type": "integer",
+            "title": "Dimension"
+          },
+          "n_generations": {
+            "type": "integer",
+            "title": "N Generations"
+          },
+          "n_steps": {
+            "type": "integer",
+            "title": "N Steps"
+          },
+          "n_simplices": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N Simplices"
+          },
+          "representatives_skipped": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Representatives Skipped",
+            "description": "Why representatives were not extracted at this scale (null otherwise)."
+          },
+          "bar": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Bar"
+          },
+          "birth": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Birth"
+          },
+          "death": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Death"
+          },
+          "kind": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kind"
+          },
+          "birth_cause": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Birth Cause"
+          },
+          "death_cause": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Death Cause"
+          },
+          "representative": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Representative",
+            "description": "Representative available (true), unavailable (false) or not kept (null)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "epsilon",
+          "dimension",
+          "n_generations",
+          "n_steps",
+          "n_simplices",
+          "representatives_skipped",
+          "bar",
+          "birth",
+          "death",
+          "kind",
+          "birth_cause",
+          "death_cause",
+          "representative"
+        ],
+        "title": "ZigzagBarsOut",
+        "description": "Bars alive on steps [birth, death - 1]; step 2t is P_t and step 2t - 1 is R_t."
+      },
+      "ZigzagBatchSummaryOut": {
+        "properties": {
+          "generation": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Generation"
+          },
+          "n_runs": {
+            "type": "integer",
+            "title": "N Runs"
+          },
+          "series": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/QuartilesOut"
+            },
+            "type": "object",
+            "title": "Series"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generation",
+          "n_runs",
+          "series"
+        ],
+        "title": "ZigzagBatchSummaryOut"
+      },
+      "ZigzagEventsOut": {
+        "properties": {
+          "epsilon": {
+            "type": "number",
+            "title": "Epsilon"
+          },
+          "dimension": {
+            "type": "integer",
+            "title": "Dimension"
+          },
+          "generation": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Generation"
+          },
+          "betti_p": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Betti P"
+          },
+          "betti_r": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Betti R"
+          },
+          "births_variation": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Births Variation"
+          },
+          "births_selection": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Births Selection"
+          },
+          "deaths_variation": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Deaths Variation"
+          },
+          "deaths_selection": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Deaths Selection"
+          }
+        },
+        "type": "object",
+        "required": [
+          "epsilon",
+          "dimension",
+          "generation",
+          "betti_p",
+          "betti_r",
+          "births_variation",
+          "births_selection",
+          "deaths_variation",
+          "deaths_selection"
+        ],
+        "title": "ZigzagEventsOut",
+        "description": "Per generation t: Betti numbers at P_t and R_t, births and deaths by cause."
       }
     }
   }
