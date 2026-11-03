@@ -15,8 +15,14 @@ from esphea.experiments.storage import SnapshotReader, snapshot_directory
 from esphea.persistence.models import RunStatus
 from esphea.persistence.repositories import AnalysisRepository
 from esphea.services.leases import Lease, database_renewal
+from esphea.services.supervision import Progress, SupervisedTaskError, run_supervised
 from esphea.topology.config import parse_analysis_config
-from esphea.topology.runners import AnalysisContext, AnalysisRunner, default_runners
+from esphea.topology.runners import (
+    AnalysisConfigModel,
+    AnalysisContext,
+    AnalysisRunner,
+    default_runners,
+)
 from esphea.topology.storage import analysis_directory
 
 logger = logging.getLogger(__name__)
@@ -49,6 +55,28 @@ class _ProgressRecorder:
         self._last = now
         with self._sessions.begin() as session:
             AnalysisRepository(session).set_progress(self._analysis_id, self._attempt, done, total)
+
+
+class _AnalysisTask:
+    """Picklable call of a runner, executed in the supervised child process."""
+
+    def __init__(
+        self,
+        runner: AnalysisRunner,
+        config: AnalysisConfigModel,
+        context: AnalysisContext,
+        output: Path,
+    ) -> None:
+        self.runner = runner
+        self.config = config
+        self.context = context
+        self.output = output
+
+    def __call__(self, progress: Progress) -> None:
+        # The supervisor terminates the process to stop it, so no polling is needed.
+        self.runner.run(
+            self.config, self.context, self.output, progress=progress, should_stop=lambda: False
+        )
 
 
 class AnalysisExecutionService:
@@ -97,21 +125,24 @@ class AnalysisExecutionService:
                 problem=self._problems.build(experiment.problem),
                 population_size=experiment.pop_size,
             )
-            self._runners[kind].run(
-                config,
-                context,
-                output,
-                progress=_ProgressRecorder(self._sessions, analysis_id, attempt),
-                should_stop=lambda: lease.lost,
+            run_supervised(
+                _AnalysisTask(self._runners[kind], config, context, output),
+                on_progress=_ProgressRecorder(self._sessions, analysis_id, attempt),
+                should_abort=lambda: lease.lost,
             )
         except Exception as exc:
             if lease.lost or isinstance(exc, InterruptedError):
                 logger.warning("analysis %s attempt %d lost its lease", analysis_id, attempt)
                 shutil.rmtree(output, ignore_errors=True)
                 return None
-            logger.exception("analysis %s failed", analysis_id)
-            error = f"{type(exc).__name__}: {exc}"[:MAX_ERROR_LENGTH]
-            return self._finish(analysis_id, attempt, RunStatus.FAILED, output, error=error)
+            if isinstance(exc, SupervisedTaskError):  # the analysis itself failed
+                error = str(exc)
+            else:
+                logger.exception("analysis %s failed", analysis_id)
+                error = f"{type(exc).__name__}: {exc}"
+            return self._finish(
+                analysis_id, attempt, RunStatus.FAILED, output, error=error[:MAX_ERROR_LENGTH]
+            )
         finally:
             lease.stop()
         return self._finish(analysis_id, attempt, RunStatus.COMPLETED, output)
