@@ -86,3 +86,40 @@ def test_iterating_matches_random_access(tmp_path: Path, dtlz2: DTLZ2) -> None:
         np.testing.assert_array_equal(snapshot.population.F, expected.population.F)
         np.testing.assert_array_equal(snapshot.population.X, expected.population.X)
         assert (snapshot.offspring is None) == (expected.offspring is None)
+
+
+def test_individual_ids_follow_survivors(tmp_path: Path, dtlz2: DTLZ2) -> None:
+    _, directory = run_with_snapshots(tmp_path, dtlz2, n_gen=5, every=1, per_part=2)
+    reader = SnapshotReader(directory)
+    assert reader.has_individual_ids
+    snapshots = list(reader.iter_generations())
+    initial = snapshots[0].population
+    assert initial.ids is not None
+    np.testing.assert_array_equal(initial.ids, np.arange(20))
+    seen = set(initial.ids.tolist())
+    previous_survivors = initial.ids
+    for snapshot in snapshots[1:]:
+        population, offspring = snapshot.population, snapshot.offspring
+        assert population.ids is not None
+        assert offspring is not None
+        assert offspring.ids is not None
+        # the parent pool is exactly the previous generation's survivors (in selection order)
+        np.testing.assert_array_equal(np.sort(population.ids), np.sort(previous_survivors))
+        # offspring are new individuals with fresh ids
+        assert seen.isdisjoint(offspring.ids.tolist())
+        seen |= set(offspring.ids.tolist())
+        # an individual keeps its id and its objectives
+        merged_ids = np.concatenate((population.ids, offspring.ids))
+        merged_f = np.vstack((population.F, offspring.F))
+        survived = np.concatenate((population.survived, offspring.survived))
+        previous_survivors = merged_ids[survived]
+        by_id = dict(zip(merged_ids.tolist(), merged_f.tolist(), strict=True))
+        for i, row in zip(population.ids.tolist(), population.F.tolist(), strict=True):
+            assert by_id[i] == row
+
+
+def test_sparse_snapshots_keep_consistent_ids(tmp_path: Path, dtlz2: DTLZ2) -> None:
+    _, directory = run_with_snapshots(tmp_path, dtlz2, n_gen=7, every=3, per_part=10)
+    ids = [s.population.ids for s in SnapshotReader(directory).iter_generations()]
+    assert all(i is not None for i in ids)
+    assert len({tuple(i.tolist()) for i in ids if i is not None}) == 4  # populations differ

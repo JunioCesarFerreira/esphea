@@ -13,6 +13,7 @@ Row layout (see :data:`ROLE_POPULATION`, :data:`ROLE_OFFSPRING`):
 column                    meaning
 ========================  ============================================================
 generation (int32)        generation index ``t`` (0 = initial population)
+individual_id (int64)     run-unique identity of the individual (schema >= 2)
 role (int8)               0 = parent pool ``P_t``, 1 = offspring ``Q_t``
 index (int32)             position within its role
 survived (bool)           selected into ``P_{t+1}``
@@ -44,7 +45,8 @@ from esphea.core.types import AnyArray, BoolArray, FloatArray, IntArray
 
 ROLE_POPULATION = 0
 ROLE_OFFSPRING = 1
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+"""1: initial layout; 2: adds ``individual_id``."""
 _META_FILE = "meta.json"
 _PART_GLOB = "part-*.parquet"
 
@@ -100,10 +102,11 @@ class SnapshotWriter:
         }
         (directory / _META_FILE).write_text(json.dumps(meta))
 
-    def write_initial(self, population: Population) -> None:
+    def write_initial(self, population: Population, ids: IntArray) -> None:
         n = len(population)
         self._append(
             generation=0,
+            ids=ids,
             role=np.full(n, ROLE_POPULATION, dtype=np.int8),
             index=np.arange(n, dtype=np.int32),
             survived=np.ones(n, dtype=np.bool_),
@@ -115,7 +118,9 @@ class SnapshotWriter:
             F=population.F,
         )
 
-    def write_generation(self, record: GenerationRecord) -> None:
+    def write_generation(
+        self, record: GenerationRecord, population_ids: IntArray, offspring_ids: IntArray
+    ) -> None:
         n_pop, n_off = len(record.population), len(record.offspring)
         merged = record.merged()
         rank = np.full(n_pop + n_off, -1, dtype=np.int32)
@@ -129,6 +134,7 @@ class SnapshotWriter:
         mutated[n_pop:] = record.mutated
         self._append(
             generation=record.generation,
+            ids=np.concatenate((population_ids, offspring_ids)),
             role=np.repeat(
                 np.array([ROLE_POPULATION, ROLE_OFFSPRING], dtype=np.int8), [n_pop, n_off]
             ),
@@ -155,6 +161,7 @@ class SnapshotWriter:
         self,
         *,
         generation: int,
+        ids: IntArray,
         role: AnyArray,
         index: AnyArray,
         survived: BoolArray,
@@ -168,6 +175,7 @@ class SnapshotWriter:
         n = role.shape[0]
         columns: dict[str, AnyArray] = {
             "generation": np.full(n, generation, dtype=np.int32),
+            "individual_id": ids.astype(np.int64),
             "role": role,
             "index": index,
             "survived": survived,
@@ -209,6 +217,7 @@ class SnapshotGroup:
     times_selected: IntArray
     parents: IntArray
     mutated: BoolArray
+    ids: IntArray | None = None  # run-unique identities (None for schema 1 runs)
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,6 +239,7 @@ class SnapshotReader:
         self.n_var: int = meta["n_var"]
         self.n_obj: int = meta["n_obj"]
         self.has_decision_variables: bool = meta["decision_variables"]
+        self.has_individual_ids: bool = meta.get("schema_version", 1) >= 2
 
     def _dataset(self) -> ds.Dataset | None:
         parts = sorted(self._directory.glob(_PART_GLOB))
@@ -251,6 +261,8 @@ class SnapshotReader:
         ]  # fmt: skip
         if want_x:
             columns.extend(_x_columns(self.n_var))
+        if self.has_individual_ids:
+            columns.append("individual_id")
         return columns
 
     def read(self, generation: int, *, decision_variables: bool = False) -> GenerationSnapshot:
@@ -294,6 +306,7 @@ class SnapshotReader:
                 times_selected=col("times_selected").astype(np.intp),
                 parents=np.column_stack((col("parent_a"), col("parent_b"))).astype(np.intp),
                 mutated=col("mutated").astype(np.bool_),
+                ids=col("individual_id").astype(np.int64) if self.has_individual_ids else None,
             )
 
         offspring_mask = role == ROLE_OFFSPRING

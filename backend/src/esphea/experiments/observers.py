@@ -10,7 +10,8 @@ import numpy as np
 from esphea.core.observer import AlgorithmObserver
 from esphea.core.population import Population
 from esphea.core.records import GenerationRecord
-from esphea.core.types import BoolArray, FloatArray
+from esphea.core.types import BoolArray, FloatArray, IntArray
+from esphea.experiments.lineage import IdentityTracker
 from esphea.experiments.storage import SnapshotWriter
 from esphea.metrics import QualityIndicator, non_dominated_mask
 
@@ -91,26 +92,32 @@ class IndicatorObserver(AlgorithmObserver):
 
 
 class SnapshotObserver(AlgorithmObserver):
-    """Writes generation snapshots; the last generation is always stored."""
+    """Writes generation snapshots; the last generation is always stored.
+
+    Identities are tracked on every generation, stored or not, so stored
+    individuals always carry their run-unique ``individual_id``.
+    """
 
     def __init__(self, writer: SnapshotWriter, *, every: int = 1) -> None:
         self._writer = writer
         self._every = every
-        self._pending: GenerationRecord | None = None
+        self._identities = IdentityTracker()
+        self._pending: tuple[GenerationRecord, IntArray, IntArray] | None = None
 
     def on_start(self, initial: Population) -> None:
-        self._writer.write_initial(initial)
+        self._writer.write_initial(initial, self._identities.start(initial))
 
     def on_generation(self, record: GenerationRecord) -> None:
+        population_ids, offspring_ids = self._identities.advance(record)
         if record.generation % self._every == 0:
-            self._writer.write_generation(record)
+            self._writer.write_generation(record, population_ids, offspring_ids)
             self._pending = None
         else:
-            self._pending = record
+            self._pending = (record, population_ids, offspring_ids)
 
     def on_finish(self, final: Population, generations: int) -> None:
         if self._pending is not None:
-            self._writer.write_generation(self._pending)
+            self._writer.write_generation(*self._pending)
         self._writer.close()
 
 
