@@ -32,7 +32,7 @@ const NORMALIZATIONS: { value: NormalizationKind; label: string }[] = [
   { value: "min_max", label: "Per generation: min–max" },
 ];
 
-export function AnalysisForm({
+export function TopologyAnalysisForm({
   runId,
   onCreated,
 }: {
@@ -54,6 +54,7 @@ export function AnalysisForm({
     if (maxEpsilon === null) return;
     create.mutate(
       {
+        kind: "topology",
         point_cloud: pointCloud,
         normalization,
         max_dimension: Number(maxDimension),
@@ -76,7 +77,7 @@ export function AnalysisForm({
     <Card withBorder padding="lg">
       <Stack gap="md">
         <div>
-          <Title order={4}>New persistent-homology analysis</Title>
+          <Title order={4}>Barcodes per generation</Title>
           <Text size="sm" c="dimmed">
             Vietoris–Rips barcodes of the population in objective space for every stored generation,
             and the distances between them.

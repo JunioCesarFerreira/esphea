@@ -18,7 +18,7 @@ import {
   useDistanceMatrix,
   useTopologySeries,
 } from "../../../../api/queries";
-import type { Analysis } from "../../../../api/types";
+import type { Analysis, TopologyAnalysisConfig } from "../../../../api/types";
 import { PlotlyChart } from "../../../../components/PlotlyChart";
 import { QueryState } from "../../../../components/QueryState";
 import { useChartTheme } from "../../../../hooks/useChartTheme";
@@ -90,9 +90,15 @@ function DimensionPicker({
   );
 }
 
-export function AnalysisResults({ analysis }: { analysis: Analysis }) {
+export function AnalysisResults({
+  analysis,
+  config,
+}: {
+  analysis: Analysis;
+  config: TopologyAnalysisConfig;
+}) {
   const theme = useChartTheme();
-  const maxDimension = analysis.config.max_dimension;
+  const maxDimension = config.max_dimension ?? 1;
   const series = useTopologySeries(analysis.id);
   const generations = useMemo(() => series.data?.generation ?? [], [series.data]);
   const [position, setPosition] = useState<number | null>(null);
@@ -118,11 +124,11 @@ export function AnalysisResults({ analysis }: { analysis: Analysis }) {
     analysis.id,
     matrixDimension,
     matrixMetric,
-    analysis.config.distance_matrix,
+    config.distance_matrix ?? false,
   );
 
   const metricOptions = Object.entries(METRIC_LABELS).map(([value, label]) => ({ value, label }));
-  const epsilon = analysis.config.max_epsilon;
+  const epsilon = config.max_epsilon;
   const edge = displayScale(series.data?.max_finite_death ?? 0, epsilon);
 
   return (
@@ -276,7 +282,7 @@ export function AnalysisResults({ analysis }: { analysis: Analysis }) {
             </ChartCard>
           </SimpleGrid>
 
-          {analysis.config.distance_matrix && (
+          {config.distance_matrix && (
             <ChartCard
               title="Distance matrix"
               description="Distance between the barcodes of every pair of (up to 100) generations."
@@ -308,7 +314,10 @@ export function AnalysisResults({ analysis }: { analysis: Analysis }) {
                       scaleanchor: "x",
                       constrain: "domain",
                     },
-                    xaxis: { ...generationLayout(theme, "Generation").xaxis, constrain: "domain" },
+                    xaxis: {
+                      ...generationLayout(theme, "Generation").xaxis,
+                      constrain: "domain",
+                    },
                   })}
                 />
               )}

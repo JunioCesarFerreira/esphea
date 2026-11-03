@@ -4,6 +4,7 @@ import {
   Button,
   Group,
   Progress,
+  SegmentedControl,
   Select,
   Stack,
   Text,
@@ -16,9 +17,13 @@ import { useState } from "react";
 import { useAnalyses, useDeleteAnalysis } from "../../../../api/queries";
 import { isActive, type Analysis, type Experiment } from "../../../../api/types";
 import { StatusBadge } from "../../../../components/StatusBadge";
-import { describeAnalysis } from "../../../../lib/analysisModel";
-import { AnalysisForm } from "./AnalysisForm";
+import { ANALYSIS_KIND_LABELS, describeAnalysis } from "../../../../lib/analysisModel";
+import { TopologyAnalysisForm } from "./AnalysisForm";
 import { AnalysisResults } from "./AnalysisResults";
+import { ZigzagForm } from "./ZigzagForm";
+import { ZigzagResults } from "./ZigzagResults";
+
+type Kind = keyof typeof ANALYSIS_KIND_LABELS;
 
 function Progressing({ analysis }: { analysis: Analysis }) {
   const share = analysis.total > 0 ? analysis.progress / analysis.total : 0;
@@ -27,7 +32,9 @@ function Progressing({ analysis }: { analysis: Analysis }) {
       <Text size="sm">
         {analysis.status === "queued"
           ? "Waiting for a worker…"
-          : `Computing generation barcodes (${analysis.progress} / ${analysis.total})`}
+          : analysis.kind === "zigzag"
+            ? `Computing the zigzag at each scale (${analysis.progress} / ${analysis.total})`
+            : `Computing generation barcodes (${analysis.progress} / ${analysis.total})`}
       </Text>
       <Progress value={share * 100} animated />
     </Stack>
@@ -42,6 +49,7 @@ export function TopologyPanel({ experiment }: { experiment: Experiment }) {
   const analyses = useAnalyses(runId);
   const [chosen, setChosen] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [kind, setKind] = useState<Kind>("zigzag");
   const remove = useDeleteAnalysis(runId ?? "");
 
   if (finished.length === 0) {
@@ -51,6 +59,11 @@ export function TopologyPanel({ experiment }: { experiment: Experiment }) {
       </Alert>
     );
   }
+
+  const onCreated = (id: string) => {
+    setChosen(id);
+    setCreating(false);
+  };
 
   const list = analyses.data ?? [];
   const selected = list.find((a) => a.id === chosen) ?? list[0];
@@ -119,14 +132,24 @@ export function TopologyPanel({ experiment }: { experiment: Experiment }) {
       </Group>
 
       {showForm && runId && (
-        <AnalysisForm
-          key={runId}
-          runId={runId}
-          onCreated={(id) => {
-            setChosen(id);
-            setCreating(false);
-          }}
-        />
+        <Stack gap="sm">
+          <SegmentedControl
+            value={kind}
+            onChange={(value) => setKind(value as Kind)}
+            data={Object.entries(ANALYSIS_KIND_LABELS).map(([value, label]) => ({ value, label }))}
+          />
+          {kind === "zigzag" ? (
+            <ZigzagForm
+              key={runId}
+              experimentId={experiment.id}
+              runId={runId}
+              finishedRuns={finished.length}
+              onCreated={onCreated}
+            />
+          ) : (
+            <TopologyAnalysisForm key={runId} runId={runId} onCreated={onCreated} />
+          )}
+        </Stack>
       )}
 
       {!showForm && selected && (
@@ -145,9 +168,17 @@ export function TopologyPanel({ experiment }: { experiment: Experiment }) {
               {selected.error}
             </Alert>
           )}
-          {selected.status === "completed" && (
-            <AnalysisResults key={selected.id} analysis={selected} />
-          )}
+          {selected.status === "completed" &&
+            (selected.config.kind === "zigzag" ? (
+              <ZigzagResults
+                key={selected.id}
+                analysis={selected}
+                config={selected.config}
+                nObj={experiment.config.problem.n_obj}
+              />
+            ) : (
+              <AnalysisResults key={selected.id} analysis={selected} config={selected.config} />
+            ))}
         </>
       )}
     </Stack>
