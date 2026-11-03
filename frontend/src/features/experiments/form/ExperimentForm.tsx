@@ -19,9 +19,17 @@ import type {
   ExperimentConfig,
   NSGA3Config,
   PMConfig,
+  ProblemConfig,
+  ProblemName,
   SBXConfig,
 } from "../../../api/types";
-import { ALGORITHM_LABELS, PROBLEM_LABELS, switchAlgorithm } from "../../../lib/configModel";
+import {
+  ALGORITHM_LABELS,
+  PROBLEM_DESCRIPTIONS,
+  PROBLEM_LABELS,
+  switchAlgorithm,
+  switchProblem,
+} from "../../../lib/configModel";
 import { NumberField } from "./fields";
 import { useIssue } from "./issues";
 
@@ -101,41 +109,56 @@ function GeneralSection({ config, onChange }: Omit<FormProps, "catalog">) {
 
 function ProblemSection({ config, catalog, onChange }: FormProps) {
   const problem = config.problem;
-  const update = (patch: Partial<typeof problem>) =>
-    onChange({ ...config, problem: { ...problem, ...patch } });
+  const update = (next: ProblemConfig) => onChange({ ...config, problem: next });
   return (
     <Section title="Problem" description="Box-constrained multi-objective minimisation benchmark.">
       <Select
         label="Benchmark"
+        description={PROBLEM_DESCRIPTIONS[problem.name]}
         data={catalog.problems.map((p) => ({
           value: p.name,
           label: PROBLEM_LABELS[p.name] ?? p.name,
         }))}
         value={problem.name}
         allowDeselect={false}
-        onChange={() => undefined}
+        onChange={(name) => name && onChange(switchProblem(config, catalog, name as ProblemName))}
       />
-      <SimpleGrid cols={{ base: 1, sm: 2 }}>
-        <NumberField
-          path="problem.n_obj"
-          label="Objectives (M)"
-          min={2}
-          max={15}
-          allowDecimal={false}
-          value={problem.n_obj}
-          onChange={(n_obj) => update({ n_obj })}
-        />
-        <NumberField
-          path="problem.k"
-          label="Distance variables (k)"
-          description={`n_var = M + k − 1 = ${problem.n_obj + problem.k - 1}`}
-          min={1}
-          max={100}
-          allowDecimal={false}
-          value={problem.k}
-          onChange={(k) => update({ k })}
-        />
-      </SimpleGrid>
+      {problem.name === "dtlz2" ? (
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+          <NumberField
+            path="problem.n_obj"
+            label="Objectives (M)"
+            min={2}
+            max={15}
+            allowDecimal={false}
+            value={problem.n_obj}
+            onChange={(n_obj) => update({ ...problem, n_obj })}
+          />
+          <NumberField
+            path="problem.k"
+            label="Distance variables (k)"
+            description={`n_var = M + k − 1 = ${problem.n_obj + problem.k - 1}`}
+            min={1}
+            max={100}
+            allowDecimal={false}
+            value={problem.k}
+            onChange={(k) => update({ ...problem, k })}
+          />
+        </SimpleGrid>
+      ) : (
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+          <NumberField
+            path="problem.n_var"
+            label="Decision variables (n)"
+            description="Objectives: M = 2"
+            min={2}
+            max={1000}
+            allowDecimal={false}
+            value={problem.n_var}
+            onChange={(n_var) => update({ ...problem, n_var })}
+          />
+        </SimpleGrid>
+      )}
     </Section>
   );
 }

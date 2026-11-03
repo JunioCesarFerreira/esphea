@@ -528,7 +528,7 @@ export interface components {
          */
         CatalogOut: {
             /** Problems */
-            problems: components["schemas"]["DTLZ2Config"][];
+            problems: (components["schemas"]["DTLZ2Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"])[];
             /** Algorithms */
             algorithms: (components["schemas"]["NSGA2Config"] | components["schemas"]["NSGA3Config"])[];
             metrics: components["schemas"]["MetricsConfig"];
@@ -537,9 +537,8 @@ export interface components {
         /** DTLZ2Config */
         DTLZ2Config: {
             /**
-             * Name
-             * @default dtlz2
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             name: "dtlz2";
             /**
@@ -624,13 +623,14 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Problem
              * @default {
              *       "name": "dtlz2",
              *       "n_obj": 3,
              *       "k": 10
              *     }
              */
-            problem: components["schemas"]["DTLZ2Config"];
+            problem: components["schemas"]["DTLZ2Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"];
             /** Algorithm */
             algorithm: components["schemas"]["NSGA2Config"] | components["schemas"]["NSGA3Config"];
             /**
@@ -1128,6 +1128,78 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * ZDT1Config
+         * @description Convex, connected front.
+         */
+        ZDT1Config: {
+            /**
+             * N Obj
+             * @description ZDT problems are bi-objective.
+             * @default 2
+             * @constant
+             */
+            n_obj: 2;
+            /**
+             * N Var
+             * @description Decision variables (n).
+             * @default 30
+             */
+            n_var: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "zdt1";
+        };
+        /**
+         * ZDT3Config
+         * @description Disconnected front (five pieces).
+         */
+        ZDT3Config: {
+            /**
+             * N Obj
+             * @description ZDT problems are bi-objective.
+             * @default 2
+             * @constant
+             */
+            n_obj: 2;
+            /**
+             * N Var
+             * @description Decision variables (n).
+             * @default 30
+             */
+            n_var: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "zdt3";
+        };
+        /**
+         * ZDT4Config
+         * @description Convex front behind many local fronts (multimodal).
+         */
+        ZDT4Config: {
+            /**
+             * N Obj
+             * @description ZDT problems are bi-objective.
+             * @default 2
+             * @constant
+             */
+            n_obj: 2;
+            /**
+             * N Var
+             * @description Decision variables (n).
+             * @default 10
+             */
+            n_var: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "zdt4";
         };
         /**
          * ZigzagAnalysisConfig

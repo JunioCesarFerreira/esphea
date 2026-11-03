@@ -4,6 +4,8 @@ import type {
   AlgorithmName,
   Catalog,
   ExperimentConfig,
+  ProblemConfig,
+  ProblemName,
   ValidationIssue,
 } from "../api/types";
 
@@ -12,7 +14,19 @@ export const ALGORITHM_LABELS: Record<AlgorithmName, string> = {
   nsga3: "NSGA-III",
 };
 
-export const PROBLEM_LABELS: Record<string, string> = { dtlz2: "DTLZ2" };
+export const PROBLEM_LABELS: Record<string, string> = {
+  dtlz2: "DTLZ2",
+  zdt1: "ZDT1",
+  zdt3: "ZDT3",
+  zdt4: "ZDT4",
+};
+
+export const PROBLEM_DESCRIPTIONS: Record<ProblemName, string> = {
+  dtlz2: "Scalable number of objectives; the front is a sphere octant.",
+  zdt1: "Bi-objective; convex, connected front.",
+  zdt3: "Bi-objective; front split into five disconnected pieces.",
+  zdt4: "Bi-objective; convex front hidden behind many local fronts (multimodal).",
+};
 
 export const INDICATOR_LABELS: Record<string, string> = {
   igd: "IGD",
@@ -31,6 +45,12 @@ export function describeExperiment(config: ExperimentConfig): string {
 export function algorithmDefaults(catalog: Catalog, name: AlgorithmName): AlgorithmConfig {
   const found = catalog.algorithms.find((algorithm) => algorithm.name === name);
   if (!found) throw new Error(`algorithm '${name}' is not in the catalog`);
+  return structuredClone(found);
+}
+
+export function problemDefaults(catalog: Catalog, name: ProblemName): ProblemConfig {
+  const found = catalog.problems.find((problem) => problem.name === name);
+  if (!found) throw new Error(`problem '${name}' is not in the catalog`);
   return structuredClone(found);
 }
 
@@ -65,9 +85,24 @@ export function switchAlgorithm(
   return wasGenerated ? { ...next, name: describeExperiment(next) } : next;
 }
 
+/** Swap the problem for the defaults of another one, keeping everything else. */
+export function switchProblem(
+  config: ExperimentConfig,
+  catalog: Catalog,
+  name: ProblemName,
+): ExperimentConfig {
+  if (config.problem.name === name) return config;
+  const wasGenerated = config.name === describeExperiment(config);
+  const next = { ...config, problem: problemDefaults(catalog, name) };
+  return wasGenerated ? { ...next, name: describeExperiment(next) } : next;
+}
+
 export function duplicateConfig(config: ExperimentConfig): ExperimentConfig {
   return { ...structuredClone(config), name: `${config.name} (copy)` };
 }
+
+/** Tags of the discriminated unions, which the server inserts into issue paths. */
+const UNION_TAGS = new Set([...Object.keys(ALGORITHM_LABELS), ...Object.keys(PROBLEM_LABELS)]);
 
 /**
  * Index server validation issues by dotted field path relative to the body
@@ -79,7 +114,7 @@ export function issuesByPath(issues: ValidationIssue[]): Map<string, string[]> {
   for (const issue of issues) {
     const path = issue.loc
       .slice(1)
-      .filter((part) => !(typeof part === "string" && ["nsga2", "nsga3"].includes(part)))
+      .filter((part) => !(typeof part === "string" && UNION_TAGS.has(part)))
       .join(".");
     const message = issue.msg.replace(/^Value error, /, "");
     result.set(path, [...(result.get(path) ?? []), message]);

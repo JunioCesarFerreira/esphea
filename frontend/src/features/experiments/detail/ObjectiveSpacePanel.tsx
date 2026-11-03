@@ -138,20 +138,16 @@ export function ObjectiveSpacePanel({ experiment, liveFronts }: ObjectiveSpacePa
       if (nObj > 3) {
         return { data: [liveParallelTrace(live.front, theme)], layout: parcoordsLayout };
       }
-      return {
-        data: liveFrontTraces(live.front, truePoints, layers.has("front"), theme),
-        layout: objectiveSpaceLayout(theme, nObj, `${runId}`),
-      };
+      const traces = liveFrontTraces(live.front, truePoints, layers.has("front"), theme);
+      return { data: traces, layout: objectiveSpaceLayout(theme, nObj, `${runId}`, traces) };
     }
     const data = snapshot.data;
     if (!data) return null;
     if (nObj > 3) {
       return { data: [parallelCoordinatesTrace(data, layers, theme)], layout: parcoordsLayout };
     }
-    return {
-      data: objectiveSpaceTraces(data, truePoints, layers, theme),
-      layout: objectiveSpaceLayout(theme, nObj, `${runId}`),
-    };
+    const traces = objectiveSpaceTraces(data, truePoints, layers, theme);
+    return { data: traces, layout: objectiveSpaceLayout(theme, nObj, `${runId}`, traces) };
   }, [live, snapshot.data, truePoints, layers, theme, nObj, runId]);
 
   const runOptions = experiment.runs.map((r) => ({

@@ -322,10 +322,28 @@ export function baseLayout(theme: ChartTheme, overrides: Partial<Layout> = {}): 
   };
 }
 
+/** Above this ratio between the x and y spans, equal scales would flatten the cloud into a line. */
+export const EQUAL_SCALE_MAX_RATIO = 5;
+
+/** Whether the 2D points of ``traces`` span comparable ranges on both axes. */
+export function comparableSpans(traces: Data[]): boolean {
+  const span = (key: "x" | "y") => {
+    const values = traces.flatMap(
+      (trace) => ((trace as { [k: string]: unknown })[key] as unknown[] | undefined) ?? [],
+    );
+    const numbers = values.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+    return numbers.length > 0 ? Math.max(...numbers) - Math.min(...numbers) : 0;
+  };
+  const [x, y] = [span("x"), span("y")];
+  if (x === 0 || y === 0) return true;
+  return Math.max(x, y) / Math.min(x, y) <= EQUAL_SCALE_MAX_RATIO;
+}
+
 export function objectiveSpaceLayout(
   theme: ChartTheme,
   nObj: number,
   revision: string,
+  traces: Data[] = [],
 ): Partial<Layout> {
   const titled = (i: number) => ({
     title: { text: objectiveLabel(i), font: { color: theme.inkSecondary } },
@@ -350,6 +368,14 @@ export function objectiveSpaceLayout(
         aspectmode: "cube",
         camera: { eye: { x: 1.5, y: 1.5, z: 1.1 } },
       },
+    };
+  }
+  if (!comparableSpans(traces)) {
+    // e.g. ZDT4 early on: f2 spans hundreds while f1 stays in [0, 1]
+    return {
+      ...layout,
+      xaxis: { ...layout.xaxis, ...titled(0) },
+      yaxis: { ...layout.yaxis, ...titled(1) },
     };
   }
   return {

@@ -5,7 +5,10 @@ type Schemas = components["schemas"];
 
 export type Catalog = Schemas["CatalogOut"];
 export type ExperimentConfig = Schemas["ExperimentConfig"];
-export type ProblemConfig = Schemas["DTLZ2Config"];
+export type DTLZ2Config = Schemas["DTLZ2Config"];
+export type ZDTConfig = Schemas["ZDT1Config"] | Schemas["ZDT3Config"] | Schemas["ZDT4Config"];
+export type ProblemConfig = DTLZ2Config | ZDTConfig;
+export type ProblemName = ProblemConfig["name"];
 export type NSGA2Config = Schemas["NSGA2Config"];
 export type NSGA3Config = Schemas["NSGA3Config"];
 export type AlgorithmConfig = NSGA2Config | NSGA3Config;

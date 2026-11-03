@@ -1658,7 +1658,29 @@
         "properties": {
           "problems": {
             "items": {
-              "$ref": "#/components/schemas/DTLZ2Config"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DTLZ2Config"
+                },
+                {
+                  "$ref": "#/components/schemas/ZDT1Config"
+                },
+                {
+                  "$ref": "#/components/schemas/ZDT3Config"
+                },
+                {
+                  "$ref": "#/components/schemas/ZDT4Config"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "name",
+                "mapping": {
+                  "dtlz2": "#/components/schemas/DTLZ2Config",
+                  "zdt1": "#/components/schemas/ZDT1Config",
+                  "zdt3": "#/components/schemas/ZDT3Config",
+                  "zdt4": "#/components/schemas/ZDT4Config"
+                }
+              }
             },
             "type": "array",
             "title": "Problems"
@@ -1917,11 +1939,34 @@
             "title": "Name"
           },
           "problem": {
-            "$ref": "#/components/schemas/DTLZ2Config",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DTLZ2Config"
+              },
+              {
+                "$ref": "#/components/schemas/ZDT1Config"
+              },
+              {
+                "$ref": "#/components/schemas/ZDT3Config"
+              },
+              {
+                "$ref": "#/components/schemas/ZDT4Config"
+              }
+            ],
+            "title": "Problem",
             "default": {
               "name": "dtlz2",
               "n_obj": 3,
               "k": 10
+            },
+            "discriminator": {
+              "propertyName": "name",
+              "mapping": {
+                "dtlz2": "#/components/schemas/DTLZ2Config",
+                "zdt1": "#/components/schemas/ZDT1Config",
+                "zdt3": "#/components/schemas/ZDT3Config",
+                "zdt4": "#/components/schemas/ZDT4Config"
+              }
             }
           },
           "algorithm": {
@@ -3056,6 +3101,93 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "ZDT1Config": {
+        "properties": {
+          "n_obj": {
+            "type": "integer",
+            "const": 2,
+            "title": "N Obj",
+            "description": "ZDT problems are bi-objective.",
+            "default": 2
+          },
+          "n_var": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 2.0,
+            "title": "N Var",
+            "description": "Decision variables (n).",
+            "default": 30
+          },
+          "name": {
+            "type": "string",
+            "const": "zdt1",
+            "title": "Name",
+            "default": "zdt1"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ZDT1Config",
+        "description": "Convex, connected front."
+      },
+      "ZDT3Config": {
+        "properties": {
+          "n_obj": {
+            "type": "integer",
+            "const": 2,
+            "title": "N Obj",
+            "description": "ZDT problems are bi-objective.",
+            "default": 2
+          },
+          "n_var": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 2.0,
+            "title": "N Var",
+            "description": "Decision variables (n).",
+            "default": 30
+          },
+          "name": {
+            "type": "string",
+            "const": "zdt3",
+            "title": "Name",
+            "default": "zdt3"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ZDT3Config",
+        "description": "Disconnected front (five pieces)."
+      },
+      "ZDT4Config": {
+        "properties": {
+          "n_obj": {
+            "type": "integer",
+            "const": 2,
+            "title": "N Obj",
+            "description": "ZDT problems are bi-objective.",
+            "default": 2
+          },
+          "n_var": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 2.0,
+            "title": "N Var",
+            "description": "Decision variables (n).",
+            "default": 10
+          },
+          "name": {
+            "type": "string",
+            "const": "zdt4",
+            "title": "Name",
+            "default": "zdt4"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ZDT4Config",
+        "description": "Convex front behind many local fronts (multimodal)."
       },
       "ZigzagAnalysisConfig": {
         "properties": {

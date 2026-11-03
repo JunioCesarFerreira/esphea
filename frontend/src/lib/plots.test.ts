@@ -3,7 +3,14 @@ import { describe, expect, it } from "vitest";
 import type { GenerationSnapshot, SnapshotGroup } from "../api/types";
 import { chartTheme } from "./chartTheme";
 import { formatBytes, formatNumber } from "./format";
-import { bandTraces, objectiveSpaceTraces, parallelCoordinatesTrace, type Layer } from "./plots";
+import {
+  bandTraces,
+  comparableSpans,
+  objectiveSpaceLayout,
+  objectiveSpaceTraces,
+  parallelCoordinatesTrace,
+  type Layer,
+} from "./plots";
 
 const theme = chartTheme("light");
 
@@ -107,5 +114,26 @@ describe("format", () => {
     expect(formatBytes(3 * 1024 * 1024)).toBe("3.0 MB");
     expect(formatNumber(0.053412)).toBe("0.05341");
     expect(formatNumber(null)).toBe("—");
+  });
+});
+
+describe("objective space scales", () => {
+  const cloud = (x: number[], y: number[]) => [{ type: "scattergl" as const, x, y }];
+
+  it("keeps equal scales when both objectives span similar ranges", () => {
+    const traces = cloud([0, 0.5, 1], [0, 0.8, 1.2]);
+    expect(comparableSpans(traces)).toBe(true);
+    expect(objectiveSpaceLayout(theme, 2, "r", traces).yaxis?.scaleanchor).toBe("x");
+  });
+
+  it("frees the scales when one objective spans far more than the other", () => {
+    const traces = cloud([0, 0.3, 1], [90, 150, 230]); // ZDT4 at generation 0
+    expect(comparableSpans(traces)).toBe(false);
+    expect(objectiveSpaceLayout(theme, 2, "r", traces).yaxis?.scaleanchor).toBeUndefined();
+  });
+
+  it("ignores gaps and degenerate clouds", () => {
+    expect(comparableSpans(cloud([0, NaN, 1], [0, 1, 2]))).toBe(true);
+    expect(comparableSpans([])).toBe(true);
   });
 });

@@ -2,7 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from esphea.experiments.config import ExperimentConfig, MetricsConfig, NSGA2Config, NSGA3Config
+from esphea.experiments.config import (
+    ExperimentConfig,
+    MetricsConfig,
+    NSGA2Config,
+    NSGA3Config,
+    ZDT1Config,
+    ZDT3Config,
+    ZDT4Config,
+)
 from esphea.experiments.observers import GenerationMetrics, RunProgress
 from esphea.experiments.registry import default_algorithm_registry, default_problem_registry
 from esphea.experiments.runner import RunExecutor
@@ -55,6 +63,22 @@ def test_executes_configured_run(
     assert reporter.events[-1].generation == 10
     assert reporter.events[-1].front.shape[1] == 3
     assert SnapshotReader(tmp_path / "s").generations() == list(range(11))
+
+
+@pytest.mark.parametrize("problem", [ZDT1Config(n_var=8), ZDT3Config(n_var=8), ZDT4Config(n_var=5)])
+def test_executes_bi_objective_problems(
+    executor: RunExecutor, problem: ZDT1Config | ZDT3Config | ZDT4Config
+) -> None:
+    config = ExperimentConfig(
+        name="t", problem=problem, algorithm=NSGA2Config(pop_size=20), n_gen=5
+    )
+    sink = ListSink()
+    outcome = executor.execute(
+        config, seed=1, metrics_sink=sink, progress=ListReporter(), snapshot_dir=None
+    )
+    assert outcome.generations == 5
+    assert set(sink.rows[-1].values) == {"igd", "igd_plus", "hv"}
+    assert all(value >= 0 for value in sink.rows[-1].values.values())
 
 
 def test_cancellation_stops_early(executor: RunExecutor) -> None:

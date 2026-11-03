@@ -30,7 +30,8 @@ Evolutionary algorithms (EAs) operate on populations of candidate solutions that
 ## Current status
 
 The first milestone is an experimentation platform for **NSGA-II** and **NSGA-III** on the
-scalable **DTLZ2** benchmark, built so that persistent homology can later be applied to the
+scalable **DTLZ2** benchmark and the bi-objective **ZDT1**, **ZDT3** (disconnected front) and
+**ZDT4** (multimodal) benchmarks, built so that persistent homology can be applied to the
 populations *inside* each generation:
 
 - own generational loop exposing, at every generation, the parent pool `P_t`, the matings, the

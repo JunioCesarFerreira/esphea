@@ -7,10 +7,15 @@ import {
   duplicateConfig,
   issuesByPath,
   switchAlgorithm,
+  switchProblem,
 } from "./configModel";
 
 const catalog: Catalog = {
-  problems: [{ name: "dtlz2", n_obj: 3, k: 10 }],
+  problems: [
+    { name: "dtlz2", n_obj: 3, k: 10 },
+    { name: "zdt1", n_obj: 2, n_var: 30 },
+    { name: "zdt4", n_obj: 2, n_var: 10 },
+  ],
   algorithms: [
     {
       name: "nsga2",
@@ -52,6 +57,16 @@ describe("configModel", () => {
     expect(switchAlgorithm(custom, catalog, "nsga2").name).toBe("My study");
   });
 
+  it("switches problem to its defaults and renames generated names only", () => {
+    const generated = switchProblem(defaultConfig(catalog), catalog, "zdt4");
+    expect(generated.problem).toEqual({ name: "zdt4", n_obj: 2, n_var: 10 });
+    expect(generated.name).toBe("NSGA-III on ZDT4 (M=2)");
+    expect(generated.algorithm).toEqual(defaultConfig(catalog).algorithm);
+
+    const custom = { ...defaultConfig(catalog), name: "My study" };
+    expect(switchProblem(custom, catalog, "zdt1").name).toBe("My study");
+  });
+
   it("duplicates with a copy suffix", () => {
     const copy = duplicateConfig({ ...defaultConfig(catalog), name: "A" });
     expect(copy.name).toBe("A (copy)");
@@ -61,7 +76,9 @@ describe("configModel", () => {
     const issues = issuesByPath([
       { loc: ["body", "algorithm", "nsga3", "pop_size"], msg: "too small", type: "x" },
       { loc: ["body"], msg: "Value error, pop_size below directions", type: "value_error" },
+      { loc: ["body", "problem", "zdt1", "n_var"], msg: "too few", type: "x" },
     ]);
+    expect(issues.get("problem.n_var")).toEqual(["too few"]);
     expect(issues.get("algorithm.pop_size")).toEqual(["too small"]);
     expect(issues.get("")).toEqual(["pop_size below directions"]);
   });

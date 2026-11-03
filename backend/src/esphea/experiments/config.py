@@ -33,8 +33,33 @@ class DTLZ2Config(_Model):
         return self.n_obj + self.k - 1
 
 
-# A discriminated union on ``name`` once more problems are registered.
-ProblemConfig = DTLZ2Config
+class _ZDTConfig(_Model):
+    n_obj: Literal[2] = Field(default=2, description="ZDT problems are bi-objective.")
+    n_var: int = Field(default=30, ge=2, le=1000, description="Decision variables (n).")
+
+
+class ZDT1Config(_ZDTConfig):
+    """Convex, connected front."""
+
+    name: Literal["zdt1"] = "zdt1"
+
+
+class ZDT3Config(_ZDTConfig):
+    """Disconnected front (five pieces)."""
+
+    name: Literal["zdt3"] = "zdt3"
+
+
+class ZDT4Config(_ZDTConfig):
+    """Convex front behind many local fronts (multimodal)."""
+
+    name: Literal["zdt4"] = "zdt4"
+    n_var: int = Field(default=10, ge=2, le=1000, description="Decision variables (n).")
+
+
+ProblemConfig = Annotated[
+    DTLZ2Config | ZDT1Config | ZDT3Config | ZDT4Config, Field(discriminator="name")
+]
 
 
 # --- variation operators --------------------------------------------------------------

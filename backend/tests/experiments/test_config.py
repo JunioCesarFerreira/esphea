@@ -6,6 +6,8 @@ from esphea.experiments.config import (
     ExperimentConfig,
     NSGA2Config,
     NSGA3Config,
+    ZDT3Config,
+    ZDT4Config,
 )
 
 
@@ -23,6 +25,29 @@ def test_algorithm_is_discriminated_by_name() -> None:
     )
     assert isinstance(config.algorithm, NSGA2Config)
     assert config.pop_size == 40
+
+
+@pytest.mark.parametrize(("name", "n_var"), [("zdt1", 30), ("zdt3", 30), ("zdt4", 10)])
+def test_problem_is_discriminated_by_name(name: str, n_var: int) -> None:
+    config = ExperimentConfig.model_validate(
+        {"name": "x", "problem": {"name": name}, "algorithm": {"name": "nsga2"}}
+    )
+    assert config.problem.name == name
+    assert (config.problem.n_obj, config.problem.n_var) == (2, n_var)
+
+
+def test_zdt_problems_are_bi_objective() -> None:
+    with pytest.raises(ValidationError, match="n_obj"):
+        ExperimentConfig.model_validate(
+            {"name": "x", "problem": {"name": "zdt1", "n_obj": 3}, "algorithm": {"name": "nsga2"}}
+        )
+
+
+def test_zdt_configs_survive_a_round_trip() -> None:
+    for problem in (ZDT3Config(n_var=12), ZDT4Config()):
+        config = ExperimentConfig(name="x", problem=problem, algorithm=NSGA3Config())
+        assert ExperimentConfig.model_validate(config.model_dump(mode="json")) == config
+        assert config.pop_size == 16  # 13 directions on the 2-simplex
 
 
 def test_rejects_unknown_fields() -> None:

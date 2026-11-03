@@ -28,8 +28,8 @@ function EmptyState() {
         <IconFlask size={36} stroke={1.5} />
         <Title order={4}>No experiments yet</Title>
         <Text c="dimmed" size="sm" ta="center" maw={420}>
-          Configure NSGA-II or NSGA-III on DTLZ2, run several seeds in parallel and explore how
-          parents, offspring and survivors move through objective space.
+          Configure NSGA-II or NSGA-III on DTLZ or ZDT benchmarks, run several seeds in parallel and
+          explore how parents, offspring and survivors move through objective space.
         </Text>
         <Button component={Link} to="/experiments/new" leftSection={<IconPlus size={16} />}>
           Create the first experiment

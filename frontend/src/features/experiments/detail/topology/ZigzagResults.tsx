@@ -87,6 +87,7 @@ function RepresentativeViewer({
   const [step, setStep] = useState(birth);
   const clamped = Math.min(Math.max(step, birth), death - 1);
   const view = useZigzagRepresentative(analysis.id, epsilonIndex, bar, clamped);
+  const traces = view.data ? representativeTraces(view.data, theme) : null;
   return (
     <Stack gap="xs">
       <Group gap="md" wrap="nowrap">
@@ -122,8 +123,13 @@ function RepresentativeViewer({
             <PlotlyChart
               ariaLabel={`Representative of bar ${bar} at ${stepLabel(clamped)}`}
               height={nObj === 3 ? 520 : 460}
-              data={representativeTraces(view.data, theme)}
-              layout={objectiveSpaceLayout(theme, nObj, `rep-${analysis.id}-${epsilonIndex}`)}
+              data={traces ?? []}
+              layout={objectiveSpaceLayout(
+                theme,
+                nObj,
+                `rep-${analysis.id}-${epsilonIndex}`,
+                traces ?? [],
+              )}
             />
           </>
         )

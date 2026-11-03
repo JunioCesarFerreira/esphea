@@ -41,7 +41,7 @@ The backend (`backend/src/esphea`) is layered so that inner layers never import 
 ```
 core            domain: Problem, Population, operator interfaces, the evolutionary loop
 topology        persistent homology: point clouds, Vietoris-Rips, diagram distances, analyses
-problems        benchmark problems (DTLZ2)
+problems        benchmark problems (DTLZ2, ZDT1, ZDT3, ZDT4)
 operators       concrete strategies (sampling, selection, SBX, PM, survival)
 algorithms      NSGA-II and NSGA-III as compositions of strategies
 metrics         quality indicators (IGD, IGD+, hypervolume)
@@ -261,8 +261,11 @@ state and Plotly for scientific charts (loaded lazily).
 
 **A new problem.** Subclass `core.Problem` (vectorised `_evaluate`), and implement
 `KnownParetoFront` if the front is known (enables IGD/IGD+/HV). Add a config model in
-`experiments/config.py`, turn `ProblemConfig` into a discriminated union on `name`, and
-register a builder in `experiments/registry.py`.
+`experiments/config.py` to the `ProblemConfig` discriminated union (on `name`), register a
+builder in `experiments/registry.py` and list its defaults in the API catalog. The ZDT
+problems (`problems/zdt.py`) show the pattern for a family: a base class holds the shared
+structure `f_2 = g * h` and extracts the front numerically, so each member only defines `g`
+and `h`.
 
 **A new algorithm.** Compose `core.EvolutionaryAlgorithm` with existing or new strategies
 (`MatingSelection`, `Crossover`, `Mutation`, `Survival`). Add its config model to the

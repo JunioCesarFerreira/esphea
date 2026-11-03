@@ -13,7 +13,11 @@ from esphea.experiments.config import (
     MetricsConfig,
     NSGA2Config,
     NSGA3Config,
+    ProblemConfig,
     SnapshotConfig,
+    ZDT1Config,
+    ZDT3Config,
+    ZDT4Config,
 )
 from esphea.experiments.storage import GenerationSnapshot, SnapshotGroup
 from esphea.persistence.models import ExperimentRow, RunRow, RunStatus
@@ -24,7 +28,7 @@ from esphea.services.results import IndicatorSummary, MetricSeries
 class CatalogOut(BaseModel):
     """Available components with their default parameters."""
 
-    problems: list[DTLZ2Config]
+    problems: list[ProblemConfig]
     algorithms: list[AlgorithmConfig]
     metrics: MetricsConfig
     snapshots: SnapshotConfig
@@ -32,7 +36,7 @@ class CatalogOut(BaseModel):
 
 def default_catalog() -> CatalogOut:
     return CatalogOut(
-        problems=[DTLZ2Config()],
+        problems=[DTLZ2Config(), ZDT1Config(), ZDT3Config(), ZDT4Config()],
         algorithms=[NSGA2Config(), NSGA3Config()],
         metrics=MetricsConfig(),
         snapshots=SnapshotConfig(),
