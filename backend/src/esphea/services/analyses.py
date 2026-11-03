@@ -48,7 +48,11 @@ type AnalysisConfigModel = TopologyAnalysisConfig | ZigzagAnalysisConfig
 
 SUGGESTION_SAMPLE_GENERATIONS = 50
 ZIGZAG_SCALE_FACTORS = (1.0, 1.5, 2.0)
-"""Suggested zigzag scales, as multiples of the median nearest-neighbour spacing."""
+"""Suggested zigzag scales, as multiples of the population's nearest-neighbour spacing.
+
+The spacing of the survivors P_t is used, not that of R_t: offspring are usually
+much closer to their parents than individuals to each other, and that spacing
+would make every individual its own component."""
 FINISHED = (RunStatus.COMPLETED, RunStatus.CANCELLED)
 
 
@@ -320,20 +324,27 @@ class AnalysisService:
             raise InvalidRequestError(str(exc)) from None
         sampled = set(evenly_spaced(reader.generations(), SUGGESTION_SAMPLE_GENERATIONS))
         selector = SELECTORS[point_cloud]
+        survivors = SELECTORS[PointCloudKind.SURVIVORS]
         diameters: list[float] = []
         spacings: list[float] = []
+        population_spacings: list[float] = []
         for snapshot in reader.iter_generations():
             if snapshot.generation not in sampled:
                 continue
             points = normalizer.transform(selector.select(snapshot))
             diameters.append(diameter(points))
             spacings.append(float(np.median(nearest_neighbour_distances(points))))
+            population = normalizer.transform(survivors.select(snapshot))
+            population_spacings.append(float(np.median(nearest_neighbour_distances(population))))
         largest = max(diameters)
         spacing = float(np.median(spacings))
+        population_spacing = float(np.median(population_spacings))
         return EpsilonSuggestion(
             max_diameter=largest,
             median_diameter=float(np.median(diameters)),
             median_nearest_neighbour=spacing,
             suggested_max_epsilon=round_up(largest),
-            suggested_scales=sorted({round_up(spacing * f) for f in ZIGZAG_SCALE_FACTORS}),
+            suggested_scales=sorted(
+                {round_up(population_spacing * f) for f in ZIGZAG_SCALE_FACTORS}
+            ),
         )

@@ -49,6 +49,8 @@ def test_zigzag_of_a_run(client: TestClient, experiment: dict[str, Any]) -> None
     bars = client.get(f"{url}/zigzag/bars", params={"epsilon_index": 1, "dimension": 0}).json()
     assert bars["epsilon"] == 0.3
     assert bars["n_steps"] == 2 * N_GEN + 1
+    assert bars["n_simplices"] > 0
+    assert bars["representatives_skipped"] is None
     assert all(
         0 <= b < d <= bars["n_steps"] for b, d in zip(bars["birth"], bars["death"], strict=True)
     )
@@ -158,4 +160,6 @@ def test_suggested_scales(client: TestClient, experiment: dict[str, Any]) -> Non
     ).json()
     scales = suggestion["suggested_scales"]
     assert scales == sorted(scales)
-    assert scales[0] >= suggestion["median_nearest_neighbour"]
+    assert len(scales) == 3
+    # based on the population's spacing, wider than the parent-offspring spacing of R_t
+    assert scales[0] > suggestion["median_nearest_neighbour"]
