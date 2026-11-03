@@ -59,7 +59,7 @@ class EpsilonSuggestionOut(BaseModel):
     median_nearest_neighbour: float
     suggested_max_epsilon: float
     suggested_scales: list[float] = Field(
-        description="Fixed scales for a zigzag: multiples of the nearest-neighbour spacing."
+        description="Fixed scales for a zigzag: multiples of the population's spacing."
     )
 
     @classmethod
@@ -189,6 +189,10 @@ class ZigzagBarsOut(BaseModel):
     dimension: int
     n_generations: int
     n_steps: int
+    n_simplices: int | None
+    representatives_skipped: str | None = Field(
+        description="Why representatives were not extracted at this scale (null otherwise)."
+    )
     bar: list[int]
     birth: list[int]
     death: list[int]

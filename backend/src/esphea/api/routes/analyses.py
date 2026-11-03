@@ -147,11 +147,14 @@ def get_zigzag_bars(
     except KeyError as exc:
         raise NotFoundError(str(exc.args[0])) from None
     available = reader.representative_bars(epsilon_index)
+    scale = reader.scales[epsilon_index] if epsilon_index < len(reader.scales) else {}
     return ZigzagBarsOut(
         epsilon=reader.epsilons[epsilon_index],
         dimension=dimension,
         n_generations=reader.n_generations,
         n_steps=reader.n_steps,
+        n_simplices=scale.get("n_simplices"),
+        representatives_skipped=scale.get("representatives_skipped"),
         bar=table["bar"],
         birth=table["birth"],
         death=table["death"],

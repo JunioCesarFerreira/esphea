@@ -152,3 +152,20 @@ def test_sparse_snapshots_are_rejected(tmp_path: Path, dtlz2: DTLZ2) -> None:
     )
     with pytest.raises(ValueError, match="every generation"):
         ZigzagSequence.from_snapshots(SnapshotReader(tmp_path), Identity())
+
+
+def test_representatives_are_skipped_above_their_budget() -> None:
+    sequence = random_sequence(np.random.default_rng(1))
+    result = compute_zigzag(
+        sequence,
+        0.3,
+        1,
+        max_simplices=BUDGET,
+        representatives=5,
+        max_representative_simplices=10,
+    )
+    assert result.representatives == {}
+    assert result.representatives_skipped is not None
+    assert "smaller epsilon" in result.representatives_skipped
+    assert result.n_simplices > 10
+    assert result.bars  # the barcode itself is still computed

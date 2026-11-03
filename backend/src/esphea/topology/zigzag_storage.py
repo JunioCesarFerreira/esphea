@@ -44,6 +44,7 @@ class ZigzagResultWriter:
         self._individuals: pa.Table | None = None
         self._bars: dict[str, list[Any]] = {}
         self._representatives: dict[str, list[Any]] = {}
+        self._scales: list[dict[str, Any]] = []
 
     def write_sequence(self, sequence: ZigzagSequence) -> None:
         self._n_generations = sequence.n_generations
@@ -62,6 +63,13 @@ class ZigzagResultWriter:
             columns.setdefault(name, []).append(value)
 
     def add_result(self, epsilon_index: int, result: ZigzagResult) -> None:
+        self._scales.append(
+            {
+                "epsilon": result.epsilon,
+                "n_simplices": result.n_simplices,
+                "representatives_skipped": result.representatives_skipped,
+            }
+        )
         for index, bar in enumerate(result.bars):
             self._append(
                 self._bars,
@@ -134,6 +142,7 @@ class ZigzagResultWriter:
             "epsilons": list(self._epsilons),
             "max_dimension": self._max_dimension,
             "n_generations": self._n_generations,
+            "scales": self._scales,
         }
         (temporary / _META).write_text(json.dumps(meta))
         shutil.rmtree(self._directory, ignore_errors=True)
@@ -161,6 +170,7 @@ class ZigzagResultReader:
         self.max_dimension: int = meta["max_dimension"]
         self.n_generations: int = meta["n_generations"]
         self.n_steps = 2 * self.n_generations + 1
+        self.scales: list[dict[str, Any]] = meta.get("scales", [])
 
     def _check(self, epsilon_index: int, dimension: int) -> None:
         if not 0 <= epsilon_index < len(self.epsilons):

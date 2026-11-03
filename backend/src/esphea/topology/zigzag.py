@@ -36,6 +36,10 @@ from esphea.experiments.storage import SnapshotReader
 from esphea.topology.clouds import Normalizer
 
 CONE_VERTEX = -1
+REPRESENTATIVES_MAX_SIMPLICES = 500_000
+"""Representatives need a reduction that keeps the V matrix, which grows much faster than
+the barcode alone (measured: 0.2 M simplices ~8 s, 0.8 M ~60 s and 2.4 GB). Above this
+size representatives are skipped and only the barcode is computed."""
 
 
 class Cause(StrEnum):
@@ -213,7 +217,10 @@ class RepresentativeSegment:
 class ZigzagResult:
     epsilon: float
     n_steps: int
+    n_simplices: int = 0
     bars: list[ZigzagBar] = field(default_factory=list)
+    # why representatives were not extracted (None when they were, or none were asked for)
+    representatives_skipped: str | None = None
     # index into ``bars`` -> representative segments (empty if unavailable)
     representatives: dict[int, list[RepresentativeSegment]] = field(default_factory=dict)
 
@@ -237,25 +244,33 @@ def compute_zigzag(
     *,
     max_simplices: int,
     representatives: int = 0,
+    max_representative_simplices: int = REPRESENTATIVES_MAX_SIMPLICES,
     should_stop: Callable[[], bool] = lambda: False,
 ) -> ZigzagResult:
     """Zigzag barcodes of ``H_0 .. H_max_dimension`` at scale ``epsilon``.
 
     ``representatives`` is the number of longest bars per dimension (alive on at
-    least two steps) whose representative cycles are extracted.
+    least two steps) whose representative cycles are extracted, as long as the
+    complex has at most ``max_representative_simplices`` simplices.
     """
     simplices, times = zigzag_complex(
         sequence, epsilon, max_dimension, max_simplices=max_simplices, should_stop=should_stop
     )
+    n_steps = sequence.n_steps
+    result = ZigzagResult(epsilon=epsilon, n_steps=n_steps, n_simplices=len(simplices))
+    with_representatives = representatives > 0 and len(simplices) <= max_representative_simplices
+    if representatives > 0 and not with_representatives:
+        result.representatives_skipped = (
+            f"{len(simplices):,} simplices exceed the {max_representative_simplices:,} "
+            "allowed for representatives; use a smaller epsilon to obtain them"
+        )
     cone = dionysus.fast_zigzag(simplices, times)
-    if representatives > 0:
+    if with_representatives:
         reduced, v = dionysus.homology_persistence(cone, method="matrix_v")
     else:
         reduced, v = dionysus.homology_persistence(cone, method="clearing"), None
     diagrams = dionysus.init_zigzag_diagrams(reduced, cone)
 
-    n_steps = sequence.n_steps
-    result = ZigzagResult(epsilon=epsilon, n_steps=n_steps)
     points: list[object] = []
     for dimension in range(max_dimension + 1):
         dimension_diagrams = diagrams[dimension] if dimension < len(diagrams) else {}
@@ -275,7 +290,7 @@ def compute_zigzag(
                 )
                 points.append(point)
 
-    if representatives > 0:
+    if with_representatives:
         for dimension in range(max_dimension + 1):
             longest = sorted(
                 (
