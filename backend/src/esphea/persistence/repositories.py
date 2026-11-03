@@ -244,9 +244,17 @@ class RunRepository(LeasedJobRepository[RunRow]):
 class AnalysisRepository(LeasedJobRepository[AnalysisRow]):
     model = AnalysisRow
 
-    def add(self, run_id: uuid.UUID, kind: str, config: dict[str, Any]) -> AnalysisRow:
+    def add(
+        self,
+        run_id: uuid.UUID,
+        kind: str,
+        config: dict[str, Any],
+        *,
+        batch_id: uuid.UUID | None = None,
+    ) -> AnalysisRow:
         analysis = AnalysisRow(
             run_id=run_id,
+            batch_id=batch_id,
             kind=kind,
             config=config,
             status=RunStatus.QUEUED,
@@ -272,6 +280,26 @@ class AnalysisRepository(LeasedJobRepository[AnalysisRow]):
             select(AnalysisRow)
             .where(AnalysisRow.run_id == run_id)
             .order_by(AnalysisRow.created_at.desc())
+        )
+        return self._session.scalars(statement).all()
+
+    def list_for_experiment(self, experiment_id: uuid.UUID) -> Sequence[AnalysisRow]:
+        statement = (
+            select(AnalysisRow)
+            .join(RunRow, AnalysisRow.run_id == RunRow.id)
+            .where(RunRow.experiment_id == experiment_id)
+            .options(selectinload(AnalysisRow.run))
+            .order_by(AnalysisRow.created_at.desc(), RunRow.index)
+        )
+        return self._session.scalars(statement).all()
+
+    def list_batch(self, batch_id: uuid.UUID) -> Sequence[AnalysisRow]:
+        statement = (
+            select(AnalysisRow)
+            .join(RunRow, AnalysisRow.run_id == RunRow.id)
+            .where(AnalysisRow.batch_id == batch_id)
+            .options(selectinload(AnalysisRow.run))
+            .order_by(RunRow.index)
         )
         return self._session.scalars(statement).all()
 

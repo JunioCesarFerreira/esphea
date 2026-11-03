@@ -121,6 +121,8 @@ class AnalysisRow(LeasedJob, Base):
     __tablename__ = "analyses"
 
     run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), index=True)
+    # Analyses created together for every run of an experiment share a batch.
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
     kind: Mapped[str] = mapped_column(String(32))
     config: Mapped[dict[str, Any]] = mapped_column(JsonType)
     progress: Mapped[int] = mapped_column(Integer, default=0)
