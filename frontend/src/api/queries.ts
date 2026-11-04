@@ -13,6 +13,7 @@ import {
   isActive,
   type Analysis,
   type AnalysisConfig,
+  type AnalysisGroup,
   type ExperimentConfig,
   type ExperimentSummary,
   type NormalizationKind,
@@ -38,6 +39,8 @@ export const queryKeys = {
   analysis: (id: string) => ["analyses", id] as const,
   experimentAnalyses: (id: string) => ["experiments", id, "analyses"] as const,
   batch: (id: string) => ["batches", id] as const,
+  analysisGroups: (experimentId: string) =>
+    ["experiments", experimentId, "analysis-groups"] as const,
 };
 
 export function useCatalog() {
@@ -447,5 +450,79 @@ export function useZigzagBatchSummary(
         : skipToken,
     staleTime: Infinity,
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Analyses of each experiment grouped by configuration; polled while any is computing. */
+export function useAnalysisGroups(experimentIds: string[]) {
+  return useQueries({
+    queries: experimentIds.map((id) => ({
+      queryKey: queryKeys.analysisGroups(id),
+      queryFn: () =>
+        unwrap(
+          api.GET("/api/experiments/{experiment_id}/analysis-groups", {
+            params: { path: { experiment_id: id } },
+          }),
+        ),
+      refetchInterval: (query: { state: { data?: AnalysisGroup[] } }) =>
+        query.state.data?.some((g) => g.pending > 0) ? LIVE_REFRESH_MS : false,
+    })),
+  });
+}
+
+export interface GroupSummaryRequest {
+  experimentId: string;
+  group: AnalysisGroup;
+  dimension: number;
+  epsilonIndex: number;
+}
+
+/** Across-run summaries of one analysis group per experiment (comparison view). */
+export function useAnalysisGroupSummaries(requests: GroupSummaryRequest[]) {
+  return useQueries({
+    queries: requests.map(({ experimentId, group, dimension, epsilonIndex }) => ({
+      // the number of completed runs is part of the key: a new completion refetches
+      queryKey: [
+        ...queryKeys.analysisGroups(experimentId),
+        group.key,
+        group.runs,
+        dimension,
+        epsilonIndex,
+      ],
+      queryFn: () =>
+        unwrap(
+          api.GET("/api/experiments/{experiment_id}/analysis-groups/{key}/summary", {
+            params: {
+              path: { experiment_id: experimentId, key: group.key },
+              query: { dimension, epsilon_index: epsilonIndex },
+            },
+          }),
+        ),
+      staleTime: Infinity,
+      placeholderData: keepPreviousData,
+    })),
+  });
+}
+
+/** Queue the same analysis for every finished run of several experiments. */
+export function useCreateAnalysisBatches() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ experimentIds, config }: { experimentIds: string[]; config: AnalysisConfig }) =>
+      Promise.allSettled(
+        experimentIds.map((id) =>
+          unwrap(
+            api.POST("/api/experiments/{experiment_id}/analyses", {
+              params: { path: { experiment_id: id } },
+              body: config,
+            }),
+          ),
+        ),
+      ),
+    onSettled: (_, __, { experimentIds }) => {
+      for (const id of experimentIds) {
+        void client.invalidateQueries({ queryKey: queryKeys.analysisGroups(id), exact: true });
+      }
+    },
   });
 }

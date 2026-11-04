@@ -16,8 +16,16 @@ import { notifications } from "@mantine/notifications";
 import { IconTopologyStar3 } from "@tabler/icons-react";
 import { useState } from "react";
 
-import { useCreateAnalysis, useEpsilonSuggestion } from "../../../../api/queries";
-import type { NormalizationKind, PointCloudKind } from "../../../../api/types";
+import {
+  useCreateAnalysis,
+  useCreateAnalysisBatch,
+  useEpsilonSuggestion,
+} from "../../../../api/queries";
+import type {
+  NormalizationKind,
+  PointCloudKind,
+  TopologyAnalysisConfig,
+} from "../../../../api/types";
 import { formatNumber } from "../../../../lib/format";
 
 const POINT_CLOUDS: { value: PointCloudKind; label: string }[] = [
@@ -33,10 +41,14 @@ const NORMALIZATIONS: { value: NormalizationKind; label: string }[] = [
 ];
 
 export function TopologyAnalysisForm({
+  experimentId,
   runId,
+  finishedRuns,
   onCreated,
 }: {
+  experimentId: string;
   runId: string;
+  finishedRuns: number;
   onCreated: (id: string) => void;
 }) {
   const [pointCloud, setPointCloud] = useState<PointCloudKind>("survivors");
@@ -44,33 +56,41 @@ export function TopologyAnalysisForm({
   const [maxDimension, setMaxDimension] = useState("1");
   const [epsilon, setEpsilon] = useState<number | null>(null);
   const [matrix, setMatrix] = useState(false);
+  const [allRuns, setAllRuns] = useState(false);
   const suggestion = useEpsilonSuggestion(runId, pointCloud, normalization);
-  const create = useCreateAnalysis(runId);
+  const single = useCreateAnalysis(runId);
+  const batch = useCreateAnalysisBatch(experimentId);
 
   const suggested = suggestion.data?.suggested_max_epsilon;
   const maxEpsilon = epsilon ?? suggested ?? null;
 
   const submit = () => {
     if (maxEpsilon === null) return;
-    create.mutate(
-      {
-        kind: "topology",
-        point_cloud: pointCloud,
-        normalization,
-        max_dimension: Number(maxDimension),
-        max_epsilon: maxEpsilon,
-        distance_matrix: matrix,
-      },
-      {
-        onSuccess: (analysis) => onCreated(analysis.id),
-        onError: (error) =>
-          notifications.show({
-            color: "red",
-            title: "Could not start the analysis",
-            message: error.message,
-          }),
-      },
-    );
+    const config: TopologyAnalysisConfig = {
+      kind: "topology",
+      point_cloud: pointCloud,
+      normalization,
+      max_dimension: Number(maxDimension),
+      max_epsilon: maxEpsilon,
+      distance_matrix: matrix,
+    };
+    const onError = (error: Error) =>
+      notifications.show({
+        color: "red",
+        title: "Could not start the analysis",
+        message: error.message,
+      });
+    if (allRuns) {
+      batch.mutate(config, {
+        onSuccess: (created) => {
+          const own = created.find((a) => a.run_id === runId) ?? created[0];
+          if (own) onCreated(own.id);
+        },
+        onError,
+      });
+    } else {
+      single.mutate(config, { onSuccess: (analysis) => onCreated(analysis.id), onError });
+    }
   };
 
   return (
@@ -153,6 +173,13 @@ export function TopologyAnalysisForm({
           checked={matrix}
           onChange={(event) => setMatrix(event.currentTarget.checked)}
         />
+        <Switch
+          label={`Analyse every finished run of the experiment (${finishedRuns})`}
+          description="Needed to compare experiments: summaries are taken across runs. Use a fixed normalisation so that experiments share one scale."
+          checked={allRuns}
+          disabled={finishedRuns < 2}
+          onChange={(event) => setAllRuns(event.currentTarget.checked)}
+        />
         {maxDimension === "2" && (
           <Text size="xs" c="dimmed">
             H₂ is considerably more expensive to compute.
@@ -162,7 +189,7 @@ export function TopologyAnalysisForm({
           <Button
             leftSection={<IconTopologyStar3 size={16} />}
             disabled={maxEpsilon === null || maxEpsilon <= 0}
-            loading={create.isPending}
+            loading={single.isPending || batch.isPending}
             onClick={submit}
           >
             Compute

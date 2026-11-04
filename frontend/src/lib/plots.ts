@@ -255,7 +255,16 @@ export function convergenceTraces(
   return traces;
 }
 
-export function bandTraces(summary: IndicatorSummary, color: string, name: string): Data[] {
+/** Median and quartiles across runs, per generation; null where no run has a value. */
+export interface BandSummary {
+  generation: number[];
+  median: (number | null)[];
+  q1: (number | null)[];
+  q3: (number | null)[];
+  n_runs: number[];
+}
+
+export function bandTraces(summary: BandSummary, color: string, name: string): Data[] {
   return [
     {
       type: "scatter",

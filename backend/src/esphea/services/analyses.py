@@ -1,12 +1,16 @@
 """Use cases of run analyses (API side): create, inspect, delete and read results."""
 
+import hashlib
+import json
 import logging
 import math
 import shutil
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from sqlalchemy.orm import Session
@@ -35,6 +39,7 @@ from esphea.topology.config import (
     ZIGZAG_ANALYSIS,
     TopologyAnalysisConfig,
     ZigzagAnalysisConfig,
+    parse_analysis_config,
 )
 from esphea.topology.distances import diameter, nearest_neighbour_distances
 from esphea.topology.runners import AnalysisContext, AnalysisRunner, default_runners
@@ -54,6 +59,24 @@ The spacing of the survivors P_t is used, not that of R_t: offspring are usually
 much closer to their parents than individuals to each other, and that spacing
 would make every individual its own component."""
 FINISHED = (RunStatus.COMPLETED, RunStatus.CANCELLED)
+GROUP_IGNORED_SETTINGS = frozenset({"distance_matrix", "representatives"})
+"""Settings that change what is stored but not the summarised series: analyses
+differing only in them belong to the same group."""
+BATCH_SERIES = (
+    "betti",
+    "births_variation",
+    "births_selection",
+    "deaths_variation",
+    "deaths_selection",
+)
+ZIGZAG_EVENT_SERIES = (
+    "births_variation",
+    "births_selection",
+    "births",
+    "deaths_variation",
+    "deaths_selection",
+    "deaths",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +118,82 @@ class ZigzagBatchSummary:
     generations: list[int]
     n_runs: int
     series: dict[str, Quartiles]
+
+
+@dataclass(frozen=True, slots=True)
+class Spread:
+    q1: float
+    median: float
+    q3: float
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisGroup:
+    """Analyses of an experiment's runs sharing one configuration.
+
+    ``completed`` keeps the newest completed analysis of each run, in run order;
+    ``pending`` counts the runs whose analysis is still queued or running.
+    """
+
+    key: str
+    kind: str
+    config: dict[str, Any]
+    completed: list[AnalysisRow]
+    pending: int
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class GroupSummary:
+    """Across-run statistics of an analysis group, per generation.
+
+    A run contributes to the generations it has; ``totals`` holds the spread of
+    the per-run sums of the event series (zigzag births and deaths).
+    """
+
+    kind: str
+    generations: list[int]
+    n_runs: list[int]
+    series: dict[str, Quartiles]
+    totals: dict[str, Spread]
+
+
+type RunSeries = tuple[Sequence[int], Mapping[str, FloatArray]]
+
+
+def group_key(kind: str, config: Mapping[str, Any]) -> str:
+    """Identifier of the analyses that produce comparable series."""
+    settings = parse_analysis_config(kind, dict(config)).model_dump(
+        mode="json", exclude={"kind", *GROUP_IGNORED_SETTINGS}
+    )
+    canonical = json.dumps({"kind": kind, **settings}, sort_keys=True)
+    return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+
+def _quartiles(values: FloatArray) -> Quartiles:
+    """Column-wise quartiles ignoring NaN; NaN where a column has no value."""
+    result = np.full((3, values.shape[1]), np.nan)
+    valid = ~np.all(np.isnan(values), axis=0)
+    if valid.any():
+        result[:, valid] = np.nanpercentile(values[:, valid], [25, 50, 75], axis=0)
+    return Quartiles(q1=result[0], median=result[1], q3=result[2])
+
+
+def summarize_runs(runs: Sequence[RunSeries]) -> tuple[list[int], list[int], dict[str, Quartiles]]:
+    """Generations, runs per generation and quartiles of every series across ``runs``."""
+    generations = sorted({g for run_generations, _ in runs for g in run_generations})
+    column = {g: i for i, g in enumerate(generations)}
+    n_runs = np.zeros(len(generations), dtype=np.intp)
+    stacked: dict[str, FloatArray] = {}
+    for row, (run_generations, series) in enumerate(runs):
+        columns = [column[g] for g in run_generations]
+        n_runs[columns] += 1
+        for name, values in series.items():
+            if name not in stacked:
+                stacked[name] = np.full((len(runs), len(generations)), np.nan)
+            stacked[name][row, columns] = values
+    quartiles = {name: _quartiles(values) for name, values in stacked.items()}
+    return generations, n_runs.tolist(), quartiles
 
 
 def round_up(value: float, significant: int = 2) -> float:
@@ -285,22 +384,10 @@ class AnalysisService:
         samples: dict[str, list[np.ndarray]] = {}
         length = None
         for analysis in analyses:
-            reader = self.zigzag_results(analysis.id)
-            try:
-                events = reader.events(epsilon_index, dimension)
-                betti = reader.betti(epsilon_index, dimension)
-            except KeyError as exc:
-                raise NotFoundError(str(exc.args[0])) from None
-            series = {
-                "betti": betti[0::2].astype(float),  # at P_0, P_1, ..., P_T
-                "births_variation": events.births_variation.astype(float),
-                "births_selection": events.births_selection.astype(float),
-                "deaths_variation": events.deaths_variation.astype(float),
-                "deaths_selection": events.deaths_selection.astype(float),
-            }
-            length = min(length or reader.n_generations + 1, reader.n_generations + 1)
-            for name, values in series.items():
-                samples.setdefault(name, []).append(values)
+            generations, series = self._zigzag_series(analysis, epsilon_index, dimension)
+            length = min(length or len(generations), len(generations))
+            for name in BATCH_SERIES:
+                samples.setdefault(name, []).append(series[name])
         assert length is not None
         quartiles = {}
         for name, runs in samples.items():
@@ -309,6 +396,94 @@ class AnalysisService:
             quartiles[name] = Quartiles(q1=q1, median=median, q3=q3)
         return ZigzagBatchSummary(
             generations=list(range(length)), n_runs=len(analyses), series=quartiles
+        )
+
+    def _zigzag_series(
+        self, analysis: AnalysisRow, epsilon_index: int, dimension: int
+    ) -> RunSeries:
+        reader = self.zigzag_results(analysis.id)
+        try:
+            events = reader.events(epsilon_index, dimension)
+            betti = reader.betti(epsilon_index, dimension)
+        except KeyError as exc:
+            raise NotFoundError(str(exc.args[0])) from None
+        series = {
+            "betti": betti[0::2].astype(float),  # at P_0, P_1, ..., P_T
+            "births_variation": events.births_variation.astype(float),
+            "births_selection": events.births_selection.astype(float),
+            "deaths_variation": events.deaths_variation.astype(float),
+            "deaths_selection": events.deaths_selection.astype(float),
+        }
+        series["births"] = series["births_variation"] + series["births_selection"]
+        series["deaths"] = series["deaths_variation"] + series["deaths_selection"]
+        return list(range(reader.n_generations + 1)), series
+
+    def _topology_series(self, analysis: AnalysisRow, dimension: int) -> RunSeries:
+        reader = self.results(analysis.id)
+        if dimension > reader.max_dimension:
+            raise NotFoundError(f"H{dimension} was not computed")
+        table = reader.series().to_pydict()
+        rows = [i for i, d in enumerate(table["dimension"]) if d == dimension]
+        names = ["n_bars", "total_persistence", "persistent_entropy"]
+        names += [f"{m}_{ref}" for m in reader.metrics for ref in ("previous", "final")]
+        series = {
+            name: np.array([table[name][i] for i in rows], dtype=np.float64) for name in names
+        }
+        return [table["generation"][i] for i in rows], series
+
+    def analysis_groups(self, experiment_id: uuid.UUID) -> list[AnalysisGroup]:
+        """Analyses of an experiment grouped by configuration, newest group first."""
+        members: dict[str, list[AnalysisRow]] = {}
+        for analysis in self.list_for_experiment(experiment_id):  # newest first
+            members.setdefault(group_key(analysis.kind, analysis.config), []).append(analysis)
+        groups = []
+        for key, analyses in members.items():
+            completed: dict[uuid.UUID, AnalysisRow] = {}
+            active: set[uuid.UUID] = set()
+            for analysis in analyses:
+                if analysis.status == RunStatus.COMPLETED:
+                    completed.setdefault(analysis.run_id, analysis)
+                elif analysis.status.is_active:
+                    active.add(analysis.run_id)
+            if not completed and not active:
+                continue  # only failed analyses
+            groups.append(
+                AnalysisGroup(
+                    key=key,
+                    kind=analyses[0].kind,
+                    config=analyses[0].config,
+                    completed=sorted(completed.values(), key=lambda a: a.run.index),
+                    pending=len(active - completed.keys()),
+                    created_at=analyses[0].created_at,
+                )
+            )
+        return groups
+
+    def analysis_group_summary(
+        self, experiment_id: uuid.UUID, key: str, dimension: int, epsilon_index: int
+    ) -> GroupSummary:
+        """Median and quartiles across the runs of a group, per generation."""
+        group = next((g for g in self.analysis_groups(experiment_id) if g.key == key), None)
+        if group is None:
+            raise NotFoundError(f"no analysis group {key} in experiment {experiment_id}")
+        if not group.completed:
+            raise ConflictError("no analysis of this group has completed yet")
+        if group.kind == ZIGZAG_ANALYSIS:
+            runs = [self._zigzag_series(a, epsilon_index, dimension) for a in group.completed]
+        else:
+            runs = [self._topology_series(a, dimension) for a in group.completed]
+        generations, n_runs, series = summarize_runs(runs)
+        totals = {}
+        for name in ZIGZAG_EVENT_SERIES if group.kind == ZIGZAG_ANALYSIS else ():
+            sums = [float(values[name].sum()) for _, values in runs]
+            q1, median, q3 = np.percentile(sums, [25, 50, 75])
+            totals[name] = Spread(q1=float(q1), median=float(median), q3=float(q3))
+        return GroupSummary(
+            kind=group.kind,
+            generations=generations,
+            n_runs=n_runs,
+            series=series,
+            totals=totals,
         )
 
     def suggest_epsilon(

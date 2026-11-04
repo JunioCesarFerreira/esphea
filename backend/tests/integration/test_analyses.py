@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import update
@@ -12,7 +13,7 @@ from esphea.experiments.registry import default_problem_registry
 from esphea.messaging.ports import JobKind
 from esphea.persistence.models import AnalysisRow
 from esphea.persistence.repositories import AnalysisRepository
-from esphea.services.analyses import round_up
+from esphea.services.analyses import group_key, round_up, summarize_runs
 from esphea.services.analysis_execution import AnalysisExecutionService
 from esphea.services.execution import RunService
 from esphea.services.watchdog import AnalysisJobs, RecoveryAction, Watchdog
@@ -165,3 +166,74 @@ def test_round_up() -> None:
     assert round_up(1.234) == 1.3
     assert round_up(0.04321) == 0.044
     assert round_up(2.0) == 2.0
+
+
+def test_summarize_runs_aligns_generations_and_ignores_missing_values() -> None:
+    runs = [
+        ([0, 1, 2], {"x": np.array([np.nan, 1.0, 2.0])}),
+        ([0, 1], {"x": np.array([np.nan, 3.0])}),
+    ]
+    generations, n_runs, series = summarize_runs(runs)
+    assert generations == [0, 1, 2]
+    assert n_runs == [2, 2, 1]
+    assert np.isnan(series["x"].median[0])
+    np.testing.assert_allclose(series["x"].median[1:], [2.0, 2.0])
+    np.testing.assert_allclose(series["x"].q1[1:], [1.5, 2.0])
+
+
+def test_group_key_ignores_stored_extras_only() -> None:
+    base = {"max_epsilon": 2.0, "point_cloud": "survivors"}
+    assert group_key("topology", base) == group_key(
+        "topology", {**base, "distance_matrix": True, "max_dimension": 1}
+    )
+    assert group_key("topology", base) != group_key("topology", {**base, "max_epsilon": 1.0})
+    zigzag = {"epsilons": [0.2, 0.1]}
+    assert group_key("zigzag", zigzag) == group_key(
+        "zigzag", {"epsilons": [0.1, 0.2], "representatives": 3}
+    )
+    assert group_key("zigzag", zigzag) != group_key("topology", {"max_epsilon": 0.2})
+
+
+def test_analysis_groups_across_runs(
+    client: TestClient,
+    queue: RecordingQueue,
+    run_service: RunService,
+    analysis_service: AnalysisExecutionService,
+) -> None:
+    queue.executors[JobKind.RUN] = run_service
+    queue.executors[JobKind.ANALYSIS] = analysis_service
+    body = {
+        "name": "groups",
+        "problem": {"name": "zdt1", "n_var": 6},
+        "algorithm": {"name": "nsga2", "pop_size": 12},
+        "n_gen": N_GEN,
+        "n_runs": 2,
+    }
+    experiment = client.post("/api/experiments", json=body).json()
+    runs = client.get(f"/api/experiments/{experiment['id']}").json()["runs"]
+    # one analysis per run, created separately; the second also stores a matrix
+    create(client, runs[0]["id"], max_epsilon=1.0)
+    create(client, runs[1]["id"], max_epsilon=1.0, distance_matrix=True)
+    create(client, runs[0]["id"], max_epsilon=0.5)
+    url = f"/api/experiments/{experiment['id']}/analysis-groups"
+
+    groups = client.get(url).json()
+    assert [(g["config"]["max_epsilon"], g["runs"], g["pending"]) for g in groups] == [
+        (0.5, 1, 0),
+        (1.0, 2, 0),
+    ]
+    key = groups[1]["key"]
+
+    summary = client.get(f"{url}/{key}/summary", params={"dimension": 0}).json()
+    assert summary["kind"] == "topology"
+    assert summary["generation"] == list(range(N_GEN + 1))
+    assert summary["n_runs"] == [2] * (N_GEN + 1)
+    assert summary["totals"] == {}
+    assert {"n_bars", "total_persistence", "persistent_entropy", "bottleneck_final"} <= set(
+        summary["series"]
+    )
+    assert summary["series"]["bottleneck_previous"]["median"][0] is None
+    assert summary["series"]["bottleneck_final"]["median"][-1] == 0.0
+
+    assert client.get(f"{url}/{key}/summary", params={"dimension": 2}).status_code == 404
+    assert client.get(f"{url}/unknown/summary").status_code == 404

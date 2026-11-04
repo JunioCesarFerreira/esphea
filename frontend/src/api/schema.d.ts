@@ -267,6 +267,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/experiments/{experiment_id}/analysis-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Analysis Groups
+         * @description Analyses of the experiment's runs grouped by configuration, newest first.
+         *
+         *     Analyses differing only in what they store (distance matrix, representatives)
+         *     share a group, since their summarised series are the same.
+         */
+        get: operations["list_analysis_groups_api_experiments__experiment_id__analysis_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/experiments/{experiment_id}/analysis-groups/{key}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Analysis Group Summary
+         * @description Median and quartiles across runs, per generation (``epsilon_index``: zigzag only).
+         */
+        get: operations["get_analysis_group_summary_api_experiments__experiment_id__analysis_groups__key__summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/epsilon-suggestion": {
         parameters: {
             query?: never;
@@ -457,6 +500,64 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AnalysisGroupOut
+         * @description Analyses of an experiment's runs that share a configuration.
+         */
+        AnalysisGroupOut: {
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /** Config */
+            config: components["schemas"]["TopologyAnalysisConfig"] | components["schemas"]["ZigzagAnalysisConfig"];
+            /**
+             * Analysis Ids
+             * @description Newest completed analysis of each run.
+             */
+            analysis_ids: string[];
+            /**
+             * Runs
+             * @description Runs with a completed analysis.
+             */
+            runs: number;
+            /**
+             * Pending
+             * @description Runs whose analysis is still queued or running.
+             */
+            pending: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AnalysisGroupSummaryOut */
+        AnalysisGroupSummaryOut: {
+            /** Kind */
+            kind: string;
+            /** Generation */
+            generation: number[];
+            /**
+             * N Runs
+             * @description Runs contributing to each generation.
+             */
+            n_runs: number[];
+            /**
+             * Series
+             * @description Per generation; null where no run has a value (e.g. no previous generation).
+             */
+            series: {
+                [key: string]: components["schemas"]["SeriesQuartilesOut"];
+            };
+            /**
+             * Totals
+             * @description Spread of the per-run totals of the event series (zigzag only).
+             */
+            totals: {
+                [key: string]: components["schemas"]["SpreadOut"];
+            };
+        };
         /** AnalysisOut */
         AnalysisOut: {
             /**
@@ -1010,6 +1111,15 @@ export interface components {
              */
             prob_var: number;
         };
+        /** SeriesQuartilesOut */
+        SeriesQuartilesOut: {
+            /** Q1 */
+            q1: (number | null)[];
+            /** Median */
+            median: (number | null)[];
+            /** Q3 */
+            q3: (number | null)[];
+        };
         /** SnapshotConfig */
         SnapshotConfig: {
             /**
@@ -1058,6 +1168,15 @@ export interface components {
             parents: number[][];
             /** Mutated */
             mutated: boolean[];
+        };
+        /** SpreadOut */
+        SpreadOut: {
+            /** Q1 */
+            q1: number;
+            /** Median */
+            median: number;
+            /** Q3 */
+            q3: number;
         };
         /** StoredGenerationsOut */
         StoredGenerationsOut: {
@@ -1851,6 +1970,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalysisOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_analysis_groups_api_experiments__experiment_id__analysis_groups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisGroupOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_analysis_group_summary_api_experiments__experiment_id__analysis_groups__key__summary_get: {
+        parameters: {
+            query?: {
+                dimension?: number;
+                epsilon_index?: number;
+            };
+            header?: never;
+            path: {
+                experiment_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisGroupSummaryOut"];
                 };
             };
             /** @description Validation Error */

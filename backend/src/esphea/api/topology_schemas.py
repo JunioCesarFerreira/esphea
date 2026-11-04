@@ -8,7 +8,13 @@ from typing import Self
 from pydantic import BaseModel, Field
 
 from esphea.persistence.models import AnalysisRow, RunStatus
-from esphea.services.analyses import EpsilonSuggestion, RepresentativeView, ZigzagBatchSummary
+from esphea.services.analyses import (
+    AnalysisGroup,
+    EpsilonSuggestion,
+    GroupSummary,
+    RepresentativeView,
+    ZigzagBatchSummary,
+)
 from esphea.topology.config import AnalysisConfig, parse_analysis_config
 from esphea.topology.diagram import PersistenceDiagram
 from esphea.topology.storage import TopologyResultReader
@@ -261,5 +267,73 @@ class ZigzagBatchSummaryOut(BaseModel):
             series={
                 name: QuartilesOut(q1=q.q1.tolist(), median=q.median.tolist(), q3=q.q3.tolist())
                 for name, q in summary.series.items()
+            },
+        )
+
+
+class AnalysisGroupOut(BaseModel):
+    """Analyses of an experiment's runs that share a configuration."""
+
+    key: str
+    kind: str
+    config: AnalysisConfig
+    analysis_ids: list[uuid.UUID] = Field(description="Newest completed analysis of each run.")
+    runs: int = Field(description="Runs with a completed analysis.")
+    pending: int = Field(description="Runs whose analysis is still queued or running.")
+    created_at: datetime
+
+    @classmethod
+    def from_group(cls, group: AnalysisGroup) -> Self:
+        return cls(
+            key=group.key,
+            kind=group.kind,
+            config=parse_analysis_config(group.kind, group.config),
+            analysis_ids=[a.id for a in group.completed],
+            runs=len(group.completed),
+            pending=group.pending,
+            created_at=group.created_at,
+        )
+
+
+class SeriesQuartilesOut(BaseModel):
+    q1: list[float | None]
+    median: list[float | None]
+    q3: list[float | None]
+
+
+class SpreadOut(BaseModel):
+    q1: float
+    median: float
+    q3: float
+
+
+class AnalysisGroupSummaryOut(BaseModel):
+    kind: str
+    generation: list[int]
+    n_runs: list[int] = Field(description="Runs contributing to each generation.")
+    series: dict[str, SeriesQuartilesOut] = Field(
+        description="Per generation; null where no run has a value (e.g. no previous generation)."
+    )
+    totals: dict[str, SpreadOut] = Field(
+        description="Spread of the per-run totals of the event series (zigzag only)."
+    )
+
+    @classmethod
+    def from_summary(cls, summary: GroupSummary) -> Self:
+        return cls(
+            kind=summary.kind,
+            generation=summary.generations,
+            n_runs=summary.n_runs,
+            series={
+                name: SeriesQuartilesOut(
+                    q1=_optional(q.q1.tolist()),
+                    median=_optional(q.median.tolist()),
+                    q3=_optional(q.q3.tolist()),
+                )
+                for name, q in summary.series.items()
+            },
+            totals={
+                name: SpreadOut(q1=t.q1, median=t.median, q3=t.q3)
+                for name, t in summary.totals.items()
             },
         )

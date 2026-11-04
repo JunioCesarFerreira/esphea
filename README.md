@@ -48,7 +48,10 @@ populations *inside* each generation:
   stored generations and explored in the *Topology* tab;
 - **zigzag persistence** of P₀ → R₁ ← P₁ → … at fixed scales: niches and loops followed across
   generations, every birth and death attributed to variation (offspring) or selection (removal),
-  representative niches/cycles in objective space and across-run summaries.
+  representative niches/cycles in objective space and across-run summaries;
+- **topological comparison** of experiments: median and interquartile range across runs of the
+  barcode summaries (number of bars, total persistence, entropy, distances between generations)
+  or of the zigzag Betti numbers and births/deaths, from analyses sharing one configuration.
 
 See [docs/architecture.md](docs/architecture.md) for the design and how to extend it.
 

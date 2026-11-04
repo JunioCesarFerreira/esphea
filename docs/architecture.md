@@ -241,6 +241,19 @@ reported as such.
 summary gives the median and quartiles across runs of the Betti numbers and of births and deaths
 by cause, per generation.
 
+**Groups and comparison.** `GET /api/experiments/{id}/analysis-groups` groups an experiment's
+analyses (either kind) by configuration, keeping the newest completed analysis of each run.
+Settings that only change what is stored (`distance_matrix`, `representatives`) are left out of
+the group key, which is a hash of the configuration alone: the same configuration has the same
+key in every experiment. `GET .../analysis-groups/{key}/summary` gives, per generation, the
+median and quartiles across runs of every summarised series (barcode summaries and distances, or
+zigzag Betti numbers and events), plus the spread of the per-run totals of the zigzag events.
+The *Compare* page uses them to set experiments side by side: it picks by default the
+configuration shared by most selected experiments, warns when the compared analyses differ in
+normalisation, point cloud or scale, and can queue the same configuration for the experiments
+that lack it. Summaries are only comparable within one scale and one objective space, so a fixed
+normalisation (`ideal_nadir`) and equal ε are the meaningful setting across experiments.
+
 Analyses run in a **supervised child process** (`spawn`): native code such as Dionysus holds
 the GIL for long stretches, so the parent process keeps the lease heartbeat alive, relays
 progress and terminates the child if the lease is lost.

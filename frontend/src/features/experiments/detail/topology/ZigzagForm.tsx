@@ -176,7 +176,7 @@ export function ZigzagForm({ experimentId, runId, finishedRuns, onCreated }: Zig
         </SimpleGrid>
         <Switch
           label={`Analyse every finished run of the experiment (${finishedRuns}) as one batch`}
-          description="Enables the across-run summary (median and quartiles per generation)"
+          description="Enables the across-run summary (median and quartiles per generation) and the comparison between experiments"
           checked={allRuns}
           disabled={finishedRuns < 2}
           onChange={(event) => setAllRuns(event.currentTarget.checked)}

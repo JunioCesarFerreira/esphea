@@ -119,6 +119,40 @@ def test_batch_over_every_run(client: TestClient, experiment: dict[str, Any]) ->
         )
 
 
+def test_zigzag_group_summary(client: TestClient, experiment: dict[str, Any]) -> None:
+    url = f"/api/experiments/{experiment['id']}"
+    client.post(f"{url}/analyses", json=ZIGZAG)
+    # the same scales on one run, keeping fewer representatives: same group
+    run_id = experiment["runs"][0]["id"]
+    client.post(f"/api/runs/{run_id}/analyses", json={**ZIGZAG, "representatives": 0})
+
+    groups = client.get(f"{url}/analysis-groups").json()
+    assert len(groups) == 1
+    assert groups[0]["kind"] == "zigzag"
+    assert groups[0]["runs"] == 2
+
+    summary = client.get(
+        f"{url}/analysis-groups/{groups[0]['key']}/summary",
+        params={"epsilon_index": 1, "dimension": 0},
+    ).json()
+    assert summary["generation"] == list(range(N_GEN + 1))
+    assert summary["n_runs"] == [2] * (N_GEN + 1)
+    assert {"betti", "births", "deaths"} <= set(summary["series"])
+    totals = summary["totals"]
+    assert set(totals) == {
+        "births",
+        "births_variation",
+        "births_selection",
+        "deaths",
+        "deaths_variation",
+        "deaths_selection",
+    }
+    for name in ("births", "deaths"):
+        spread = totals[name]
+        assert spread["q1"] <= spread["median"] <= spread["q3"]
+        assert spread["median"] > 0
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [

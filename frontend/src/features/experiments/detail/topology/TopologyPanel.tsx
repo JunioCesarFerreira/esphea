@@ -172,7 +172,13 @@ function AnalysisWorkspace({
             onCreated={onCreated}
           />
         ) : (
-          <TopologyAnalysisForm key={runId} runId={runId} onCreated={onCreated} />
+          <TopologyAnalysisForm
+            key={runId}
+            experimentId={experiment.id}
+            runId={runId}
+            finishedRuns={finishedRuns}
+            onCreated={onCreated}
+          />
         ))}
 
       {!showForm && selected && (

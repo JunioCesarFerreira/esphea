@@ -15,13 +15,16 @@ function homologyRange(maxDimension: number): string {
 }
 
 /** One-line summary of an analysis configuration. */
-export function describeAnalysis(analysis: Analysis): string {
-  const c = analysis.config;
+export function describeConfig(c: AnalysisConfig): string {
   const normalization = NORMALIZATION_LABELS[c.normalization ?? "none"];
   if (c.kind === "zigzag") {
     const scales = c.epsilons.map((e) => formatNumber(e)).join(", ");
-    const scope = analysis.batch_id ? " · all runs" : "";
-    return `zigzag · ε ${scales} · ${homologyRange(c.max_dimension ?? 0)} · ${normalization}${scope}`;
+    return `zigzag · ε ${scales} · ${homologyRange(c.max_dimension ?? 0)} · ${normalization}`;
   }
   return `${CLOUD_LABELS[c.point_cloud ?? "survivors"]} · ${normalization} · ${homologyRange(c.max_dimension ?? 1)} · ε ≤ ${formatNumber(c.max_epsilon)}`;
+}
+
+export function describeAnalysis(analysis: Analysis): string {
+  const scope = analysis.config.kind === "zigzag" && analysis.batch_id ? " · all runs" : "";
+  return describeConfig(analysis.config) + scope;
 }

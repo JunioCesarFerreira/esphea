@@ -7,6 +7,8 @@ from fastapi import APIRouter, Query, Response, status
 
 from esphea.api.dependencies import AnalysisServiceDep
 from esphea.api.topology_schemas import (
+    AnalysisGroupOut,
+    AnalysisGroupSummaryOut,
     AnalysisOut,
     BettiCurvesOut,
     DiagramOut,
@@ -53,6 +55,32 @@ def create_analysis_batch(
 ) -> list[AnalysisOut]:
     """Queue the same analysis for every finished run of an experiment, as one batch."""
     return [AnalysisOut.from_row(row) for row in service.create_batch(experiment_id, config)]
+
+
+@router.get("/experiments/{experiment_id}/analysis-groups")
+def list_analysis_groups(
+    experiment_id: uuid.UUID, service: AnalysisServiceDep
+) -> list[AnalysisGroupOut]:
+    """Analyses of the experiment's runs grouped by configuration, newest first.
+
+    Analyses differing only in what they store (distance matrix, representatives)
+    share a group, since their summarised series are the same.
+    """
+    return [AnalysisGroupOut.from_group(g) for g in service.analysis_groups(experiment_id)]
+
+
+@router.get("/experiments/{experiment_id}/analysis-groups/{key}/summary")
+def get_analysis_group_summary(
+    experiment_id: uuid.UUID,
+    key: str,
+    service: AnalysisServiceDep,
+    dimension: Annotated[int, Query(ge=0, le=2)] = 0,
+    epsilon_index: Annotated[int, Query(ge=0)] = 0,
+) -> AnalysisGroupSummaryOut:
+    """Median and quartiles across runs, per generation (``epsilon_index``: zigzag only)."""
+    return AnalysisGroupSummaryOut.from_summary(
+        service.analysis_group_summary(experiment_id, key, dimension, epsilon_index)
+    )
 
 
 @router.get("/runs/{run_id}/epsilon-suggestion")

@@ -800,6 +800,130 @@
         }
       }
     },
+    "/api/experiments/{experiment_id}/analysis-groups": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "List Analysis Groups",
+        "description": "Analyses of the experiment's runs grouped by configuration, newest first.\n\nAnalyses differing only in what they store (distance matrix, representatives)\nshare a group, since their summarised series are the same.",
+        "operationId": "list_analysis_groups_api_experiments__experiment_id__analysis_groups_get",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Experiment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalysisGroupOut"
+                  },
+                  "title": "Response List Analysis Groups Api Experiments  Experiment Id  Analysis Groups Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/experiments/{experiment_id}/analysis-groups/{key}/summary": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Analysis Group Summary",
+        "description": "Median and quartiles across runs, per generation (``epsilon_index``: zigzag only).",
+        "operationId": "get_analysis_group_summary_api_experiments__experiment_id__analysis_groups__key__summary_get",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Experiment Id"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "dimension",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2,
+              "minimum": 0,
+              "default": 0,
+              "title": "Dimension"
+            }
+          },
+          {
+            "name": "epsilon_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Epsilon Index"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisGroupSummaryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs/{run_id}/epsilon-suggestion": {
       "get": {
         "tags": [
@@ -1455,6 +1579,120 @@
   },
   "components": {
     "schemas": {
+      "AnalysisGroupOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "config": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TopologyAnalysisConfig"
+              },
+              {
+                "$ref": "#/components/schemas/ZigzagAnalysisConfig"
+              }
+            ],
+            "title": "Config",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "topology": "#/components/schemas/TopologyAnalysisConfig",
+                "zigzag": "#/components/schemas/ZigzagAnalysisConfig"
+              }
+            }
+          },
+          "analysis_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Analysis Ids",
+            "description": "Newest completed analysis of each run."
+          },
+          "runs": {
+            "type": "integer",
+            "title": "Runs",
+            "description": "Runs with a completed analysis."
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending",
+            "description": "Runs whose analysis is still queued or running."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "kind",
+          "config",
+          "analysis_ids",
+          "runs",
+          "pending",
+          "created_at"
+        ],
+        "title": "AnalysisGroupOut",
+        "description": "Analyses of an experiment's runs that share a configuration."
+      },
+      "AnalysisGroupSummaryOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "generation": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Generation"
+          },
+          "n_runs": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "N Runs",
+            "description": "Runs contributing to each generation."
+          },
+          "series": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SeriesQuartilesOut"
+            },
+            "type": "object",
+            "title": "Series",
+            "description": "Per generation; null where no run has a value (e.g. no previous generation)."
+          },
+          "totals": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SpreadOut"
+            },
+            "type": "object",
+            "title": "Totals",
+            "description": "Spread of the per-run totals of the event series (zigzag only)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "generation",
+          "n_runs",
+          "series",
+          "totals"
+        ],
+        "title": "AnalysisGroupSummaryOut"
+      },
       "AnalysisOut": {
         "properties": {
           "id": {
@@ -2819,6 +3057,59 @@
         "type": "object",
         "title": "SBXConfig"
       },
+      "SeriesQuartilesOut": {
+        "properties": {
+          "q1": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Q1"
+          },
+          "median": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Median"
+          },
+          "q3": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Q3"
+          }
+        },
+        "type": "object",
+        "required": [
+          "q1",
+          "median",
+          "q3"
+        ],
+        "title": "SeriesQuartilesOut"
+      },
       "SnapshotConfig": {
         "properties": {
           "enabled": {
@@ -2934,6 +3225,29 @@
           "mutated"
         ],
         "title": "SnapshotGroupOut"
+      },
+      "SpreadOut": {
+        "properties": {
+          "q1": {
+            "type": "number",
+            "title": "Q1"
+          },
+          "median": {
+            "type": "number",
+            "title": "Median"
+          },
+          "q3": {
+            "type": "number",
+            "title": "Q3"
+          }
+        },
+        "type": "object",
+        "required": [
+          "q1",
+          "median",
+          "q3"
+        ],
+        "title": "SpreadOut"
       },
       "StoredGenerationsOut": {
         "properties": {
