@@ -188,11 +188,15 @@ class ExperimentConfig(_Model):
         """Upper bound (uncompressed) of the snapshot storage of one run."""
         if not self.snapshots.enabled:
             return 0
-        stored_generations = self.n_gen // self.snapshots.every + 1
+        every = self.snapshots.every
+        # multiples of ``every`` (0 included), plus the last generation, which is always stored
+        stored_generations = self.n_gen // every + 1 + (1 if self.n_gen % every else 0)
         rows = stored_generations * 2 * self.pop_size
         width = self.problem.n_obj + (
             self.problem.n_var if self.snapshots.decision_variables else 0
         )
         value_bytes = 4 if self.snapshots.precision == "float32" else 8
-        bookkeeping = 4 + 1 + 4 + 1 + 4 + 2 + 4 + 4 + 1  # see storage.SNAPSHOT_SCHEMA
+        # generation, individual_id, role, index, survived, rank, times_selected,
+        # parent_a, parent_b, mutated (see the row layout in esphea.experiments.storage)
+        bookkeeping = 4 + 8 + 1 + 4 + 1 + 4 + 2 + 4 + 4 + 1
         return rows * (width * value_bytes + bookkeeping)

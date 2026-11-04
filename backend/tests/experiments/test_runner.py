@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pyarrow.dataset as ds
 import pytest
 
 from esphea.experiments.config import (
@@ -7,6 +8,7 @@ from esphea.experiments.config import (
     MetricsConfig,
     NSGA2Config,
     NSGA3Config,
+    SnapshotConfig,
     ZDT1Config,
     ZDT3Config,
     ZDT4Config,
@@ -121,3 +123,25 @@ def test_offspring_hypervolume_starts_at_generation_one_and_is_optional(
     only_offspring = run(MetricsConfig(gd=False, igd=False, igd_plus=False, hv=False))
     assert [set(row.values) for row in only_offspring] == [set()] + [{"hv_offspring"}] * 3
     assert all(0 <= row.values["hv_offspring"] <= 1.1**2 for row in only_offspring[1:])
+
+
+@pytest.mark.parametrize(
+    "snapshots",
+    [
+        SnapshotConfig(),
+        SnapshotConfig(every=4, precision="float32", decision_variables=False),
+    ],
+)
+def test_snapshot_estimate_bounds_the_stored_rows(
+    executor: RunExecutor, tmp_path: Path, snapshots: SnapshotConfig
+) -> None:
+    config = ExperimentConfig(
+        name="t", algorithm=NSGA2Config(pop_size=20), n_gen=10, snapshots=snapshots
+    )
+    executor.execute(
+        config, seed=1, metrics_sink=ListSink(), progress=ListReporter(), snapshot_dir=tmp_path
+    )
+    parts = sorted(str(part) for part in tmp_path.glob("*.parquet"))
+    stored = ds.dataset(parts, format="parquet").to_table().nbytes  # uncompressed
+    estimate = config.estimated_snapshot_bytes()
+    assert 0.75 * estimate < stored <= estimate
