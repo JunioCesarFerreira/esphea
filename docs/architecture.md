@@ -44,7 +44,7 @@ topology        persistent homology: point clouds, Vietoris-Rips, diagram distan
 problems        benchmark problems (DTLZ2, ZDT1, ZDT3, ZDT4)
 operators       concrete strategies (sampling, selection, SBX, PM, survival)
 algorithms      NSGA-II and NSGA-III as compositions of strategies
-metrics         quality indicators (IGD, IGD+, GD, hypervolume)
+metrics         quality indicators (IGD, IGD+, GD, hypervolume) and diversity metrics
 experiments     configuration, registries, observers, snapshot storage, run executor
 persistence     SQLAlchemy models and repositories
 messaging       ports (protocols) for queue, events and cancellation + Redis/RQ adapters
@@ -95,7 +95,11 @@ Everything that happens during a run is an `AlgorithmObserver`:
 
 - `IndicatorObserver` computes IGD, IGD+, GD and hypervolume on the first front of the
   survivors, and the hypervolume of the offspring `Q_t` that produced the generation
-  (`hv_offspring`, from generation 1 on, same reference point);
+  (`hv_offspring`, from generation 1 on, same reference point); it also computes the
+  diversity metrics (`spacing` and `spread` on the first front, `mean_distance` on the
+  survivors, all with objectives scaled by the ideal and nadir points, and
+  `decision_inertia` on the variables scaled by the bounds), storing a value only where it is
+  defined (e.g. at least two points);
 - `SnapshotObserver` writes generation snapshots to Parquet;
 - `ProgressObserver` streams progress and the current front.
 

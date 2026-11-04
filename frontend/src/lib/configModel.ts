@@ -34,16 +34,48 @@ export const INDICATOR_LABELS: Record<string, string> = {
   gd: "GD",
   hv: "Hypervolume",
   hv_offspring: "Offspring HV",
+  spacing: "Spacing",
+  spread: "Spread Δ",
+  mean_distance: "Mean distance",
+  decision_inertia: "Decision inertia",
 };
 
-/** Whether lower values of an indicator are better. */
+/** Quality indicators measure the front against the true one; diversity metrics describe the population. */
+export const INDICATOR_GROUPS: { group: string; names: string[] }[] = [
+  { group: "Quality", names: ["igd", "igd_plus", "gd", "hv", "hv_offspring"] },
+  { group: "Diversity", names: ["spacing", "spread", "mean_distance", "decision_inertia"] },
+];
+
+/** Whether lower values are better; absent for metrics that only describe the population. */
 export const LOWER_IS_BETTER: Record<string, boolean> = {
   igd: true,
   igd_plus: true,
   gd: true,
   hv: false,
   hv_offspring: false,
+  spacing: true,
+  spread: true,
 };
+
+/** Axis title of a metric: its label and, when it has one, the better direction. */
+export function indicatorAxisTitle(name: string): string {
+  const label = INDICATOR_LABELS[name] ?? name;
+  const lower = LOWER_IS_BETTER[name];
+  if (lower === undefined) return label;
+  return `${label} (${lower ? "lower" : "higher"} is better)`;
+}
+
+/** Select options of the metrics present in ``available``, grouped and in display order. */
+export function indicatorOptions(
+  available: string[],
+): { group: string; items: { value: string; label: string }[] }[] {
+  return INDICATOR_GROUPS.map(({ group, names }) => ({
+    group,
+    items: names
+      .filter((name) => available.includes(name))
+      .map((name) => ({ value: name, label: INDICATOR_LABELS[name] ?? name })),
+  })).filter((g) => g.items.length > 0);
+}
 
 export function describeExperiment(config: ExperimentConfig): string {
   const problem = PROBLEM_LABELS[config.problem.name] ?? config.problem.name;

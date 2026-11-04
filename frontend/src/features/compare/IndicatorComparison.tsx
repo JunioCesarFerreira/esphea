@@ -1,19 +1,10 @@
-import {
-  Card,
-  ColorSwatch,
-  Group,
-  SegmentedControl,
-  Stack,
-  Switch,
-  Table,
-  Text,
-} from "@mantine/core";
+import { Card, ColorSwatch, Group, Select, Stack, Switch, Table, Text } from "@mantine/core";
 import { useState } from "react";
 
 import { useExperimentsMetrics } from "../../api/queries";
 import { PlotlyChart } from "../../components/PlotlyChart";
 import { useChartTheme } from "../../hooks/useChartTheme";
-import { INDICATOR_LABELS, LOWER_IS_BETTER } from "../../lib/configModel";
+import { INDICATOR_LABELS, indicatorAxisTitle, indicatorOptions } from "../../lib/configModel";
 import { formatNumber } from "../../lib/format";
 import { bandTraces, baseLayout } from "../../lib/plots";
 import type { ComparedExperiment } from "./ComparePage";
@@ -35,13 +26,13 @@ export function IndicatorComparison({ experiments }: { experiments: ComparedExpe
   return (
     <Stack gap="md">
       <Group justify="space-between" wrap="wrap">
-        <SegmentedControl
+        <Select
+          aria-label="Metric"
+          w={240}
+          allowDeselect={false}
           value={indicator}
-          onChange={setIndicator}
-          data={Object.entries(INDICATOR_LABELS).map(([value, text]) => ({
-            value,
-            label: text,
-          }))}
+          onChange={(value) => value && setIndicator(value)}
+          data={indicatorOptions(Object.keys(INDICATOR_LABELS))}
         />
         <Switch
           label="Log scale"
@@ -58,9 +49,7 @@ export function IndicatorComparison({ experiments }: { experiments: ComparedExpe
             xaxis: { ...axis.xaxis, title: { text: "Generation" } },
             yaxis: {
               ...axis.yaxis,
-              title: {
-                text: `${label} (${LOWER_IS_BETTER[indicator] ? "lower" : "higher"} is better)`,
-              },
+              title: { text: indicatorAxisTitle(indicator) },
               type: logScale ? "log" : "linear",
             },
             hovermode: "x",

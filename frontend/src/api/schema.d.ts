@@ -758,6 +758,7 @@ export interface components {
              *       "igd_plus": true,
              *       "hv": true,
              *       "hv_offspring": true,
+             *       "diversity": true,
              *       "every": 1,
              *       "reference_front_size": 1000
              *     }
@@ -933,6 +934,12 @@ export interface components {
              * @default true
              */
             hv_offspring: boolean;
+            /**
+             * Diversity
+             * @description Classical diversity metrics: spacing and spread of the first front, mean distance between individuals (normalised objectives) and decision-space inertia.
+             * @default true
+             */
+            diversity: boolean;
             /**
              * Every
              * @description Compute indicators every N generations.

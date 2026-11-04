@@ -130,6 +130,13 @@ class MetricsConfig(_Model):
     hv_offspring: bool = Field(
         default=True, description="Also the hypervolume of the offspring of each generation."
     )
+    diversity: bool = Field(
+        default=True,
+        description=(
+            "Classical diversity metrics: spacing and spread of the first front, mean distance"
+            " between individuals (normalised objectives) and decision-space inertia."
+        ),
+    )
     every: int = Field(default=1, ge=1, description="Compute indicators every N generations.")
     reference_front_size: int = Field(
         default=1000, ge=10, le=100_000, description="Points sampled from the true front."

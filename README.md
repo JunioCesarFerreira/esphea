@@ -39,6 +39,7 @@ populations *inside* each generation:
   numerical kernels (SBX, polynomial mutation, non-dominated sorting, NSGA-III niching) come from
   [pymoo](https://pymoo.org/), validated statistically against pymoo's native algorithms;
 - quality indicators (IGD, IGD+, hypervolume) from [moocore](https://multi-objective.github.io/moocore/python/), and GD (nearest reference point via a SciPy KD-tree), on the first front of each generation; the hypervolume is also measured on the offspring of each generation, with the same reference point;
+- classical diversity metrics per generation, to compare with the topological summaries: spacing (Schott) and generalised spread Δ of the first front, mean distance between individuals (objectives scaled by the ideal and nadir points) and moment of inertia in decision space;
 - every stored generation persisted as compressed Parquet, ready for notebooks;
 - a web interface to configure experiments, follow runs live, replay generations in objective
   space (2D, 3D or parallel coordinates) and compare convergence across experiments;

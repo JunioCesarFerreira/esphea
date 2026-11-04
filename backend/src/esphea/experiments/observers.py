@@ -13,7 +13,7 @@ from esphea.core.records import GenerationRecord
 from esphea.core.types import BoolArray, FloatArray, IntArray
 from esphea.experiments.lineage import IdentityTracker
 from esphea.experiments.storage import SnapshotWriter
-from esphea.metrics import QualityIndicator, non_dominated_mask
+from esphea.metrics import DiversityMetric, QualityIndicator, non_dominated_mask
 
 
 def non_dominated_front(population: Population) -> FloatArray:
@@ -44,8 +44,9 @@ class IndicatorObserver(AlgorithmObserver):
 
     ``offspring_indicators`` are measured on the offspring ``Q_t`` that produced
     each generation and stored as ``{name}_offspring``; the initial population
-    has no offspring, so they start at generation 1. The last and the initial
-    generations are always measured.
+    has no offspring, so they start at generation 1. ``diversity_metrics`` are
+    measured on the survivors and stored only where defined. The last and the
+    initial generations are always measured.
     """
 
     def __init__(
@@ -54,11 +55,13 @@ class IndicatorObserver(AlgorithmObserver):
         sink: MetricsSink,
         *,
         offspring_indicators: Sequence[QualityIndicator] = (),
+        diversity_metrics: Sequence[DiversityMetric] = (),
         every: int = 1,
         clock: Callable[[], float] = time.perf_counter,
     ) -> None:
         self._indicators = tuple(indicators)
         self._offspring_indicators = tuple(offspring_indicators)
+        self._diversity_metrics = tuple(diversity_metrics)
         self._sink = sink
         self._every = every
         self._clock = clock
@@ -91,6 +94,10 @@ class IndicatorObserver(AlgorithmObserver):
         if offspring is not None and len(offspring) > 0:
             for indicator in self._offspring_indicators:
                 values[f"{indicator.name}_offspring"] = indicator(offspring.F)
+        for metric in self._diversity_metrics:
+            value = metric(population, front)
+            if value is not None:
+                values[metric.name] = value
         metrics = GenerationMetrics(
             generation=generation,
             n_nondominated=int(front.shape[0]),

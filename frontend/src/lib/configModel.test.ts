@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { Catalog } from "../api/types";
 import {
+  indicatorAxisTitle,
+  indicatorOptions,
   defaultConfig,
   describeExperiment,
   duplicateConfig,
@@ -37,6 +39,7 @@ const catalog: Catalog = {
     igd_plus: true,
     hv: true,
     hv_offspring: true,
+    diversity: true,
     every: 1,
     reference_front_size: 1000,
   },
@@ -89,5 +92,22 @@ describe("configModel", () => {
     expect(issues.get("problem.n_var")).toEqual(["too few"]);
     expect(issues.get("algorithm.pop_size")).toEqual(["too small"]);
     expect(issues.get("")).toEqual(["pop_size below directions"]);
+  });
+});
+
+describe("indicator options", () => {
+  it("group the available metrics and only give a direction where one exists", () => {
+    expect(indicatorOptions(["hv", "spacing", "igd", "unknown"])).toEqual([
+      {
+        group: "Quality",
+        items: [
+          { value: "igd", label: "IGD" },
+          { value: "hv", label: "Hypervolume" },
+        ],
+      },
+      { group: "Diversity", items: [{ value: "spacing", label: "Spacing" }] },
+    ]);
+    expect(indicatorAxisTitle("hv")).toBe("Hypervolume (higher is better)");
+    expect(indicatorAxisTitle("mean_distance")).toBe("Mean distance");
   });
 });

@@ -19,7 +19,18 @@ from esphea.experiments.observers import (
 )
 from esphea.experiments.registry import AlgorithmRegistry, ProblemRegistry
 from esphea.experiments.storage import SnapshotWriter
-from esphea.metrics import GD, IGD, Hypervolume, IGDPlus, QualityIndicator
+from esphea.metrics import (
+    GD,
+    IGD,
+    DecisionInertia,
+    DiversityMetric,
+    GeneralizedSpread,
+    Hypervolume,
+    IGDPlus,
+    MeanPairwiseDistance,
+    QualityIndicator,
+    Spacing,
+)
 
 HV_REFERENCE_MARGIN = 1.1
 """Hypervolume reference point = nadir point scaled by this factor."""
@@ -73,6 +84,23 @@ def build_offspring_indicators(
     return [Hypervolume(problem.nadir_point * HV_REFERENCE_MARGIN)]
 
 
+def build_diversity_metrics(config: ExperimentConfig, problem: Problem) -> list[DiversityMetric]:
+    """Diversity metrics; the objective-space ones need the problem's ideal and nadir points."""
+    if not config.metrics.diversity:
+        return []
+    metrics: list[DiversityMetric] = []
+    if isinstance(problem, KnownParetoFront):
+        ideal, nadir = problem.ideal_point, problem.nadir_point
+        front = problem.pareto_front(config.metrics.reference_front_size)
+        metrics += [
+            Spacing(ideal, nadir),
+            GeneralizedSpread(front, ideal, nadir),
+            MeanPairwiseDistance(ideal, nadir),
+        ]
+    metrics.append(DecisionInertia(problem.lower, problem.upper))
+    return metrics
+
+
 class RunExecutor:
     """Builds the algorithm described by a configuration and runs it with observers."""
 
@@ -97,6 +125,7 @@ class RunExecutor:
             build_indicators(config, problem),
             metrics_sink,
             offspring_indicators=build_offspring_indicators(config, problem),
+            diversity_metrics=build_diversity_metrics(config, problem),
             every=config.metrics.every,
         )
         observers: list[AlgorithmObserver] = [indicator_observer]

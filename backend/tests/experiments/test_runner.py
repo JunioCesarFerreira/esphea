@@ -18,6 +18,9 @@ from esphea.experiments.registry import default_algorithm_registry, default_prob
 from esphea.experiments.runner import RunExecutor
 from esphea.experiments.storage import SnapshotReader
 
+QUALITY = {"gd", "igd", "igd_plus", "hv"}
+DIVERSITY = {"spacing", "spread", "mean_distance", "decision_inertia"}
+
 
 class ListSink:
     def __init__(self) -> None:
@@ -59,8 +62,8 @@ def test_executes_configured_run(
     assert outcome.generations == 10
     assert not outcome.cancelled
     assert [m.generation for m in sink.rows] == [0, 4, 8, 10]
-    assert set(sink.rows[0].values) == {"gd", "igd", "igd_plus", "hv"}
-    assert set(sink.rows[-1].values) == {"gd", "igd", "igd_plus", "hv", "hv_offspring"}
+    assert set(sink.rows[0].values) == QUALITY | DIVERSITY
+    assert set(sink.rows[-1].values) == QUALITY | {"hv_offspring"} | DIVERSITY
     assert sink.flushed == 1
     assert reporter.events[0].generation == 0
     assert reporter.events[-1].generation == 10
@@ -80,7 +83,7 @@ def test_executes_bi_objective_problems(
         config, seed=1, metrics_sink=sink, progress=ListReporter(), snapshot_dir=None
     )
     assert outcome.generations == 5
-    assert set(sink.rows[-1].values) == {"gd", "igd", "igd_plus", "hv", "hv_offspring"}
+    assert set(sink.rows[-1].values) == QUALITY | {"hv_offspring"} | DIVERSITY
     assert all(value >= 0 for value in sink.rows[-1].values.values())
 
 
@@ -120,7 +123,9 @@ def test_offspring_hypervolume_starts_at_generation_one_and_is_optional(
 
     without = run(MetricsConfig(hv_offspring=False))
     assert all("hv_offspring" not in row.values for row in without)
-    only_offspring = run(MetricsConfig(gd=False, igd=False, igd_plus=False, hv=False))
+    only_offspring = run(
+        MetricsConfig(gd=False, igd=False, igd_plus=False, hv=False, diversity=False)
+    )
     assert [set(row.values) for row in only_offspring] == [set()] + [{"hv_offspring"}] * 3
     assert all(0 <= row.values["hv_offspring"] <= 1.1**2 for row in only_offspring[1:])
 
@@ -145,3 +150,21 @@ def test_snapshot_estimate_bounds_the_stored_rows(
     stored = ds.dataset(parts, format="parquet").to_table().nbytes  # uncompressed
     estimate = config.estimated_snapshot_bytes()
     assert 0.75 * estimate < stored <= estimate
+
+
+def test_diversity_metrics_follow_the_population(executor: RunExecutor) -> None:
+    config = ExperimentConfig(
+        name="t",
+        problem=ZDT1Config(n_var=6),
+        algorithm=NSGA2Config(pop_size=20),
+        n_gen=30,
+        metrics=MetricsConfig(gd=False, igd=False, igd_plus=False, hv=False, hv_offspring=False),
+    )
+    sink = ListSink()
+    executor.execute(config, seed=3, metrics_sink=sink, progress=ListReporter(), snapshot_dir=None)
+    first, last = sink.rows[0].values, sink.rows[-1].values
+    assert set(last) == DIVERSITY
+    assert 0 < last["decision_inertia"] < first["decision_inertia"] <= 0.25
+    assert last["spacing"] >= 0
+    assert last["spread"] >= 0
+    assert last["mean_distance"] > 0

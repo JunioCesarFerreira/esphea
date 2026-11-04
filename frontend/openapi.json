@@ -2256,6 +2256,7 @@
               "igd_plus": true,
               "hv": true,
               "hv_offspring": true,
+              "diversity": true,
               "every": 1,
               "reference_front_size": 1000
             }
@@ -2661,6 +2662,12 @@
             "type": "boolean",
             "title": "Hv Offspring",
             "description": "Also the hypervolume of the offspring of each generation.",
+            "default": true
+          },
+          "diversity": {
+            "type": "boolean",
+            "title": "Diversity",
+            "description": "Classical diversity metrics: spacing and spread of the first front, mean distance between individuals (normalised objectives) and decision-space inertia.",
             "default": true
           },
           "every": {
