@@ -73,7 +73,7 @@ def test_full_lifecycle_with_inline_execution(
 
     metrics = client.get(f"/api/runs/{run_id}/metrics").json()
     assert metrics["generation"] == list(range(7))
-    assert set(metrics["values"]) == {"gd", "hv", "igd", "igd_plus"}
+    assert set(metrics["values"]) == {"gd", "hv", "hv_offspring", "igd", "igd_plus"}
 
     summary = client.get(f"/api/experiments/{experiment['id']}/metrics").json()
     assert summary["igd"]["n_runs"] == [2] * 7
@@ -88,7 +88,7 @@ def test_full_lifecycle_with_inline_execution(
     assert sum(snapshot["population"]["survived"]) + sum(snapshot["offspring"]["survived"]) == 16
 
     csv_text = client.get(f"/api/runs/{run_id}/metrics.csv").text
-    header = "generation,n_nondominated,elapsed_seconds,gd,hv,igd,igd_plus"
+    header = "generation,n_nondominated,elapsed_seconds,gd,hv,hv_offspring,igd,igd_plus"
     assert csv_text.splitlines()[0] == header
 
     front = client.get(

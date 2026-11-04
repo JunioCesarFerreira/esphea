@@ -69,7 +69,8 @@ export function ConvergencePanel({ experiment, live }: { experiment: Experiment;
         />
         <Text size="xs" c="dimmed" px="sm" pb="xs">
           Median across runs with the interquartile range; thin grey lines are the individual runs.
-          Indicators are computed on the first front of each generation.
+          Indicators are computed on the first front of each generation; the offspring hypervolume
+          on the offspring Qₜ that produced it, with the same reference point.
         </Text>
       </Card>
     </Stack>

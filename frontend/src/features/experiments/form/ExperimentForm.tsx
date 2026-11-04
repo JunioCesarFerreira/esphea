@@ -358,6 +358,11 @@ function ObservationSection({ config, onChange }: Omit<FormProps, "catalog">) {
           checked={metrics.hv}
           onChange={(e) => setMetrics({ hv: e.currentTarget.checked })}
         />
+        <Checkbox
+          label="Offspring hypervolume"
+          checked={metrics.hv_offspring}
+          onChange={(e) => setMetrics({ hv_offspring: e.currentTarget.checked })}
+        />
       </Group>
       <SimpleGrid cols={{ base: 1, sm: 2 }}>
         <NumberField

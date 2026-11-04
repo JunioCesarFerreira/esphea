@@ -127,6 +127,9 @@ class MetricsConfig(_Model):
     igd: bool = True
     igd_plus: bool = True
     hv: bool = True
+    hv_offspring: bool = Field(
+        default=True, description="Also the hypervolume of the offspring of each generation."
+    )
     every: int = Field(default=1, ge=1, description="Compute indicators every N generations.")
     reference_front_size: int = Field(
         default=1000, ge=10, le=100_000, description="Points sampled from the true front."

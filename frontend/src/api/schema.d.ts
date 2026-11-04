@@ -757,6 +757,7 @@ export interface components {
              *       "igd": true,
              *       "igd_plus": true,
              *       "hv": true,
+             *       "hv_offspring": true,
              *       "every": 1,
              *       "reference_front_size": 1000
              *     }
@@ -926,6 +927,12 @@ export interface components {
              * @default true
              */
             hv: boolean;
+            /**
+             * Hv Offspring
+             * @description Also the hypervolume of the offspring of each generation.
+             * @default true
+             */
+            hv_offspring: boolean;
             /**
              * Every
              * @description Compute indicators every N generations.

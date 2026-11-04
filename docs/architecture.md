@@ -93,7 +93,9 @@ population can be handed to any number of observers safely.
 
 Everything that happens during a run is an `AlgorithmObserver`:
 
-- `IndicatorObserver` computes IGD, IGD+, GD and hypervolume on the first front;
+- `IndicatorObserver` computes IGD, IGD+, GD and hypervolume on the first front of the
+  survivors, and the hypervolume of the offspring `Q_t` that produced the generation
+  (`hv_offspring`, from generation 1 on, same reference point);
 - `SnapshotObserver` writes generation snapshots to Parquet;
 - `ProgressObserver` streams progress and the current front.
 

@@ -38,7 +38,7 @@ populations *inside* each generation:
   offspring `Q_t` with their lineage and mutation flags, and the survivors `P_{t+1}`, while the
   numerical kernels (SBX, polynomial mutation, non-dominated sorting, NSGA-III niching) come from
   [pymoo](https://pymoo.org/), validated statistically against pymoo's native algorithms;
-- quality indicators (IGD, IGD+, hypervolume) from [moocore](https://multi-objective.github.io/moocore/python/), and GD (nearest reference point via a SciPy KD-tree);
+- quality indicators (IGD, IGD+, hypervolume) from [moocore](https://multi-objective.github.io/moocore/python/), and GD (nearest reference point via a SciPy KD-tree), on the first front of each generation; the hypervolume is also measured on the offspring of each generation, with the same reference point;
 - every stored generation persisted as compressed Parquet, ready for notebooks;
 - a web interface to configure experiments, follow runs live, replay generations in objective
   space (2D, 3D or parallel coordinates) and compare convergence across experiments;

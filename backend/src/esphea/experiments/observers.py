@@ -42,7 +42,10 @@ class MetricsSink(Protocol):
 class IndicatorObserver(AlgorithmObserver):
     """Computes quality indicators on the first front every ``every`` generations.
 
-    The last and the initial generations are always measured.
+    ``offspring_indicators`` are measured on the offspring ``Q_t`` that produced
+    each generation and stored as ``{name}_offspring``; the initial population
+    has no offspring, so they start at generation 1. The last and the initial
+    generations are always measured.
     """
 
     def __init__(
@@ -50,42 +53,49 @@ class IndicatorObserver(AlgorithmObserver):
         indicators: Sequence[QualityIndicator],
         sink: MetricsSink,
         *,
+        offspring_indicators: Sequence[QualityIndicator] = (),
         every: int = 1,
         clock: Callable[[], float] = time.perf_counter,
     ) -> None:
         self._indicators = tuple(indicators)
+        self._offspring_indicators = tuple(offspring_indicators)
         self._sink = sink
         self._every = every
         self._clock = clock
         self._started = clock()
-        self._pending: Population | None = None
-        self._pending_generation = 0
+        self._pending: GenerationRecord | None = None
         self.latest: GenerationMetrics | None = None
 
     def on_start(self, initial: Population) -> None:
         self._started = self._clock()
-        self._measure(0, initial)
+        self._measure(0, initial, None)
 
     def on_generation(self, record: GenerationRecord) -> None:
         if record.generation % self._every == 0:
-            self._measure(record.generation, record.survivors)
+            self._measure(record.generation, record.survivors, record.offspring)
             self._pending = None
         else:
-            self._pending = record.survivors
-            self._pending_generation = record.generation
+            self._pending = record
 
     def on_finish(self, final: Population, generations: int) -> None:
         if self._pending is not None:
-            self._measure(self._pending_generation, self._pending)
+            record = self._pending
+            self._measure(record.generation, record.survivors, record.offspring)
         self._sink.flush()
 
-    def _measure(self, generation: int, population: Population) -> None:
+    def _measure(
+        self, generation: int, population: Population, offspring: Population | None
+    ) -> None:
         front = non_dominated_front(population)
+        values = {indicator.name: indicator(front) for indicator in self._indicators}
+        if offspring is not None and len(offspring) > 0:
+            for indicator in self._offspring_indicators:
+                values[f"{indicator.name}_offspring"] = indicator(offspring.F)
         metrics = GenerationMetrics(
             generation=generation,
             n_nondominated=int(front.shape[0]),
             elapsed_seconds=self._clock() - self._started,
-            values={indicator.name: indicator(front) for indicator in self._indicators},
+            values=values,
         )
         self.latest = metrics
         self._sink.add(metrics)

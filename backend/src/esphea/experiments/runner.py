@@ -64,6 +64,15 @@ def build_indicators(config: ExperimentConfig, problem: Problem) -> list[Quality
     return indicators
 
 
+def build_offspring_indicators(
+    config: ExperimentConfig, problem: Problem
+) -> list[QualityIndicator]:
+    """Indicators measured on the offspring of each generation (same reference as survivors)."""
+    if not isinstance(problem, KnownParetoFront) or not config.metrics.hv_offspring:
+        return []
+    return [Hypervolume(problem.nadir_point * HV_REFERENCE_MARGIN)]
+
+
 class RunExecutor:
     """Builds the algorithm described by a configuration and runs it with observers."""
 
@@ -85,7 +94,10 @@ class RunExecutor:
         algorithm = self._algorithms.build(config.algorithm, problem)
 
         indicator_observer = IndicatorObserver(
-            build_indicators(config, problem), metrics_sink, every=config.metrics.every
+            build_indicators(config, problem),
+            metrics_sink,
+            offspring_indicators=build_offspring_indicators(config, problem),
+            every=config.metrics.every,
         )
         observers: list[AlgorithmObserver] = [indicator_observer]
         if config.snapshots.enabled and snapshot_dir is not None:

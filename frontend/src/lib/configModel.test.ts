@@ -31,7 +31,15 @@ const catalog: Catalog = {
       mutation: { eta: 20, prob_var: null },
     },
   ],
-  metrics: { gd: true, igd: true, igd_plus: true, hv: true, every: 1, reference_front_size: 1000 },
+  metrics: {
+    gd: true,
+    igd: true,
+    igd_plus: true,
+    hv: true,
+    hv_offspring: true,
+    every: 1,
+    reference_front_size: 1000,
+  },
   snapshots: { enabled: true, every: 1, precision: "float64", decision_variables: true },
 };
 

@@ -33,6 +33,7 @@ export const INDICATOR_LABELS: Record<string, string> = {
   igd_plus: "IGD+",
   gd: "GD",
   hv: "Hypervolume",
+  hv_offspring: "Offspring HV",
 };
 
 /** Whether lower values of an indicator are better. */
@@ -41,6 +42,7 @@ export const LOWER_IS_BETTER: Record<string, boolean> = {
   igd_plus: true,
   gd: true,
   hv: false,
+  hv_offspring: false,
 };
 
 export function describeExperiment(config: ExperimentConfig): string {

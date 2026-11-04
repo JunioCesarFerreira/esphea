@@ -2255,6 +2255,7 @@
               "igd": true,
               "igd_plus": true,
               "hv": true,
+              "hv_offspring": true,
               "every": 1,
               "reference_front_size": 1000
             }
@@ -2654,6 +2655,12 @@
           "hv": {
             "type": "boolean",
             "title": "Hv",
+            "default": true
+          },
+          "hv_offspring": {
+            "type": "boolean",
+            "title": "Hv Offspring",
+            "description": "Also the hypervolume of the offspring of each generation.",
             "default": true
           },
           "every": {
