@@ -123,6 +123,7 @@ AlgorithmConfig = Annotated[NSGA2Config | NSGA3Config, Field(discriminator="name
 
 
 class MetricsConfig(_Model):
+    gd: bool = True
     igd: bool = True
     igd_plus: bool = True
     hv: bool = True

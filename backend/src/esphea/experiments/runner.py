@@ -19,7 +19,7 @@ from esphea.experiments.observers import (
 )
 from esphea.experiments.registry import AlgorithmRegistry, ProblemRegistry
 from esphea.experiments.storage import SnapshotWriter
-from esphea.metrics import IGD, Hypervolume, IGDPlus, QualityIndicator
+from esphea.metrics import GD, IGD, Hypervolume, IGDPlus, QualityIndicator
 
 HV_REFERENCE_MARGIN = 1.1
 """Hypervolume reference point = nadir point scaled by this factor."""
@@ -51,8 +51,10 @@ def build_indicators(config: ExperimentConfig, problem: Problem) -> list[Quality
         return []
     indicators: list[QualityIndicator] = []
     metrics = config.metrics
-    if metrics.igd or metrics.igd_plus:
+    if metrics.gd or metrics.igd or metrics.igd_plus:
         front = problem.pareto_front(metrics.reference_front_size)
+        if metrics.gd:
+            indicators.append(GD(front))
         if metrics.igd:
             indicators.append(IGD(front))
         if metrics.igd_plus:

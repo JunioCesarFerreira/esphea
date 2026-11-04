@@ -31,11 +31,17 @@ export const PROBLEM_DESCRIPTIONS: Record<ProblemName, string> = {
 export const INDICATOR_LABELS: Record<string, string> = {
   igd: "IGD",
   igd_plus: "IGD+",
+  gd: "GD",
   hv: "Hypervolume",
 };
 
 /** Whether lower values of an indicator are better. */
-export const LOWER_IS_BETTER: Record<string, boolean> = { igd: true, igd_plus: true, hv: false };
+export const LOWER_IS_BETTER: Record<string, boolean> = {
+  igd: true,
+  igd_plus: true,
+  gd: true,
+  hv: false,
+};
 
 export function describeExperiment(config: ExperimentConfig): string {
   const problem = PROBLEM_LABELS[config.problem.name] ?? config.problem.name;

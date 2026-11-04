@@ -57,7 +57,7 @@ def test_executes_configured_run(
     assert outcome.generations == 10
     assert not outcome.cancelled
     assert [m.generation for m in sink.rows] == [0, 4, 8, 10]
-    assert set(sink.rows[-1].values) == {"igd", "igd_plus", "hv"}
+    assert set(sink.rows[-1].values) == {"gd", "igd", "igd_plus", "hv"}
     assert sink.flushed == 1
     assert reporter.events[0].generation == 0
     assert reporter.events[-1].generation == 10
@@ -77,7 +77,7 @@ def test_executes_bi_objective_problems(
         config, seed=1, metrics_sink=sink, progress=ListReporter(), snapshot_dir=None
     )
     assert outcome.generations == 5
-    assert set(sink.rows[-1].values) == {"igd", "igd_plus", "hv"}
+    assert set(sink.rows[-1].values) == {"gd", "igd", "igd_plus", "hv"}
     assert all(value >= 0 for value in sink.rows[-1].values.values())
 
 

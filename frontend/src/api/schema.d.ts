@@ -652,6 +652,7 @@ export interface components {
             seed: number;
             /**
              * @default {
+             *       "gd": true,
              *       "igd": true,
              *       "igd_plus": true,
              *       "hv": true,
@@ -804,6 +805,11 @@ export interface components {
         };
         /** MetricsConfig */
         MetricsConfig: {
+            /**
+             * Gd
+             * @default true
+             */
+            gd: boolean;
             /**
              * Igd
              * @default true

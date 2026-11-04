@@ -2013,6 +2013,7 @@
           "metrics": {
             "$ref": "#/components/schemas/MetricsConfig",
             "default": {
+              "gd": true,
               "igd": true,
               "igd_plus": true,
               "hv": true,
@@ -2397,6 +2398,11 @@
       },
       "MetricsConfig": {
         "properties": {
+          "gd": {
+            "type": "boolean",
+            "title": "Gd",
+            "default": true
+          },
           "igd": {
             "type": "boolean",
             "title": "Igd",

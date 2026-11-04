@@ -349,6 +349,11 @@ function ObservationSection({ config, onChange }: Omit<FormProps, "catalog">) {
           onChange={(e) => setMetrics({ igd_plus: e.currentTarget.checked })}
         />
         <Checkbox
+          label="GD"
+          checked={metrics.gd}
+          onChange={(e) => setMetrics({ gd: e.currentTarget.checked })}
+        />
+        <Checkbox
           label="Hypervolume"
           checked={metrics.hv}
           onChange={(e) => setMetrics({ hv: e.currentTarget.checked })}

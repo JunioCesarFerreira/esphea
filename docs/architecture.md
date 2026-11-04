@@ -44,7 +44,7 @@ topology        persistent homology: point clouds, Vietoris-Rips, diagram distan
 problems        benchmark problems (DTLZ2, ZDT1, ZDT3, ZDT4)
 operators       concrete strategies (sampling, selection, SBX, PM, survival)
 algorithms      NSGA-II and NSGA-III as compositions of strategies
-metrics         quality indicators (IGD, IGD+, hypervolume)
+metrics         quality indicators (IGD, IGD+, GD, hypervolume)
 experiments     configuration, registries, observers, snapshot storage, run executor
 persistence     SQLAlchemy models and repositories
 messaging       ports (protocols) for queue, events and cancellation + Redis/RQ adapters
@@ -93,7 +93,7 @@ population can be handed to any number of observers safely.
 
 Everything that happens during a run is an `AlgorithmObserver`:
 
-- `IndicatorObserver` computes IGD, IGD+ and hypervolume on the first front;
+- `IndicatorObserver` computes IGD, IGD+, GD and hypervolume on the first front;
 - `SnapshotObserver` writes generation snapshots to Parquet;
 - `ProgressObserver` streams progress and the current front.
 
@@ -260,7 +260,7 @@ state and Plotly for scientific charts (loaded lazily).
 ## Extending
 
 **A new problem.** Subclass `core.Problem` (vectorised `_evaluate`), and implement
-`KnownParetoFront` if the front is known (enables IGD/IGD+/HV). Add a config model in
+`KnownParetoFront` if the front is known (enables IGD/IGD+/GD/HV). Add a config model in
 `experiments/config.py` to the `ProblemConfig` discriminated union (on `name`), register a
 builder in `experiments/registry.py` and list its defaults in the API catalog. The ZDT
 problems (`problems/zdt.py`) show the pattern for a family: a base class holds the shared

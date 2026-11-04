@@ -8,14 +8,14 @@ import { StatusBadge } from "../../../components/StatusBadge";
 import { INDICATOR_LABELS } from "../../../lib/configModel";
 import { formatDuration, formatNumber, secondsBetween } from "../../../lib/format";
 
-const INDICATORS = ["igd", "igd_plus", "hv"] as const;
+const INDICATORS = ["igd", "igd_plus", "gd", "hv"] as const;
 
 export function RunsPanel({ experiment, live }: { experiment: Experiment; live: boolean }) {
   const runIds = useMemo(() => experiment.runs.map((run) => run.id), [experiment.runs]);
   const metrics = useRunsMetrics(runIds, live);
   return (
     <Card withBorder padding={0}>
-      <Table.ScrollContainer minWidth={820}>
+      <Table.ScrollContainer minWidth={920}>
         <Table verticalSpacing="sm">
           <Table.Thead>
             <Table.Tr>

@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 import moocore
 import numpy as np
+from scipy.spatial import KDTree
 
 from esphea.core.types import BoolArray, FloatArray
 
@@ -34,6 +35,27 @@ class _ReferenceFrontIndicator(QualityIndicator, ABC):
         if reference_front.ndim != 2 or reference_front.shape[0] == 0:
             raise ValueError("reference_front must be a non-empty (n, n_obj) matrix")
         self.reference_front = reference_front
+
+
+class GD(_ReferenceFrontIndicator):
+    """Generational distance (lower is better).
+
+    Mean Euclidean distance from each point of ``F`` to its nearest reference
+    point: the counterpart of :class:`IGD` with the roles of the sets swapped, so
+    it measures convergence but not coverage of the front.
+    """
+
+    def __init__(self, reference_front: FloatArray) -> None:
+        super().__init__(reference_front)
+        self._tree = KDTree(reference_front)
+
+    @property
+    def name(self) -> str:
+        return "gd"
+
+    def __call__(self, F: FloatArray) -> float:
+        distances, _ = self._tree.query(F)
+        return float(np.mean(distances))
 
 
 class IGD(_ReferenceFrontIndicator):
