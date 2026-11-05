@@ -12,11 +12,27 @@ Evolutionary algorithms (EAs) operate on populations of candidate solutions that
 
 ## Research questions
 
-1. **Population characterization:** do persistence diagrams of the population capture diversity and niche structure better than classical metrics?
-2. **Dynamics monitoring:** can premature convergence, stagnation or loss of diversity be detected from topological signatures over the generations?
-3. **Fitness landscape analysis:** does PH applied to landscape samples (or to fitness-based sublevel filtrations) reveal information about problem modality and difficulty?
-4. **Adaptive control:** can topological descriptors be used as a feedback signal to tune operators and parameters (mutation rate, selection pressure, niching, restarts)?
-5. **Multi-objective optimization:** can the topology of Pareto front approximations serve as a quality or coverage indicator?
+1. **Population characterization:** do persistence diagrams recover niche structure that classical
+   diversity metrics miss, and tell configurations apart earlier?
+   *Status:* supported, mostly through H₀; over time the summaries are largely redundant with
+   classical metrics.
+2. **Early warning:** can front-free signals anticipate a failed run (truncated front, local front)?
+   *Status:* negative so far. With ideal–nadir scaling the diagrams are translation-invariant, so
+   they do not see convergence.
+3. **Fitness landscape analysis:** do sublevel filtrations reveal problem modality, and does the
+   population topology follow the occupied basins?
+   *Status:* basin counts are exact; tracking of occupied basins is moderate.
+4. **Adaptive control:** can topological descriptors drive operator and parameter control?
+   *Status:* deferred until question 2 yields an anticipatory signal.
+5. **Front coverage indicator:** can the diagram distance to the reference front measure gaps and
+   holes alongside IGD and hypervolume?
+   *Status:* supported for interior gaps and holes; it is blind to the front extent and is not
+   Pareto-compliant.
+6. **Variation vs. selection:** does zigzag persistence of P₀ → R₁ ← P₁ → …, attributing each niche
+   birth and death to variation or selection, explain how problems, algorithms and operators shape
+   niche dynamics, beyond simpler niche trackers?
+   *Status:* main line of the project; open points are the added value over simple proxies and
+   choosing the scale without the true front.
 
 ## Planned approach
 
