@@ -7,21 +7,23 @@ builder, then registering it; nothing else in the pipeline changes.
 from collections.abc import Callable
 from typing import Any
 
-from esphea.algorithms import NSGA2, NSGA3
+from esphea.algorithms import NSGA2, NSGA3, SMSEMOA
 from esphea.core.algorithm import EvolutionaryAlgorithm
 from esphea.core.problem import Problem
 from esphea.experiments.config import (
     DTLZ2Config,
+    DTLZ7Config,
     NSGA2Config,
     NSGA3Config,
     PMConfig,
     SBXConfig,
+    SMSEMOAConfig,
     ZDT1Config,
     ZDT3Config,
     ZDT4Config,
 )
 from esphea.operators import PolynomialMutation, SimulatedBinaryCrossover
-from esphea.problems import DTLZ2, ZDT1, ZDT3, ZDT4
+from esphea.problems import DTLZ2, DTLZ7, ZDT1, ZDT3, ZDT4
 from esphea.reference_directions import das_dennis
 
 type ProblemBuilder = Callable[[Any], Problem]
@@ -85,6 +87,10 @@ def _build_dtlz2(config: DTLZ2Config) -> Problem:
     return DTLZ2(n_obj=config.n_obj, k=config.k)
 
 
+def _build_dtlz7(config: DTLZ7Config) -> Problem:
+    return DTLZ7(n_obj=config.n_obj, k=config.k)
+
+
 def _build_zdt1(config: ZDT1Config) -> Problem:
     return ZDT1(n_var=config.n_var)
 
@@ -116,9 +122,19 @@ def _build_nsga3(config: NSGA3Config, problem: Problem) -> EvolutionaryAlgorithm
     )
 
 
+def _build_smsemoa(config: SMSEMOAConfig, problem: Problem) -> EvolutionaryAlgorithm:
+    return SMSEMOA(
+        problem,
+        pop_size=config.pop_size,
+        crossover=_sbx(config.crossover),
+        mutation=_pm(config.mutation),
+    )
+
+
 def default_problem_registry() -> ProblemRegistry:
     registry = ProblemRegistry()
     registry.register("dtlz2", _build_dtlz2)
+    registry.register("dtlz7", _build_dtlz7)
     registry.register("zdt1", _build_zdt1)
     registry.register("zdt3", _build_zdt3)
     registry.register("zdt4", _build_zdt4)
@@ -129,4 +145,5 @@ def default_algorithm_registry() -> AlgorithmRegistry:
     registry = AlgorithmRegistry()
     registry.register("nsga2", _build_nsga2)
     registry.register("nsga3", _build_nsga3)
+    registry.register("smsemoa", _build_smsemoa)
     return registry

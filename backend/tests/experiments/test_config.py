@@ -3,9 +3,11 @@ from pydantic import ValidationError
 
 from esphea.experiments.config import (
     DTLZ2Config,
+    DTLZ7Config,
     ExperimentConfig,
     NSGA2Config,
     NSGA3Config,
+    SMSEMOAConfig,
     ZDT3Config,
     ZDT4Config,
 )
@@ -25,6 +27,21 @@ def test_algorithm_is_discriminated_by_name() -> None:
     )
     assert isinstance(config.algorithm, NSGA2Config)
     assert config.pop_size == 40
+
+
+def test_smsemoa_config() -> None:
+    config = ExperimentConfig.model_validate(
+        {"name": "x", "algorithm": {"name": "smsemoa", "pop_size": 60}}
+    )
+    assert isinstance(config.algorithm, SMSEMOAConfig)
+    assert config.pop_size == 60
+    assert config.algorithm.crossover.eta == 15.0
+
+
+def test_dtlz7_config() -> None:
+    config = ExperimentConfig(name="x", problem=DTLZ7Config(), algorithm=NSGA2Config())
+    assert (config.problem.n_obj, config.problem.n_var) == (3, 22)
+    assert ExperimentConfig.model_validate(config.model_dump(mode="json")) == config
 
 
 @pytest.mark.parametrize(("name", "n_var"), [("zdt1", 30), ("zdt3", 30), ("zdt4", 10)])

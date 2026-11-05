@@ -1901,6 +1901,9 @@
                   "$ref": "#/components/schemas/DTLZ2Config"
                 },
                 {
+                  "$ref": "#/components/schemas/DTLZ7Config"
+                },
+                {
                   "$ref": "#/components/schemas/ZDT1Config"
                 },
                 {
@@ -1914,6 +1917,7 @@
                 "propertyName": "name",
                 "mapping": {
                   "dtlz2": "#/components/schemas/DTLZ2Config",
+                  "dtlz7": "#/components/schemas/DTLZ7Config",
                   "zdt1": "#/components/schemas/ZDT1Config",
                   "zdt3": "#/components/schemas/ZDT3Config",
                   "zdt4": "#/components/schemas/ZDT4Config"
@@ -1931,13 +1935,17 @@
                 },
                 {
                   "$ref": "#/components/schemas/NSGA3Config"
+                },
+                {
+                  "$ref": "#/components/schemas/SMSEMOAConfig"
                 }
               ],
               "discriminator": {
                 "propertyName": "name",
                 "mapping": {
                   "nsga2": "#/components/schemas/NSGA2Config",
-                  "nsga3": "#/components/schemas/NSGA3Config"
+                  "nsga3": "#/components/schemas/NSGA3Config",
+                  "smsemoa": "#/components/schemas/SMSEMOAConfig"
                 }
               }
             },
@@ -1989,6 +1997,36 @@
         "additionalProperties": false,
         "type": "object",
         "title": "DTLZ2Config"
+      },
+      "DTLZ7Config": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "const": "dtlz7",
+            "title": "Name",
+            "default": "dtlz7"
+          },
+          "n_obj": {
+            "type": "integer",
+            "maximum": 15.0,
+            "minimum": 2.0,
+            "title": "N Obj",
+            "description": "Number of objectives (M).",
+            "default": 3
+          },
+          "k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "K",
+            "description": "Distance variables; n_var = M + k - 1.",
+            "default": 20
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DTLZ7Config",
+        "description": "Disconnected front: 2^(M-1) pieces."
       },
       "DiagramOut": {
         "properties": {
@@ -2182,6 +2220,9 @@
                 "$ref": "#/components/schemas/DTLZ2Config"
               },
               {
+                "$ref": "#/components/schemas/DTLZ7Config"
+              },
+              {
                 "$ref": "#/components/schemas/ZDT1Config"
               },
               {
@@ -2201,6 +2242,7 @@
               "propertyName": "name",
               "mapping": {
                 "dtlz2": "#/components/schemas/DTLZ2Config",
+                "dtlz7": "#/components/schemas/DTLZ7Config",
                 "zdt1": "#/components/schemas/ZDT1Config",
                 "zdt3": "#/components/schemas/ZDT3Config",
                 "zdt4": "#/components/schemas/ZDT4Config"
@@ -2214,6 +2256,9 @@
               },
               {
                 "$ref": "#/components/schemas/NSGA3Config"
+              },
+              {
+                "$ref": "#/components/schemas/SMSEMOAConfig"
               }
             ],
             "title": "Algorithm",
@@ -2221,7 +2266,8 @@
               "propertyName": "name",
               "mapping": {
                 "nsga2": "#/components/schemas/NSGA2Config",
-                "nsga3": "#/components/schemas/NSGA3Config"
+                "nsga3": "#/components/schemas/NSGA3Config",
+                "smsemoa": "#/components/schemas/SMSEMOAConfig"
               }
             }
           },
@@ -3070,6 +3116,40 @@
         "additionalProperties": false,
         "type": "object",
         "title": "SBXConfig"
+      },
+      "SMSEMOAConfig": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "const": "smsemoa",
+            "title": "Name",
+            "default": "smsemoa"
+          },
+          "pop_size": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 4.0,
+            "title": "Pop Size",
+            "default": 100
+          },
+          "crossover": {
+            "$ref": "#/components/schemas/SBXConfig",
+            "default": {
+              "eta": 15.0,
+              "prob": 0.9,
+              "prob_var": 0.5
+            }
+          },
+          "mutation": {
+            "$ref": "#/components/schemas/PMConfig",
+            "default": {
+              "eta": 20.0
+            }
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SMSEMOAConfig"
       },
       "SeriesQuartilesOut": {
         "properties": {

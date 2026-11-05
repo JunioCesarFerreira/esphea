@@ -629,9 +629,9 @@ export interface components {
          */
         CatalogOut: {
             /** Problems */
-            problems: (components["schemas"]["DTLZ2Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"])[];
+            problems: (components["schemas"]["DTLZ2Config"] | components["schemas"]["DTLZ7Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"])[];
             /** Algorithms */
-            algorithms: (components["schemas"]["NSGA2Config"] | components["schemas"]["NSGA3Config"])[];
+            algorithms: (components["schemas"]["NSGA2Config"] | components["schemas"]["NSGA3Config"] | components["schemas"]["SMSEMOAConfig"])[];
             metrics: components["schemas"]["MetricsConfig"];
             snapshots: components["schemas"]["SnapshotConfig"];
         };
@@ -652,6 +652,29 @@ export interface components {
              * K
              * @description Distance variables; n_var = M + k - 1.
              * @default 10
+             */
+            k: number;
+        };
+        /**
+         * DTLZ7Config
+         * @description Disconnected front: 2^(M-1) pieces.
+         */
+        DTLZ7Config: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "dtlz7";
+            /**
+             * N Obj
+             * @description Number of objectives (M).
+             * @default 3
+             */
+            n_obj: number;
+            /**
+             * K
+             * @description Distance variables; n_var = M + k - 1.
+             * @default 20
              */
             k: number;
         };
@@ -731,9 +754,9 @@ export interface components {
              *       "k": 10
              *     }
              */
-            problem: components["schemas"]["DTLZ2Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"];
+            problem: components["schemas"]["DTLZ2Config"] | components["schemas"]["DTLZ7Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"];
             /** Algorithm */
-            algorithm: components["schemas"]["NSGA2Config"] | components["schemas"]["NSGA3Config"];
+            algorithm: components["schemas"]["NSGA2Config"] | components["schemas"]["NSGA3Config"] | components["schemas"]["SMSEMOAConfig"];
             /**
              * N Gen
              * @default 250
@@ -1124,6 +1147,33 @@ export interface components {
              * @default 0.5
              */
             prob_var: number;
+        };
+        /** SMSEMOAConfig */
+        SMSEMOAConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "smsemoa";
+            /**
+             * Pop Size
+             * @default 100
+             */
+            pop_size: number;
+            /**
+             * @default {
+             *       "eta": 15,
+             *       "prob": 0.9,
+             *       "prob_var": 0.5
+             *     }
+             */
+            crossover: components["schemas"]["SBXConfig"];
+            /**
+             * @default {
+             *       "eta": 20
+             *     }
+             */
+            mutation: components["schemas"]["PMConfig"];
         };
         /** SeriesQuartilesOut */
         SeriesQuartilesOut: {

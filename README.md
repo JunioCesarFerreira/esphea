@@ -20,8 +20,9 @@ Evolutionary algorithms (EAs) operate on populations of candidate solutions that
    *Status:* negative so far. With ideal–nadir scaling the diagrams are translation-invariant, so
    they do not see convergence.
 3. **Fitness landscape analysis:** do sublevel filtrations reveal problem modality, and does the
-   population topology follow the occupied basins?
-   *Status:* basin counts are exact; tracking of occupied basins is moderate.
+   population topology follow which basins of attraction (local fronts, in multi-objective
+   problems) are occupied?
+   *Status:* sublevel H₀ counts the local minima exactly; tracking of occupied basins is moderate.
 4. **Adaptive control:** can topological descriptors drive operator and parameter control?
    *Status:* deferred until question 2 yields an anticipatory signal.
 5. **Front coverage indicator:** can the diagram distance to the reference front measure gaps and
@@ -45,9 +46,10 @@ Evolutionary algorithms (EAs) operate on populations of candidate solutions that
 
 ## Current status
 
-The first milestone is an experimentation platform for **NSGA-II** and **NSGA-III** on the
-scalable **DTLZ2** benchmark and the bi-objective **ZDT1**, **ZDT3** (disconnected front) and
-**ZDT4** (multimodal) benchmarks, built so that persistent homology can be applied to the
+The first milestone is an experimentation platform for **NSGA-II**, **NSGA-III** and
+**SMS-EMOA** (generational variant) on the scalable **DTLZ2** and **DTLZ7** (disconnected front)
+benchmarks and the bi-objective **ZDT1**, **ZDT3** (disconnected front) and **ZDT4** (multimodal)
+benchmarks, built so that persistent homology can be applied to the
 populations *inside* each generation:
 
 - own generational loop exposing, at every generation, the parent pool `P_t`, the matings, the

@@ -5,7 +5,7 @@ from pymoo.algorithms.moo import nsga3 as pymoo_nsga3
 from pymoo.optimize import minimize
 from pymoo.problems import get_problem
 
-from esphea.algorithms import NSGA2, NSGA3, das_dennis, nsga3_population_size
+from esphea.algorithms import NSGA2, NSGA3, SMSEMOA, das_dennis, nsga3_population_size
 from esphea.core import (
     AlgorithmObserver,
     EvolutionaryAlgorithm,
@@ -36,10 +36,12 @@ class RecordingObserver(AlgorithmObserver):
 def build(name: str, problem: DTLZ2) -> EvolutionaryAlgorithm:
     if name == "nsga2":
         return NSGA2(problem, pop_size=92)
+    if name == "smsemoa":
+        return SMSEMOA(problem, pop_size=92)
     return NSGA3(problem, ref_dirs=das_dennis(problem.n_obj, 12))
 
 
-ALGORITHMS = ["nsga2", "nsga3"]
+ALGORITHMS = ["nsga2", "nsga3", "smsemoa"]
 
 
 @pytest.mark.parametrize("name", ALGORITHMS)
@@ -80,7 +82,9 @@ def test_same_seed_is_reproducible(name: str, dtlz2: DTLZ2) -> None:
 
 # Median IGD reached by pymoo's own implementations on this setting is about
 # 0.074 (NSGA-II) and 0.053 (NSGA-III); thresholds leave room for seed noise.
-@pytest.mark.parametrize(("name", "max_igd"), [("nsga2", 0.09), ("nsga3", 0.065)])
+@pytest.mark.parametrize(
+    ("name", "max_igd"), [("nsga2", 0.09), ("nsga3", 0.065), ("smsemoa", 0.09)]
+)
 def test_converges_on_dtlz2(name: str, max_igd: float, dtlz2: DTLZ2) -> None:
     result = build(name, dtlz2).run(MaxGenerations(150), np.random.default_rng(3))
     igd = IGD(dtlz2.pareto_front(1000))(result.final.F)
@@ -96,7 +100,7 @@ def test_nsga3_default_population_follows_deb_and_jain(dtlz2: DTLZ2) -> None:
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("name", ALGORITHMS)
+@pytest.mark.parametrize("name", ["nsga2", "nsga3"])
 def test_statistically_comparable_to_pymoo(name: str, dtlz2: DTLZ2) -> None:
     """Median final IGD over independent runs must match pymoo's own implementation."""
     n_runs, n_gen = 11, 200

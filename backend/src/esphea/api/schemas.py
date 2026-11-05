@@ -9,11 +9,13 @@ from pydantic import BaseModel, Field
 from esphea.experiments.config import (
     AlgorithmConfig,
     DTLZ2Config,
+    DTLZ7Config,
     ExperimentConfig,
     MetricsConfig,
     NSGA2Config,
     NSGA3Config,
     ProblemConfig,
+    SMSEMOAConfig,
     SnapshotConfig,
     ZDT1Config,
     ZDT3Config,
@@ -36,8 +38,8 @@ class CatalogOut(BaseModel):
 
 def default_catalog() -> CatalogOut:
     return CatalogOut(
-        problems=[DTLZ2Config(), ZDT1Config(), ZDT3Config(), ZDT4Config()],
-        algorithms=[NSGA2Config(), NSGA3Config()],
+        problems=[DTLZ2Config(), DTLZ7Config(), ZDT1Config(), ZDT3Config(), ZDT4Config()],
+        algorithms=[NSGA2Config(), NSGA3Config(), SMSEMOAConfig()],
         metrics=MetricsConfig(),
         snapshots=SnapshotConfig(),
     )

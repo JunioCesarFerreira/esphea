@@ -33,6 +33,18 @@ class DTLZ2Config(_Model):
         return self.n_obj + self.k - 1
 
 
+class DTLZ7Config(_Model):
+    """Disconnected front: 2^(M-1) pieces."""
+
+    name: Literal["dtlz7"] = "dtlz7"
+    n_obj: int = Field(default=3, ge=2, le=15, description="Number of objectives (M).")
+    k: int = Field(default=20, ge=1, le=100, description="Distance variables; n_var = M + k - 1.")
+
+    @property
+    def n_var(self) -> int:
+        return self.n_obj + self.k - 1
+
+
 class _ZDTConfig(_Model):
     n_obj: Literal[2] = Field(default=2, description="ZDT problems are bi-objective.")
     n_var: int = Field(default=30, ge=2, le=1000, description="Decision variables (n).")
@@ -58,7 +70,7 @@ class ZDT4Config(_ZDTConfig):
 
 
 ProblemConfig = Annotated[
-    DTLZ2Config | ZDT1Config | ZDT3Config | ZDT4Config, Field(discriminator="name")
+    DTLZ2Config | DTLZ7Config | ZDT1Config | ZDT3Config | ZDT4Config, Field(discriminator="name")
 ]
 
 
@@ -116,7 +128,17 @@ class NSGA3Config(_Model):
         return nsga3_population_size(self.n_reference_directions(n_obj))
 
 
-AlgorithmConfig = Annotated[NSGA2Config | NSGA3Config, Field(discriminator="name")]
+class SMSEMOAConfig(_Model):
+    name: Literal["smsemoa"] = "smsemoa"
+    pop_size: int = Field(default=100, ge=4, le=10_000)
+    crossover: SBXConfig = SBXConfig(eta=15.0, prob=0.9)
+    mutation: PMConfig = PMConfig(eta=20.0)
+
+    def resolved_pop_size(self, n_obj: int) -> int:
+        return self.pop_size
+
+
+AlgorithmConfig = Annotated[NSGA2Config | NSGA3Config | SMSEMOAConfig, Field(discriminator="name")]
 
 
 # --- observation ----------------------------------------------------------------------

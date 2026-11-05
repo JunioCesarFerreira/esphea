@@ -123,7 +123,7 @@ function ProblemSection({ config, catalog, onChange }: FormProps) {
         allowDeselect={false}
         onChange={(name) => name && onChange(switchProblem(config, catalog, name as ProblemName))}
       />
-      {problem.name === "dtlz2" ? (
+      {problem.name === "dtlz2" || problem.name === "dtlz7" ? (
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <NumberField
             path="problem.n_obj"
@@ -173,7 +173,7 @@ function AlgorithmSection({ config, catalog, onChange }: FormProps) {
         data={catalog.algorithms.map((a) => ({ value: a.name, label: ALGORITHM_LABELS[a.name] }))}
         onChange={(name) => onChange(switchAlgorithm(config, catalog, name as AlgorithmName))}
       />
-      {algorithm.name === "nsga2" ? (
+      {algorithm.name !== "nsga3" ? (
         <NumberField
           path="algorithm.pop_size"
           label="Population size"

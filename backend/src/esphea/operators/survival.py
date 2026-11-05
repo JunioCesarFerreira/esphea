@@ -5,6 +5,7 @@ from typing import ClassVar
 
 import numpy as np
 from pymoo.algorithms.moo.nsga3 import ReferenceDirectionSurvival as PymooReferenceSurvival
+from pymoo.algorithms.moo.sms import LeastHypervolumeContributionSurvival
 from pymoo.core.population import Population as PymooPopulation
 from pymoo.core.survival import Survival as PymooSurvival
 from pymoo.operators.survival.rank_and_crowding import RankAndCrowding
@@ -84,3 +85,19 @@ class ReferenceDirectionSurvival(_PymooSurvivalAdapter):
     def __init__(self, ref_dirs: FloatArray) -> None:
         super().__init__(PymooReferenceSurvival(ref_dirs))
         self.ref_dirs = ref_dirs
+
+
+class HypervolumeContributionSurvival(_PymooSurvivalAdapter):
+    """SMS-EMOA survival: non-dominated fronts, last front truncated by removing, one at a
+    time, the individual with the least exclusive hypervolume contribution.
+
+    Objectives are scaled by the ideal and nadir points of the candidates and the
+    reference point is ``1 + 10`` per objective, as in pymoo.
+
+    Survivor attributes: ``rank`` (front index, 0 = non-dominated).
+    """
+
+    _attribute_dtypes: ClassVar[Mapping[str, type[np.generic]]] = {"rank": np.intp}
+
+    def __init__(self) -> None:
+        super().__init__(LeastHypervolumeContributionSurvival())

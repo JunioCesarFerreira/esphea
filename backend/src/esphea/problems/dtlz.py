@@ -1,5 +1,7 @@
 """DTLZ benchmark problems (Deb, Thiele, Laumanns and Zitzler, 2005)."""
 
+from functools import cached_property
+
 import numpy as np
 
 from esphea.core.problem import Problem
@@ -55,3 +57,72 @@ class DTLZ2(Problem):
     @property
     def nadir_point(self) -> FloatArray:
         return frozen(np.ones(self.n_obj))
+
+
+DTLZ7_RESOLUTION = 100_001
+"""Samples of ``f_i`` in [0, 1] from which the Pareto-optimal intervals are extracted."""
+
+
+class DTLZ7(Problem):
+    """Scalable DTLZ7 problem with a disconnected front.
+
+    ``n_var = n_obj + k - 1``; ``f_i = x_i`` for ``i < M`` and
+
+        f_M = (1 + g) * (M - sum_i f_i / (1 + g) * (1 + sin(3 pi f_i))),
+        g = 1 + 9 / k * sum(x_M..x_n),
+
+    so the front (``g = 1``) is ``f_M = 2M - sum_i phi(f_i)`` with
+    ``phi(f) = f (1 + sin(3 pi f))``. Because ``f_M`` is separable, a point is
+    Pareto optimal iff every ``f_i`` is Pareto optimal for ``M = 2``: the front
+    is the product of two intervals per coordinate, i.e. ``2^(M-1)`` pieces.
+    """
+
+    def __init__(self, n_obj: int = 3, k: int = 20) -> None:
+        if n_obj < 2:
+            raise ValueError(f"DTLZ7 needs at least 2 objectives, got {n_obj}")
+        if k < 1:
+            raise ValueError(f"k must be positive, got {k}")
+        super().__init__(n_var=n_obj + k - 1, n_obj=n_obj, lower=0.0, upper=1.0)
+        self.k = k
+
+    @property
+    def name(self) -> str:
+        return "DTLZ7"
+
+    def _evaluate(self, X: FloatArray) -> FloatArray:
+        m = self.n_obj
+        f = X[:, : m - 1]
+        g = 1.0 + 9.0 / self.k * np.sum(X[:, m - 1 :], axis=1)
+        h = m - np.sum(f / (1.0 + g)[:, None] * (1.0 + np.sin(3.0 * np.pi * f)), axis=1)
+        return np.column_stack((f, (1.0 + g) * h))
+
+    @staticmethod
+    def _phi(f: FloatArray) -> FloatArray:
+        return f * (1.0 + np.sin(3.0 * np.pi * f))
+
+    @cached_property
+    def _optimal_coordinates(self) -> FloatArray:
+        """Values of one ``f_i`` on the front: ``phi`` exceeds its value at every smaller ``f``."""
+        f = np.linspace(0.0, 1.0, DTLZ7_RESOLUTION)
+        phi = self._phi(f)
+        earlier = np.maximum.accumulate(np.concatenate(([-np.inf], phi[:-1])))
+        return frozen(f[phi > earlier])
+
+    def pareto_front(self, n_points: int) -> FloatArray:
+        values = self._optimal_coordinates
+        per_axis = max(2, int(np.ceil(max(n_points, 2) ** (1.0 / (self.n_obj - 1)))))
+        index = np.unique(np.linspace(0, len(values) - 1, per_axis).round().astype(np.intp))
+        grid = np.meshgrid(*[values[index]] * (self.n_obj - 1), indexing="ij")
+        f = np.column_stack([axis.ravel() for axis in grid])
+        last = 2.0 * self.n_obj - np.sum(self._phi(f), axis=1)
+        return np.column_stack((f, last))
+
+    @property
+    def ideal_point(self) -> FloatArray:
+        best = float(self._phi(self._optimal_coordinates).max())
+        return frozen(np.r_[np.zeros(self.n_obj - 1), 2.0 * self.n_obj - (self.n_obj - 1) * best])
+
+    @property
+    def nadir_point(self) -> FloatArray:
+        far = float(self._optimal_coordinates.max())
+        return frozen(np.r_[np.full(self.n_obj - 1, far), 2.0 * self.n_obj])

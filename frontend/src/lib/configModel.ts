@@ -12,10 +12,12 @@ import type {
 export const ALGORITHM_LABELS: Record<AlgorithmName, string> = {
   nsga2: "NSGA-II",
   nsga3: "NSGA-III",
+  smsemoa: "SMS-EMOA",
 };
 
 export const PROBLEM_LABELS: Record<string, string> = {
   dtlz2: "DTLZ2",
+  dtlz7: "DTLZ7",
   zdt1: "ZDT1",
   zdt3: "ZDT3",
   zdt4: "ZDT4",
@@ -23,6 +25,7 @@ export const PROBLEM_LABELS: Record<string, string> = {
 
 export const PROBLEM_DESCRIPTIONS: Record<ProblemName, string> = {
   dtlz2: "Scalable number of objectives; the front is a sphere octant.",
+  dtlz7: "Scalable number of objectives; front split into 2^(M−1) disconnected pieces.",
   zdt1: "Bi-objective; convex, connected front.",
   zdt3: "Bi-objective; front split into five disconnected pieces.",
   zdt4: "Bi-objective; convex front hidden behind many local fronts (multimodal).",

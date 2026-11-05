@@ -41,9 +41,9 @@ The backend (`backend/src/esphea`) is layered so that inner layers never import 
 ```
 core            domain: Problem, Population, operator interfaces, the evolutionary loop
 topology        persistent homology: point clouds, Vietoris-Rips, diagram distances, analyses
-problems        benchmark problems (DTLZ2, ZDT1, ZDT3, ZDT4)
+problems        benchmark problems (DTLZ2, DTLZ7, ZDT1, ZDT3, ZDT4)
 operators       concrete strategies (sampling, selection, SBX, PM, survival)
-algorithms      NSGA-II and NSGA-III as compositions of strategies
+algorithms      NSGA-II, NSGA-III and SMS-EMOA as compositions of strategies
 metrics         quality indicators (IGD, IGD+, GD, hypervolume) and diversity metrics
 experiments     configuration, registries, observers, snapshot storage, run executor
 persistence     SQLAlchemy models and repositories
@@ -65,23 +65,28 @@ for t = 0, 1, ...:
     notify observers with GenerationRecord(P_t, matings, Q_t, lineage, P_{t+1})
 ```
 
-NSGA-II and NSGA-III are the same loop with different strategies:
+NSGA-II, NSGA-III and SMS-EMOA are the same loop with different strategies:
 
-|                  | NSGA-II                         | NSGA-III                                      |
-| ---------------- | ------------------------------- | --------------------------------------------- |
-| Mating selection | binary tournament (rank, crowding) | random                                     |
-| Crossover        | SBX, η = 15, p = 0.9            | SBX, η = 30, p = 1                            |
-| Mutation         | polynomial, η = 20, p = 1/n     | polynomial, η = 20, p = 1/n                   |
-| Survival         | non-dominated sorting + crowding distance | non-dominated sorting + reference-point niching |
-| Population       | user defined                    | smallest multiple of 4 ≥ number of Das–Dennis directions |
+|                  | NSGA-II                         | NSGA-III                                      | SMS-EMOA                       |
+| ---------------- | ------------------------------- | --------------------------------------------- | ------------------------------ |
+| Mating selection | binary tournament (rank, crowding) | random                                     | random                         |
+| Crossover        | SBX, η = 15, p = 0.9            | SBX, η = 30, p = 1                            | SBX, η = 15, p = 0.9           |
+| Mutation         | polynomial, η = 20, p = 1/n     | polynomial, η = 20, p = 1/n                   | polynomial, η = 20, p = 1/n    |
+| Survival         | non-dominated sorting + crowding distance | non-dominated sorting + reference-point niching | non-dominated sorting + least hypervolume contribution, removed one at a time |
+| Population       | user defined                    | smallest multiple of 4 ≥ number of Das–Dennis directions | user defined |
+
+SMS-EMOA is originally steady state (one offspring per iteration). Here it produces a whole
+generation of offspring and then removes the least contributors of `P_t + Q_t` one by one, so its
+generations line up with those of the NSGA variants (and with the zigzag `P_t -> R_t <- P_{t+1}`).
 
 **Why pymoo is used for parts of the loop and not for the whole run.** The study needs the
 populations inside each generation (parents, offspring and survivors), which pymoo's
 `minimize` does not expose as such. We therefore own the loop and the data it emits, and
 delegate the numerically delicate pieces to pymoo through adapters
 (`operators/variation.py`, `operators/survival.py`): its vectorised SBX/PM kernels and its
-compiled non-dominated sorting and NSGA-III normalisation/niching. Only the adapters import
-pymoo. A slow test checks that both algorithms are statistically equivalent to pymoo's native
+compiled non-dominated sorting, NSGA-III normalisation/niching and SMS-EMOA hypervolume
+contributions. Only the adapters import
+pymoo. A slow test checks that NSGA-II and NSGA-III are statistically equivalent to pymoo's native
 implementations on DTLZ2.
 
 **Populations are structures of arrays** (`X` of shape `(n, n_var)`, `F` of shape `(n, n_obj)`,
