@@ -1,6 +1,5 @@
 import {
   Alert,
-  Card,
   Group,
   NumberInput,
   SegmentedControl,
@@ -9,10 +8,9 @@ import {
   Slider,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 
 import {
   useZigzagBars,
@@ -27,6 +25,13 @@ import { formatInteger, formatNumber } from "../../../../lib/format";
 import { baseLayout, objectiveSpaceLayout } from "../../../../lib/plots";
 import { homologyLabel } from "../../../../lib/topologyPlots";
 import {
+  METHOD_LABELS,
+  METHODS,
+  RESOLUTION_LABELS,
+  type Method,
+  type Resolution,
+} from "../../../../lib/trackerModel";
+import {
   barRows,
   BATCH_VIEWS,
   batchTraces,
@@ -40,33 +45,15 @@ import {
   zigzagBettiTraces,
   zigzagEventTraces,
 } from "../../../../lib/zigzagPlots";
+import { Section } from "./Section";
+import { TrackerBarcode, TrackerBatchComparison, TrackerRunComparison } from "./TrackerResults";
 
-function Section({
-  title,
-  description,
-  controls,
-  children,
-}: {
-  title: string;
-  description: string;
-  controls?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <Card withBorder padding="md">
-      <Group justify="space-between" align="flex-start" mb="xs" wrap="wrap">
-        <div>
-          <Title order={5}>{title}</Title>
-          <Text size="xs" c="dimmed" maw={620}>
-            {description}
-          </Text>
-        </div>
-        <Group gap="xs">{controls}</Group>
-      </Group>
-      {children}
-    </Card>
-  );
-}
+const BARCODE_DESCRIPTIONS = {
+  zigzag:
+    "Each bar is a feature followed across generations. Colour: what created it; end marker: what ended it (circle: offspring, cross: selection, arrow: still alive). Click a bar to inspect it.",
+  tracker:
+    "The same niches followed by a heuristic tracker instead of the zigzag pairing. Grey: the zigzag has the same bar; colour: it has not.",
+};
 
 function RepresentativeViewer({
   analysis,
@@ -156,6 +143,10 @@ export function ZigzagResults({
   const [selected, setSelected] = useState<number | null>(null);
   const [scope, setScope] = useState<"run" | "batch">("run");
   const [batchView, setBatchView] = useState<BatchView>("births");
+  const [barcodeMethod, setBarcodeMethod] = useState<Method>("zigzag");
+  const [resolution, setResolution] = useState<Resolution>("step");
+  // the niche trackers follow H0 only
+  const method: Method = dimension === 0 ? barcodeMethod : "zigzag";
 
   const bars = useZigzagBars(analysis.id, epsilonIndex, dimension, minLifetime);
   const events = useZigzagEvents(analysis.id, epsilonIndex, dimension);
@@ -245,6 +236,9 @@ export function ZigzagResults({
             />
           )}
         </Section>
+        {dimension === 0 && analysis.batch_id && (
+          <TrackerBatchComparison batchId={analysis.batch_id} epsilonIndex={epsilonIndex} />
+        )}
       </Stack>
     );
   }
@@ -258,35 +252,70 @@ export function ZigzagResults({
         </Alert>
       )}
       <Section
-        title={`Zigzag barcode · ${homologyLabel(dimension)} · ε ${formatNumber(epsilons[epsilonIndex])}`}
-        description="Each bar is a feature followed across generations. Colour: what created it; end marker: what ended it (circle: offspring, cross: selection, arrow: still alive). Click a bar to inspect it."
+        title={`${method === "zigzag" ? "Zigzag" : `${METHOD_LABELS[method]} tracker`} barcode · ${homologyLabel(dimension)} · ε ${formatNumber(epsilons[epsilonIndex])}`}
+        description={BARCODE_DESCRIPTIONS[method === "zigzag" ? "zigzag" : "tracker"]}
         controls={
-          <NumberInput
-            size="xs"
-            w={150}
-            label="Min. lifetime (steps)"
-            min={1}
-            value={minLifetime}
-            onChange={(v) => typeof v === "number" && v >= 1 && setMinLifetime(v)}
-          />
+          <Group gap="xs" align="flex-end">
+            {dimension === 0 && (
+              <SegmentedControl
+                size="xs"
+                aria-label="Method"
+                value={method}
+                onChange={(v) => setBarcodeMethod(v as Method)}
+                data={METHODS.map((m) => ({ value: m, label: METHOD_LABELS[m] }))}
+              />
+            )}
+            {method !== "zigzag" && (
+              <SegmentedControl
+                size="xs"
+                aria-label="Same bar as the zigzag when"
+                value={resolution}
+                onChange={(v) => setResolution(v as Resolution)}
+                data={Object.entries(RESOLUTION_LABELS).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
+              />
+            )}
+            <NumberInput
+              size="xs"
+              w={150}
+              label="Min. lifetime (steps)"
+              min={1}
+              value={minLifetime}
+              onChange={(v) => typeof v === "number" && v >= 1 && setMinLifetime(v)}
+            />
+          </Group>
         }
       >
-        {bars.data && (
-          <>
-            <Text size="xs" c="dimmed" mb={4}>
-              {formatInteger(bars.data.bar.length)} bars shown
-              {bars.data.n_simplices ? ` · ${formatInteger(bars.data.n_simplices)} simplices` : ""}
-              {bars.data.bar.length > MAX_BARS_WITH_MARKERS &&
-                " · end markers hidden: raise the minimum lifetime to see how bars end"}
-            </Text>
-            <PlotlyChart
-              ariaLabel="Zigzag barcode"
-              height={Math.min(900, Math.max(320, 120 + rows.length * 3))}
-              data={zigzagBarcodeTraces(bars.data, theme, selected)}
-              layout={zigzagBarcodeLayout(theme, bars.data.n_generations)}
-              onPointClick={(value) => typeof value === "number" && setSelected(value)}
-            />
-          </>
+        {method !== "zigzag" ? (
+          <TrackerBarcode
+            analysis={analysis}
+            epsilonIndex={epsilonIndex}
+            method={method}
+            minLifetime={minLifetime}
+            resolution={resolution}
+          />
+        ) : (
+          bars.data && (
+            <>
+              <Text size="xs" c="dimmed" mb={4}>
+                {formatInteger(bars.data.bar.length)} bars shown
+                {bars.data.n_simplices
+                  ? ` · ${formatInteger(bars.data.n_simplices)} simplices`
+                  : ""}
+                {bars.data.bar.length > MAX_BARS_WITH_MARKERS &&
+                  " · end markers hidden: raise the minimum lifetime to see how bars end"}
+              </Text>
+              <PlotlyChart
+                ariaLabel="Zigzag barcode"
+                height={Math.min(900, Math.max(320, 120 + rows.length * 3))}
+                data={zigzagBarcodeTraces(bars.data, theme, selected)}
+                layout={zigzagBarcodeLayout(theme, bars.data.n_generations)}
+                onPointClick={(value) => typeof value === "number" && setSelected(value)}
+              />
+            </>
+          )
         )}
       </Section>
 
@@ -385,6 +414,13 @@ export function ZigzagResults({
           />
         )}
       </Section>
+      {dimension === 0 && bars.data && (
+        <TrackerRunComparison
+          analysis={analysis}
+          epsilonIndex={epsilonIndex}
+          nSteps={bars.data.n_steps}
+        />
+      )}
     </Stack>
   );
 }

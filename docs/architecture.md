@@ -252,6 +252,27 @@ reported as such.
 summary gives the median and quartiles across runs of the Betti numbers and of births and deaths
 by cause, per generation.
 
+**Niche trackers.** At every scale the zigzag analysis also follows the H₀ niches with three
+heuristic trackers (`esphea.topology.trackers`), stored as `trackers.parquet` (zigzag results
+schema 2). They see the same niches as the zigzag and differ only in how they link them over
+time:
+
+| tracker | sees | rule |
+|---|---|---|
+| `t1` | every `P_t` and `R_t` | elder rule at merges, largest fragment keeps the bar at splits (tracking graphs) |
+| `t1o` | every `P_t` and `R_t` | as `t1`, but the fragment holding the oldest individual keeps the bar |
+| `t2` | the populations `P_t` only | components matched through shared survivors, as cluster and community trackers do |
+
+The comparison reports, per method, the number of bars, the long bars (alive at least
+`long_lifetime` steps), lifetime quantiles and the share of the zigzag bars a tracker reproduces,
+matched by step or by generation. Matching by generation counts `R_t` and `P_t` as generation `t`,
+which removes the one-step offset of `t2`: it never sees `R_t`, so it dates births by offspring and
+merges through offspring at `P_t`. Endpoints: `GET /api/analyses/{id}/zigzag/trackers/{method}/bars`,
+`.../zigzag/trackers/comparison`, `GET /api/analysis-batches/{id}/tracker-comparison` and
+`GET /api/experiments/{id}/analysis-groups/{key}/tracker-comparison` (per-run values). Results
+written before the trackers existed answer 404 and are skipped in batches and groups; running the
+analysis again computes them.
+
 **Groups and comparison.** `GET /api/experiments/{id}/analysis-groups` groups an experiment's
 analyses (either kind) by configuration, keeping the newest completed analysis of each run.
 Settings that only change what is stored (`distance_matrix`, `representatives`) are left out of

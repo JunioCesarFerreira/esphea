@@ -7,13 +7,16 @@ An analysis directory holds ``meta.json`` and:
 * ``bars.parquet`` - ``epsilon_index, bar, dimension, birth, death, kind,
   birth_cause, death_cause`` (alive on steps ``[birth, death - 1]``);
 * ``representatives.parquet`` - ``epsilon_index, bar, start, end, simplex``
-  (one row per simplex of the representative cycle on steps ``[start, end]``).
+  (one row per simplex of the representative cycle on steps ``[start, end]``);
+* ``trackers.parquet`` - ``epsilon_index, method, birth, death``: the ``H_0`` bars
+  of the heuristic niche trackers (schema version 2; absent in older results).
 
 Written to a temporary directory and renamed atomically.
 """
 
 import json
 import shutil
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -24,6 +27,7 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from esphea.core.types import FloatArray, IntArray
+from esphea.topology.trackers import TrackerMethod
 from esphea.topology.zigzag import (
     Cause,
     ZigzagResult,
@@ -31,7 +35,8 @@ from esphea.topology.zigzag import (
     step_generation,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+_TRACKERS = "trackers.parquet"
 _META = "meta.json"
 
 
@@ -44,6 +49,7 @@ class ZigzagResultWriter:
         self._individuals: pa.Table | None = None
         self._bars: dict[str, list[Any]] = {}
         self._representatives: dict[str, list[Any]] = {}
+        self._trackers: dict[str, list[Any]] = {}
         self._scales: list[dict[str, Any]] = []
 
     def write_sequence(self, sequence: ZigzagSequence) -> None:
@@ -96,6 +102,19 @@ class ZigzagResultWriter:
                     self._representatives, {"epsilon_index": epsilon_index, "bar": index, **row}
                 )
 
+    def add_trackers(self, epsilon_index: int, trackers: Mapping[TrackerMethod, IntArray]) -> None:
+        for method, bars in trackers.items():
+            for birth, death in bars.tolist():
+                self._append(
+                    self._trackers,
+                    {
+                        "epsilon_index": epsilon_index,
+                        "method": method.value,
+                        "birth": birth,
+                        "death": death,
+                    },
+                )
+
     def close(self) -> None:
         if self._individuals is None:
             raise RuntimeError("write_sequence must be called before close")
@@ -135,6 +154,21 @@ class ZigzagResultWriter:
                 schema=representatives_schema,
             ),
             temporary / "representatives.parquet",
+            compression="zstd",
+        )
+        trackers_schema = pa.schema(
+            [
+                ("epsilon_index", pa.int8()),
+                ("method", pa.string()),
+                ("birth", pa.int32()),
+                ("death", pa.int32()),
+            ]
+        )
+        pq.write_table(
+            pa.table(
+                self._trackers or {n: [] for n in trackers_schema.names}, schema=trackers_schema
+            ),
+            temporary / _TRACKERS,
             compression="zstd",
         )
         meta = {
@@ -184,6 +218,31 @@ class ZigzagResultReader:
             self._directory / "bars.parquet",
             filters=[("epsilon_index", "=", epsilon_index), ("dimension", "=", dimension)],
         )
+
+    def bar_array(self, epsilon_index: int, dimension: int) -> IntArray:
+        """Bars as rows ``(birth, death)``."""
+        table = self.bars(epsilon_index, dimension)
+        return np.column_stack(
+            [table.column("birth").to_numpy(), table.column("death").to_numpy()]
+        ).astype(np.intp)
+
+    @property
+    def has_trackers(self) -> bool:
+        """Whether the niche trackers were computed (results of schema version 2 on)."""
+        return (self._directory / _TRACKERS).exists()
+
+    def tracker_bars(self, epsilon_index: int, method: TrackerMethod) -> IntArray:
+        """``H_0`` bars ``(birth, death)`` of a niche tracker."""
+        self._check(epsilon_index, 0)
+        if not self.has_trackers:
+            raise LookupError("the niche trackers were not computed for this analysis")
+        table = pq.read_table(
+            self._directory / _TRACKERS,
+            filters=[("epsilon_index", "=", epsilon_index), ("method", "=", method.value)],
+        )
+        return np.column_stack(
+            [table.column("birth").to_numpy(), table.column("death").to_numpy()]
+        ).astype(np.intp)
 
     def bar(self, epsilon_index: int, bar: int) -> dict[str, Any]:
         table = pq.read_table(

@@ -13,11 +13,15 @@ from esphea.services.analyses import (
     EpsilonSuggestion,
     GroupSummary,
     RepresentativeView,
+    TrackerBarsView,
+    TrackerComparison,
+    TrackerRuns,
     ZigzagBatchSummary,
 )
 from esphea.topology.config import AnalysisConfig, parse_analysis_config
 from esphea.topology.diagram import PersistenceDiagram
 from esphea.topology.storage import TopologyResultReader
+from esphea.topology.trackers import TrackerMethod
 
 
 def _optional(values: list[float]) -> list[float | None]:
@@ -335,5 +339,124 @@ class AnalysisGroupSummaryOut(BaseModel):
             totals={
                 name: SpreadOut(q1=t.q1, median=t.median, q3=t.q3)
                 for name, t in summary.totals.items()
+            },
+        )
+
+
+# --- niche trackers -------------------------------------------------------------------
+
+
+class TrackerBarsOut(BaseModel):
+    """H0 bars of a niche tracker, in zigzag steps, and whether the zigzag has the same bar."""
+
+    epsilon: float
+    method: TrackerMethod
+    n_generations: int
+    n_steps: int
+    birth: list[int]
+    death: list[int]
+    matched_step: list[bool] = Field(
+        description="The zigzag H0 barcode has a bar with the same birth and death steps."
+    )
+    matched_generation: list[bool] = Field(
+        description="The zigzag H0 barcode has a bar born and ending in the same generations."
+    )
+
+    @classmethod
+    def from_view(cls, view: TrackerBarsView) -> Self:
+        return cls(
+            epsilon=view.epsilon,
+            method=view.method,
+            n_generations=view.n_generations,
+            n_steps=view.n_steps,
+            birth=view.bars[:, 0].tolist(),
+            death=view.bars[:, 1].tolist(),
+            matched_step=view.matched_step.tolist(),
+            matched_generation=view.matched_generation.tolist(),
+        )
+
+
+class MethodSummaryOut(BaseModel):
+    """One method's H0 barcode of a run, and the share of the zigzag bars it reproduces."""
+
+    method: str = Field(description="'zigzag' or a tracker: 't1', 't1o' or 't2'.")
+    n_bars: int
+    n_long: int = Field(description="Bars alive at least long_lifetime steps.")
+    median_lifetime: float | None = Field(description="Steps; bars ending before the last step.")
+    p90_lifetime: float | None
+    agreement_step: float | None = Field(
+        description="Share of the zigzag bars with a bar of the same birth and death steps."
+    )
+    agreement_generation: float | None = Field(
+        description="Share of the zigzag bars with a bar of the same birth and death generations."
+    )
+    long_agreement_step: float | None = Field(
+        description="The same for the long zigzag bars (null when there is none)."
+    )
+    long_agreement_generation: float | None
+    at_least: list[int] = Field(description="Bars alive at least L steps, for L = 1 .. n_steps.")
+
+
+class TrackerComparisonOut(BaseModel):
+    epsilon: float
+    n_generations: int
+    n_steps: int
+    long_lifetime: int
+    methods: list[MethodSummaryOut] = Field(description="The zigzag first, then the trackers.")
+
+    @classmethod
+    def from_comparison(cls, comparison: TrackerComparison) -> Self:
+        return cls(
+            epsilon=comparison.epsilon,
+            n_generations=comparison.n_generations,
+            n_steps=comparison.n_steps,
+            long_lifetime=comparison.long_lifetime,
+            methods=[
+                MethodSummaryOut(
+                    method=m.method,
+                    n_bars=m.n_bars,
+                    n_long=m.n_long,
+                    median_lifetime=m.median_lifetime,
+                    p90_lifetime=m.p90_lifetime,
+                    agreement_step=m.agreement_step,
+                    agreement_generation=m.agreement_generation,
+                    long_agreement_step=m.long_agreement_step,
+                    long_agreement_generation=m.long_agreement_generation,
+                    at_least=m.at_least,
+                )
+                for m in comparison.methods
+            ],
+        )
+
+
+class MethodRunsOut(BaseModel):
+    """One value per run, in run order (see MethodSummaryOut for the meaning)."""
+
+    n_bars: list[float | None]
+    n_long: list[float | None]
+    median_lifetime: list[float | None]
+    p90_lifetime: list[float | None]
+    agreement_step: list[float | None]
+    agreement_generation: list[float | None]
+    long_agreement_step: list[float | None]
+    long_agreement_generation: list[float | None]
+
+
+class TrackerRunsOut(BaseModel):
+    epsilon: float
+    long_lifetime: int
+    n_runs: int
+    skipped: int = Field(description="Runs whose analysis predates the niche trackers.")
+    methods: dict[str, MethodRunsOut] = Field(description="'zigzag', 't1', 't1o' and 't2'.")
+
+    @classmethod
+    def from_runs(cls, runs: TrackerRuns) -> Self:
+        return cls(
+            epsilon=runs.epsilon,
+            long_lifetime=runs.long_lifetime,
+            n_runs=runs.n_runs,
+            skipped=runs.skipped,
+            methods={
+                name: MethodRunsOut.model_validate(fields) for name, fields in runs.methods.items()
             },
         )

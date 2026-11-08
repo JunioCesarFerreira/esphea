@@ -8,7 +8,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
-import { api, unwrap } from "./client";
+import { api, ApiError, unwrap } from "./client";
 import {
   isActive,
   type Analysis,
@@ -18,6 +18,7 @@ import {
   type ExperimentSummary,
   type NormalizationKind,
   type PointCloudKind,
+  type TrackerMethod,
 } from "./types";
 
 const LIVE_REFRESH_MS = 2000;
@@ -450,6 +451,127 @@ export function useZigzagBatchSummary(
         : skipToken,
     staleTime: Infinity,
     placeholderData: keepPreviousData,
+  });
+}
+
+// --- niche trackers -------------------------------------------------------------------
+
+/** A 404 means the results lack the trackers (or the scale): retrying will not help. */
+const retryUnlessMissing = (failures: number, error: Error) =>
+  !(error instanceof ApiError && error.status === 404) && failures < 3;
+
+export function useTrackerComparison(
+  analysisId: string,
+  epsilonIndex: number,
+  longLifetime: number,
+) {
+  return useQuery({
+    queryKey: [...queryKeys.analysis(analysisId), "tracker-comparison", epsilonIndex, longLifetime],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/analyses/{analysis_id}/zigzag/trackers/comparison", {
+          params: {
+            path: { analysis_id: analysisId },
+            query: { epsilon_index: epsilonIndex, long_lifetime: longLifetime },
+          },
+        }),
+      ),
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+    retry: retryUnlessMissing,
+  });
+}
+
+export function useTrackerBars(
+  analysisId: string,
+  method: TrackerMethod | null,
+  epsilonIndex: number,
+  minLifetime: number,
+) {
+  return useQuery({
+    queryKey: [
+      ...queryKeys.analysis(analysisId),
+      "tracker-bars",
+      method,
+      epsilonIndex,
+      minLifetime,
+    ],
+    queryFn:
+      method === null
+        ? skipToken
+        : () =>
+            unwrap(
+              api.GET("/api/analyses/{analysis_id}/zigzag/trackers/{method}/bars", {
+                params: {
+                  path: { analysis_id: analysisId, method },
+                  query: { epsilon_index: epsilonIndex, min_lifetime: minLifetime },
+                },
+              }),
+            ),
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+    retry: retryUnlessMissing,
+  });
+}
+
+export function useTrackerBatchRuns(
+  batchId: string | null,
+  epsilonIndex: number,
+  longLifetime: number,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [...queryKeys.batch(batchId ?? "none"), "trackers", epsilonIndex, longLifetime],
+    queryFn:
+      batchId && enabled
+        ? () =>
+            unwrap(
+              api.GET("/api/analysis-batches/{batch_id}/tracker-comparison", {
+                params: {
+                  path: { batch_id: batchId },
+                  query: { epsilon_index: epsilonIndex, long_lifetime: longLifetime },
+                },
+              }),
+            )
+        : skipToken,
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+    retry: retryUnlessMissing,
+  });
+}
+
+export interface TrackerGroupRequest {
+  experimentId: string;
+  group: AnalysisGroup;
+  epsilonIndex: number;
+  longLifetime: number;
+}
+
+/** Per-run values of the zigzag and the trackers for one zigzag group per experiment. */
+export function useTrackerGroupRuns(requests: TrackerGroupRequest[]) {
+  return useQueries({
+    queries: requests.map(({ experimentId, group, epsilonIndex, longLifetime }) => ({
+      queryKey: [
+        ...queryKeys.analysisGroups(experimentId),
+        group.key,
+        group.runs,
+        "trackers",
+        epsilonIndex,
+        longLifetime,
+      ],
+      queryFn: () =>
+        unwrap(
+          api.GET("/api/experiments/{experiment_id}/analysis-groups/{key}/tracker-comparison", {
+            params: {
+              path: { experiment_id: experimentId, key: group.key },
+              query: { epsilon_index: epsilonIndex, long_lifetime: longLifetime },
+            },
+          }),
+        ),
+      staleTime: Infinity,
+      placeholderData: keepPreviousData,
+      retry: retryUnlessMissing,
+    })),
   });
 }
 

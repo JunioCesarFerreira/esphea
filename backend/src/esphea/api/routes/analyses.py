@@ -16,6 +16,9 @@ from esphea.api.topology_schemas import (
     EpsilonSuggestionOut,
     RepresentativeOut,
     TopologySeriesOut,
+    TrackerBarsOut,
+    TrackerComparisonOut,
+    TrackerRunsOut,
     ZigzagBarsOut,
     ZigzagBatchSummaryOut,
     ZigzagEventsOut,
@@ -23,9 +26,13 @@ from esphea.api.topology_schemas import (
 from esphea.services.errors import NotFoundError
 from esphea.topology.clouds import NormalizationKind, PointCloudKind
 from esphea.topology.config import AnalysisConfig
+from esphea.topology.trackers import TrackerMethod
 from esphea.topology.zigzag_storage import filter_bars
 
 router = APIRouter(tags=["analyses"])
+
+LONG_LIFETIME = 50
+"""Default threshold of a long-lived bar, in steps (25 generations)."""
 
 
 @router.get("/runs/{run_id}/analyses")
@@ -243,4 +250,60 @@ def get_zigzag_batch_summary(
     """Median and quartiles across the runs of a batch, per generation."""
     return ZigzagBatchSummaryOut.from_summary(
         service.zigzag_batch_summary(batch_id, epsilon_index, dimension)
+    )
+
+
+# --- niche trackers -------------------------------------------------------------------
+
+
+@router.get("/analyses/{analysis_id}/zigzag/trackers/comparison")
+def get_tracker_comparison(
+    analysis_id: uuid.UUID,
+    service: AnalysisServiceDep,
+    epsilon_index: Annotated[int, Query(ge=0)] = 0,
+    long_lifetime: Annotated[int, Query(ge=1)] = LONG_LIFETIME,
+) -> TrackerComparisonOut:
+    """The zigzag H0 barcode and the niche trackers' barcodes of the run, summarised."""
+    return TrackerComparisonOut.from_comparison(
+        service.tracker_comparison(analysis_id, epsilon_index, long_lifetime)
+    )
+
+
+@router.get("/analyses/{analysis_id}/zigzag/trackers/{method}/bars")
+def get_tracker_bars(
+    analysis_id: uuid.UUID,
+    method: TrackerMethod,
+    service: AnalysisServiceDep,
+    epsilon_index: Annotated[int, Query(ge=0)] = 0,
+    min_lifetime: Annotated[int, Query(ge=1)] = 1,
+) -> TrackerBarsOut:
+    return TrackerBarsOut.from_view(
+        service.tracker_bars(analysis_id, epsilon_index, method, min_lifetime)
+    )
+
+
+@router.get("/analysis-batches/{batch_id}/tracker-comparison")
+def get_tracker_batch_comparison(
+    batch_id: uuid.UUID,
+    service: AnalysisServiceDep,
+    epsilon_index: Annotated[int, Query(ge=0)] = 0,
+    long_lifetime: Annotated[int, Query(ge=1)] = LONG_LIFETIME,
+) -> TrackerRunsOut:
+    """Per-run values of the zigzag and of every tracker, for the runs of a batch."""
+    return TrackerRunsOut.from_runs(
+        service.tracker_batch_runs(batch_id, epsilon_index, long_lifetime)
+    )
+
+
+@router.get("/experiments/{experiment_id}/analysis-groups/{key}/tracker-comparison")
+def get_tracker_group_comparison(
+    experiment_id: uuid.UUID,
+    key: str,
+    service: AnalysisServiceDep,
+    epsilon_index: Annotated[int, Query(ge=0)] = 0,
+    long_lifetime: Annotated[int, Query(ge=1)] = LONG_LIFETIME,
+) -> TrackerRunsOut:
+    """Per-run values of the zigzag and of every tracker, for a zigzag analysis group."""
+    return TrackerRunsOut.from_runs(
+        service.tracker_group_runs(experiment_id, key, epsilon_index, long_lifetime)
     )

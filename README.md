@@ -68,6 +68,9 @@ populations *inside* each generation:
 - **zigzag persistence** of P₀ → R₁ ← P₁ → … at fixed scales: niches and loops followed across
   generations, every birth and death attributed to variation (offspring) or selection (removal),
   representative niches/cycles in objective space and across-run summaries;
+- **niche trackers** beside the zigzag H₀ barcode: the same niches linked by local rules (elder
+  rule on every set, or matching through shared survivors), with how much of the zigzag barcode
+  each reproduces and whether it ranks experiments the same way (*Compare* tab *Niche trackers*);
 - **topological comparison** of experiments: median and interquartile range across runs of the
   barcode summaries (number of bars, total persistence, entropy, distances between generations)
   or of the zigzag Betti numbers and births/deaths, from analyses sharing one configuration.

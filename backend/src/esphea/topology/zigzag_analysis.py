@@ -1,10 +1,11 @@
-"""Zigzag analysis of a run at several fixed scales."""
+"""Zigzag analysis of a run at several fixed scales, with the niche trackers beside it."""
 
 from collections.abc import Callable
 
 from esphea.experiments.storage import SnapshotReader
 from esphea.topology.clouds import Normalizer
 from esphea.topology.config import ZigzagAnalysisConfig
+from esphea.topology.trackers import track_niches
 from esphea.topology.zigzag import ZigzagSequence, compute_zigzag
 from esphea.topology.zigzag_storage import ZigzagResultWriter
 
@@ -46,5 +47,6 @@ class ZigzagAnalyzer:
                 should_stop=should_stop,
             )
             writer.add_result(index, result)
+            writer.add_trackers(index, track_niches(sequence, epsilon, should_stop=should_stop))
             progress(index + 1, total)
         writer.close()

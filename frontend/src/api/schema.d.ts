@@ -496,6 +496,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/analyses/{analysis_id}/zigzag/trackers/comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tracker Comparison
+         * @description The zigzag H0 barcode and the niche trackers' barcodes of the run, summarised.
+         */
+        get: operations["get_tracker_comparison_api_analyses__analysis_id__zigzag_trackers_comparison_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analyses/{analysis_id}/zigzag/trackers/{method}/bars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tracker Bars */
+        get: operations["get_tracker_bars_api_analyses__analysis_id__zigzag_trackers__method__bars_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analysis-batches/{batch_id}/tracker-comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tracker Batch Comparison
+         * @description Per-run values of the zigzag and of every tracker, for the runs of a batch.
+         */
+        get: operations["get_tracker_batch_comparison_api_analysis_batches__batch_id__tracker_comparison_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/experiments/{experiment_id}/analysis-groups/{key}/tracker-comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tracker Group Comparison
+         * @description Per-run values of the zigzag and of every tracker, for a zigzag analysis group.
+         */
+        get: operations["get_tracker_group_comparison_api_experiments__experiment_id__analysis_groups__key__tracker_comparison_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -916,6 +993,75 @@ export interface components {
             /** N Runs */
             n_runs: number[];
         };
+        /**
+         * MethodRunsOut
+         * @description One value per run, in run order (see MethodSummaryOut for the meaning).
+         */
+        MethodRunsOut: {
+            /** N Bars */
+            n_bars: (number | null)[];
+            /** N Long */
+            n_long: (number | null)[];
+            /** Median Lifetime */
+            median_lifetime: (number | null)[];
+            /** P90 Lifetime */
+            p90_lifetime: (number | null)[];
+            /** Agreement Step */
+            agreement_step: (number | null)[];
+            /** Agreement Generation */
+            agreement_generation: (number | null)[];
+            /** Long Agreement Step */
+            long_agreement_step: (number | null)[];
+            /** Long Agreement Generation */
+            long_agreement_generation: (number | null)[];
+        };
+        /**
+         * MethodSummaryOut
+         * @description One method's H0 barcode of a run, and the share of the zigzag bars it reproduces.
+         */
+        MethodSummaryOut: {
+            /**
+             * Method
+             * @description 'zigzag' or a tracker: 't1', 't1o' or 't2'.
+             */
+            method: string;
+            /** N Bars */
+            n_bars: number;
+            /**
+             * N Long
+             * @description Bars alive at least long_lifetime steps.
+             */
+            n_long: number;
+            /**
+             * Median Lifetime
+             * @description Steps; bars ending before the last step.
+             */
+            median_lifetime: number | null;
+            /** P90 Lifetime */
+            p90_lifetime: number | null;
+            /**
+             * Agreement Step
+             * @description Share of the zigzag bars with a bar of the same birth and death steps.
+             */
+            agreement_step: number | null;
+            /**
+             * Agreement Generation
+             * @description Share of the zigzag bars with a bar of the same birth and death generations.
+             */
+            agreement_generation: number | null;
+            /**
+             * Long Agreement Step
+             * @description The same for the long zigzag bars (null when there is none).
+             */
+            long_agreement_step: number | null;
+            /** Long Agreement Generation */
+            long_agreement_generation: number | null;
+            /**
+             * At Least
+             * @description Bars alive at least L steps, for L = 1 .. n_steps.
+             */
+            at_least: number[];
+        };
         /** MetricSeriesOut */
         MetricSeriesOut: {
             /** Generation */
@@ -1304,6 +1450,75 @@ export interface components {
             max_finite_death: number;
             /** Dimensions */
             dimensions: components["schemas"]["DimensionSeriesOut"][];
+        };
+        /**
+         * TrackerBarsOut
+         * @description H0 bars of a niche tracker, in zigzag steps, and whether the zigzag has the same bar.
+         */
+        TrackerBarsOut: {
+            /** Epsilon */
+            epsilon: number;
+            method: components["schemas"]["TrackerMethod"];
+            /** N Generations */
+            n_generations: number;
+            /** N Steps */
+            n_steps: number;
+            /** Birth */
+            birth: number[];
+            /** Death */
+            death: number[];
+            /**
+             * Matched Step
+             * @description The zigzag H0 barcode has a bar with the same birth and death steps.
+             */
+            matched_step: boolean[];
+            /**
+             * Matched Generation
+             * @description The zigzag H0 barcode has a bar born and ending in the same generations.
+             */
+            matched_generation: boolean[];
+        };
+        /** TrackerComparisonOut */
+        TrackerComparisonOut: {
+            /** Epsilon */
+            epsilon: number;
+            /** N Generations */
+            n_generations: number;
+            /** N Steps */
+            n_steps: number;
+            /** Long Lifetime */
+            long_lifetime: number;
+            /**
+             * Methods
+             * @description The zigzag first, then the trackers.
+             */
+            methods: components["schemas"]["MethodSummaryOut"][];
+        };
+        /**
+         * TrackerMethod
+         * @enum {string}
+         */
+        TrackerMethod: "t1" | "t1o" | "t2";
+        /** TrackerRunsOut */
+        TrackerRunsOut: {
+            /** Epsilon */
+            epsilon: number;
+            /** Long Lifetime */
+            long_lifetime: number;
+            /** N Runs */
+            n_runs: number;
+            /**
+             * Skipped
+             * @description Runs whose analysis predates the niche trackers.
+             */
+            skipped: number;
+            /**
+             * Methods
+             * @description 'zigzag', 't1', 't1o' and 't2'.
+             */
+            methods: {
+                [key: string]: components["schemas"]["MethodRunsOut"];
+            };
         };
         /** ValidationError */
         ValidationError: {
@@ -2463,6 +2678,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ZigzagBatchSummaryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tracker_comparison_api_analyses__analysis_id__zigzag_trackers_comparison_get: {
+        parameters: {
+            query?: {
+                epsilon_index?: number;
+                long_lifetime?: number;
+            };
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackerComparisonOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tracker_bars_api_analyses__analysis_id__zigzag_trackers__method__bars_get: {
+        parameters: {
+            query?: {
+                epsilon_index?: number;
+                min_lifetime?: number;
+            };
+            header?: never;
+            path: {
+                analysis_id: string;
+                method: components["schemas"]["TrackerMethod"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackerBarsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tracker_batch_comparison_api_analysis_batches__batch_id__tracker_comparison_get: {
+        parameters: {
+            query?: {
+                epsilon_index?: number;
+                long_lifetime?: number;
+            };
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackerRunsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tracker_group_comparison_api_experiments__experiment_id__analysis_groups__key__tracker_comparison_get: {
+        parameters: {
+            query?: {
+                epsilon_index?: number;
+                long_lifetime?: number;
+            };
+            header?: never;
+            path: {
+                experiment_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackerRunsOut"];
                 };
             };
             /** @description Validation Error */

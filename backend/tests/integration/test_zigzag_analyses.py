@@ -153,6 +153,59 @@ def test_zigzag_group_summary(client: TestClient, experiment: dict[str, Any]) ->
         assert spread["median"] > 0
 
 
+def test_niche_trackers_beside_the_zigzag(
+    client: TestClient, experiment: dict[str, Any], runs_dir: Path
+) -> None:
+    created = client.post(f"/api/experiments/{experiment['id']}/analyses", json=ZIGZAG).json()
+    url = f"/api/analyses/{created[0]['id']}/zigzag"
+
+    comparison = client.get(f"{url}/trackers/comparison", params={"long_lifetime": 4}).json()
+    assert comparison["n_steps"] == 2 * N_GEN + 1
+    assert comparison["long_lifetime"] == 4
+    methods = {m["method"]: m for m in comparison["methods"]}
+    assert list(methods) == ["zigzag", "t1", "t1o", "t2"]
+    zigzag = client.get(f"{url}/bars", params={"dimension": 0}).json()
+    assert methods["zigzag"]["n_bars"] == len(zigzag["bar"])
+    assert methods["zigzag"]["agreement_step"] == 1.0
+    for row in methods.values():
+        assert len(row["at_least"]) == comparison["n_steps"]
+        assert row["at_least"][0] == row["n_bars"]
+        assert 0 <= row["agreement_step"] <= row["agreement_generation"] <= 1
+
+    t2 = client.get(f"{url}/trackers/t2/bars").json()
+    assert t2["method"] == "t2"
+    assert len(t2["birth"]) == methods["t2"]["n_bars"]
+    assert all(b % 2 == 0 for b in t2["birth"])  # survivors only: births at P_t
+    assert len(t2["matched_step"]) == len(t2["matched_generation"]) == len(t2["birth"])
+    shown = client.get(f"{url}/trackers/t1/bars", params={"min_lifetime": 3}).json()
+    assert all(d - b >= 3 for b, d in zip(shown["birth"], shown["death"], strict=True))
+    assert client.get(f"{url}/trackers/t3/bars").status_code == 422
+
+    batch = client.get(
+        f"/api/analysis-batches/{created[0]['batch_id']}/tracker-comparison",
+        params={"epsilon_index": 1},
+    ).json()
+    assert (batch["n_runs"], batch["skipped"], batch["epsilon"]) == (2, 0, 0.3)
+    assert set(batch["methods"]) == {"zigzag", "t1", "t1o", "t2"}
+    assert all(len(values) == 2 for values in batch["methods"]["t1"].values())
+
+    [group] = client.get(f"/api/experiments/{experiment['id']}/analysis-groups").json()
+    grouped = client.get(
+        f"/api/experiments/{experiment['id']}/analysis-groups/{group['key']}/tracker-comparison"
+    ).json()
+    assert grouped["n_runs"] == 2
+
+    # results written before the trackers existed have no trackers file
+    analysis = client.get(f"/api/analyses/{created[0]['id']}").json()
+    (results,) = runs_dir.glob(f"*/analyses/{analysis['id']}/*/trackers.parquet")
+    results.unlink()
+    missing = client.get(f"{url}/trackers/comparison")
+    assert missing.status_code == 404
+    assert "run it again" in missing.text
+    partial = client.get(f"/api/analysis-batches/{created[0]['batch_id']}/tracker-comparison")
+    assert (partial.json()["n_runs"], partial.json()["skipped"]) == (1, 1)
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [

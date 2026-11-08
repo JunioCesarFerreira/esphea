@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 from sqlalchemy.orm import Session
 
-from esphea.core.types import FloatArray, IntArray
+from esphea.core.types import BoolArray, FloatArray, IntArray
 from esphea.experiments.config import ExperimentConfig
 from esphea.experiments.registry import ProblemRegistry
 from esphea.experiments.storage import SnapshotReader, snapshot_directory
@@ -44,6 +44,13 @@ from esphea.topology.config import (
 from esphea.topology.distances import diameter, nearest_neighbour_distances
 from esphea.topology.runners import AnalysisContext, AnalysisRunner, default_runners
 from esphea.topology.storage import TopologyResultReader, analysis_directory
+from esphea.topology.trackers import (
+    MethodSummary,
+    Resolution,
+    TrackerMethod,
+    compare_with_zigzag,
+    matched,
+)
 from esphea.topology.zigzag import epsilon_components, is_r_step, step_generation
 from esphea.topology.zigzag_storage import ZigzagResultReader
 
@@ -159,6 +166,53 @@ class GroupSummary:
 
 
 type RunSeries = tuple[Sequence[int], Mapping[str, FloatArray]]
+
+TRACKERS_MISSING = "this zigzag analysis predates the niche trackers; run it again to compute them"
+TRACKER_RUN_FIELDS = (
+    "n_bars",
+    "n_long",
+    "median_lifetime",
+    "p90_lifetime",
+    "agreement_step",
+    "agreement_generation",
+    "long_agreement_step",
+    "long_agreement_generation",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class TrackerBarsView:
+    """``H_0`` bars of a niche tracker and whether the zigzag has the same bar."""
+
+    epsilon: float
+    method: TrackerMethod
+    n_generations: int
+    n_steps: int
+    bars: IntArray  # rows (birth, death)
+    matched_step: BoolArray
+    matched_generation: BoolArray
+
+
+@dataclass(frozen=True, slots=True)
+class TrackerComparison:
+    """The zigzag ``H_0`` barcode and the trackers' barcodes of one run, side by side."""
+
+    epsilon: float
+    n_generations: int
+    n_steps: int
+    long_lifetime: int
+    methods: list[MethodSummary]
+
+
+@dataclass(frozen=True, slots=True)
+class TrackerRuns:
+    """Per-run values of every method (runs whose analysis lacks the trackers are skipped)."""
+
+    epsilon: float
+    long_lifetime: int
+    n_runs: int
+    skipped: int
+    methods: dict[str, dict[str, list[float | None]]]  # method -> field -> one value per run
 
 
 def group_key(kind: str, config: Mapping[str, Any]) -> str:
@@ -369,6 +423,107 @@ class AnalysisService:
             simplices=simplices or None,
             component=component,
         )
+
+    # --- niche trackers ---------------------------------------------------------------
+
+    def _tracker_results(self, analysis_id: uuid.UUID) -> ZigzagResultReader:
+        reader = self.zigzag_results(analysis_id)
+        if not reader.has_trackers:
+            raise NotFoundError(TRACKERS_MISSING)
+        return reader
+
+    @staticmethod
+    def _compare(
+        reader: ZigzagResultReader, epsilon_index: int, long_lifetime: int
+    ) -> list[MethodSummary]:
+        try:
+            zigzag = reader.bar_array(epsilon_index, 0)
+            trackers = {m.value: reader.tracker_bars(epsilon_index, m) for m in TrackerMethod}
+        except KeyError as exc:
+            raise NotFoundError(str(exc.args[0])) from None
+        return compare_with_zigzag(zigzag, trackers, reader.n_steps, long_lifetime)
+
+    def tracker_bars(
+        self, analysis_id: uuid.UUID, epsilon_index: int, method: TrackerMethod, min_lifetime: int
+    ) -> TrackerBarsView:
+        reader = self._tracker_results(analysis_id)
+        try:
+            bars = reader.tracker_bars(epsilon_index, method)
+            zigzag = reader.bar_array(epsilon_index, 0)
+        except KeyError as exc:
+            raise NotFoundError(str(exc.args[0])) from None
+        # matched against every zigzag bar, then filtered for display
+        by_step = matched(bars, zigzag, Resolution.STEP)
+        by_generation = matched(bars, zigzag, Resolution.GENERATION)
+        keep = (bars[:, 1] - bars[:, 0]) >= min_lifetime
+        return TrackerBarsView(
+            epsilon=reader.epsilons[epsilon_index],
+            method=method,
+            n_generations=reader.n_generations,
+            n_steps=reader.n_steps,
+            bars=bars[keep],
+            matched_step=by_step[keep],
+            matched_generation=by_generation[keep],
+        )
+
+    def tracker_comparison(
+        self, analysis_id: uuid.UUID, epsilon_index: int, long_lifetime: int
+    ) -> TrackerComparison:
+        reader = self._tracker_results(analysis_id)
+        methods = self._compare(reader, epsilon_index, long_lifetime)
+        return TrackerComparison(
+            epsilon=reader.epsilons[epsilon_index],
+            n_generations=reader.n_generations,
+            n_steps=reader.n_steps,
+            long_lifetime=long_lifetime,
+            methods=methods,
+        )
+
+    def _tracker_runs(
+        self, analyses: Sequence[AnalysisRow], epsilon_index: int, long_lifetime: int
+    ) -> TrackerRuns:
+        values: dict[str, dict[str, list[float | None]]] = {}
+        epsilon: float | None = None
+        skipped = 0
+        for analysis in analyses:
+            reader = self.zigzag_results(analysis.id)
+            if not reader.has_trackers:
+                skipped += 1
+                continue
+            for summary in self._compare(reader, epsilon_index, long_lifetime):
+                fields = values.setdefault(summary.method, {f: [] for f in TRACKER_RUN_FIELDS})
+                for name in TRACKER_RUN_FIELDS:
+                    value = getattr(summary, name)
+                    fields[name].append(None if value is None else float(value))
+            epsilon = reader.epsilons[epsilon_index]
+        if epsilon is None:
+            raise NotFoundError(TRACKERS_MISSING)
+        n_runs = len(analyses) - skipped
+        return TrackerRuns(epsilon, long_lifetime, n_runs, skipped, values)
+
+    def tracker_batch_runs(
+        self, batch_id: uuid.UUID, epsilon_index: int, long_lifetime: int
+    ) -> TrackerRuns:
+        analyses = [
+            a
+            for a in self._analyses.list_batch(batch_id)
+            if a.kind == ZIGZAG_ANALYSIS and a.status == RunStatus.COMPLETED
+        ]
+        if not analyses:
+            raise NotFoundError(f"no completed zigzag analysis in batch {batch_id}")
+        return self._tracker_runs(analyses, epsilon_index, long_lifetime)
+
+    def tracker_group_runs(
+        self, experiment_id: uuid.UUID, key: str, epsilon_index: int, long_lifetime: int
+    ) -> TrackerRuns:
+        group = next((g for g in self.analysis_groups(experiment_id) if g.key == key), None)
+        if group is None:
+            raise NotFoundError(f"no analysis group {key} in experiment {experiment_id}")
+        if group.kind != ZIGZAG_ANALYSIS:
+            raise ConflictError("niche trackers are computed by zigzag analyses only")
+        if not group.completed:
+            raise ConflictError("no analysis of this group has completed yet")
+        return self._tracker_runs(group.completed, epsilon_index, long_lifetime)
 
     def zigzag_batch_summary(
         self, batch_id: uuid.UUID, epsilon_index: int, dimension: int

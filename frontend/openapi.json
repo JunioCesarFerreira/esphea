@@ -1575,6 +1575,286 @@
           }
         }
       }
+    },
+    "/api/analyses/{analysis_id}/zigzag/trackers/comparison": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Tracker Comparison",
+        "description": "The zigzag H0 barcode and the niche trackers' barcodes of the run, summarised.",
+        "operationId": "get_tracker_comparison_api_analyses__analysis_id__zigzag_trackers_comparison_get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "epsilon_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Epsilon Index"
+            }
+          },
+          {
+            "name": "long_lifetime",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "title": "Long Lifetime"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackerComparisonOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/{analysis_id}/zigzag/trackers/{method}/bars": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Tracker Bars",
+        "operationId": "get_tracker_bars_api_analyses__analysis_id__zigzag_trackers__method__bars_get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "method",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TrackerMethod"
+            }
+          },
+          {
+            "name": "epsilon_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Epsilon Index"
+            }
+          },
+          {
+            "name": "min_lifetime",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Min Lifetime"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackerBarsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis-batches/{batch_id}/tracker-comparison": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Tracker Batch Comparison",
+        "description": "Per-run values of the zigzag and of every tracker, for the runs of a batch.",
+        "operationId": "get_tracker_batch_comparison_api_analysis_batches__batch_id__tracker_comparison_get",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "epsilon_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Epsilon Index"
+            }
+          },
+          {
+            "name": "long_lifetime",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "title": "Long Lifetime"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackerRunsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/experiments/{experiment_id}/analysis-groups/{key}/tracker-comparison": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Tracker Group Comparison",
+        "description": "Per-run values of the zigzag and of every tracker, for a zigzag analysis group.",
+        "operationId": "get_tracker_group_comparison_api_experiments__experiment_id__analysis_groups__key__tracker_comparison_get",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Experiment Id"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "epsilon_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Epsilon Index"
+            }
+          },
+          {
+            "name": "long_lifetime",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "title": "Long Lifetime"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackerRunsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2632,6 +2912,246 @@
         ],
         "title": "IndicatorSummaryOut"
       },
+      "MethodRunsOut": {
+        "properties": {
+          "n_bars": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "N Bars"
+          },
+          "n_long": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "N Long"
+          },
+          "median_lifetime": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Median Lifetime"
+          },
+          "p90_lifetime": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "P90 Lifetime"
+          },
+          "agreement_step": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Agreement Step"
+          },
+          "agreement_generation": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Agreement Generation"
+          },
+          "long_agreement_step": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Long Agreement Step"
+          },
+          "long_agreement_generation": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Long Agreement Generation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_bars",
+          "n_long",
+          "median_lifetime",
+          "p90_lifetime",
+          "agreement_step",
+          "agreement_generation",
+          "long_agreement_step",
+          "long_agreement_generation"
+        ],
+        "title": "MethodRunsOut",
+        "description": "One value per run, in run order (see MethodSummaryOut for the meaning)."
+      },
+      "MethodSummaryOut": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "description": "'zigzag' or a tracker: 't1', 't1o' or 't2'."
+          },
+          "n_bars": {
+            "type": "integer",
+            "title": "N Bars"
+          },
+          "n_long": {
+            "type": "integer",
+            "title": "N Long",
+            "description": "Bars alive at least long_lifetime steps."
+          },
+          "median_lifetime": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Lifetime",
+            "description": "Steps; bars ending before the last step."
+          },
+          "p90_lifetime": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P90 Lifetime"
+          },
+          "agreement_step": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreement Step",
+            "description": "Share of the zigzag bars with a bar of the same birth and death steps."
+          },
+          "agreement_generation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreement Generation",
+            "description": "Share of the zigzag bars with a bar of the same birth and death generations."
+          },
+          "long_agreement_step": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Long Agreement Step",
+            "description": "The same for the long zigzag bars (null when there is none)."
+          },
+          "long_agreement_generation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Long Agreement Generation"
+          },
+          "at_least": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "At Least",
+            "description": "Bars alive at least L steps, for L = 1 .. n_steps."
+          }
+        },
+        "type": "object",
+        "required": [
+          "method",
+          "n_bars",
+          "n_long",
+          "median_lifetime",
+          "p90_lifetime",
+          "agreement_step",
+          "agreement_generation",
+          "long_agreement_step",
+          "long_agreement_generation",
+          "at_least"
+        ],
+        "title": "MethodSummaryOut",
+        "description": "One method's H0 barcode of a run, and the share of the zigzag bars it reproduces."
+      },
       "MetricSeriesOut": {
         "properties": {
           "generation": {
@@ -3475,6 +3995,152 @@
           "dimensions"
         ],
         "title": "TopologySeriesOut"
+      },
+      "TrackerBarsOut": {
+        "properties": {
+          "epsilon": {
+            "type": "number",
+            "title": "Epsilon"
+          },
+          "method": {
+            "$ref": "#/components/schemas/TrackerMethod"
+          },
+          "n_generations": {
+            "type": "integer",
+            "title": "N Generations"
+          },
+          "n_steps": {
+            "type": "integer",
+            "title": "N Steps"
+          },
+          "birth": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Birth"
+          },
+          "death": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Death"
+          },
+          "matched_step": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": "array",
+            "title": "Matched Step",
+            "description": "The zigzag H0 barcode has a bar with the same birth and death steps."
+          },
+          "matched_generation": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": "array",
+            "title": "Matched Generation",
+            "description": "The zigzag H0 barcode has a bar born and ending in the same generations."
+          }
+        },
+        "type": "object",
+        "required": [
+          "epsilon",
+          "method",
+          "n_generations",
+          "n_steps",
+          "birth",
+          "death",
+          "matched_step",
+          "matched_generation"
+        ],
+        "title": "TrackerBarsOut",
+        "description": "H0 bars of a niche tracker, in zigzag steps, and whether the zigzag has the same bar."
+      },
+      "TrackerComparisonOut": {
+        "properties": {
+          "epsilon": {
+            "type": "number",
+            "title": "Epsilon"
+          },
+          "n_generations": {
+            "type": "integer",
+            "title": "N Generations"
+          },
+          "n_steps": {
+            "type": "integer",
+            "title": "N Steps"
+          },
+          "long_lifetime": {
+            "type": "integer",
+            "title": "Long Lifetime"
+          },
+          "methods": {
+            "items": {
+              "$ref": "#/components/schemas/MethodSummaryOut"
+            },
+            "type": "array",
+            "title": "Methods",
+            "description": "The zigzag first, then the trackers."
+          }
+        },
+        "type": "object",
+        "required": [
+          "epsilon",
+          "n_generations",
+          "n_steps",
+          "long_lifetime",
+          "methods"
+        ],
+        "title": "TrackerComparisonOut"
+      },
+      "TrackerMethod": {
+        "type": "string",
+        "enum": [
+          "t1",
+          "t1o",
+          "t2"
+        ],
+        "title": "TrackerMethod"
+      },
+      "TrackerRunsOut": {
+        "properties": {
+          "epsilon": {
+            "type": "number",
+            "title": "Epsilon"
+          },
+          "long_lifetime": {
+            "type": "integer",
+            "title": "Long Lifetime"
+          },
+          "n_runs": {
+            "type": "integer",
+            "title": "N Runs"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped",
+            "description": "Runs whose analysis predates the niche trackers."
+          },
+          "methods": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MethodRunsOut"
+            },
+            "type": "object",
+            "title": "Methods",
+            "description": "'zigzag', 't1', 't1o' and 't2'."
+          }
+        },
+        "type": "object",
+        "required": [
+          "epsilon",
+          "long_lifetime",
+          "n_runs",
+          "skipped",
+          "methods"
+        ],
+        "title": "TrackerRunsOut"
       },
       "ValidationError": {
         "properties": {

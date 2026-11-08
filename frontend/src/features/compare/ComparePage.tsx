@@ -1,5 +1,5 @@
 import { Alert, Container, MultiSelect, Stack, Tabs, Title } from "@mantine/core";
-import { IconChartLine, IconInfoCircle, IconTopologyStar3 } from "@tabler/icons-react";
+import { IconChartLine, IconInfoCircle, IconRoute, IconTopologyStar3 } from "@tabler/icons-react";
 import { useState } from "react";
 
 import { useExperiments } from "../../api/queries";
@@ -9,6 +9,7 @@ import { seriesColor } from "../../lib/chartTheme";
 import { ALGORITHM_LABELS } from "../../lib/configModel";
 import { IndicatorComparison } from "./IndicatorComparison";
 import { TopologyComparison } from "./TopologyComparison";
+import { TrackerComparison } from "./TrackerComparison";
 
 const MAX_SELECTED = 8; // number of validated categorical colour slots
 
@@ -81,7 +82,8 @@ export function ComparePage() {
           {compared.length === 0 ? (
             <Alert icon={<IconInfoCircle size={16} />} color="gray">
               Select experiments to compare the median and interquartile range of a quality
-              indicator or of a topological summary across their runs.
+              indicator or of a topological summary across their runs, or how the zigzag and the
+              niche trackers rank them.
             </Alert>
           ) : (
             <Tabs defaultValue="indicators" keepMounted={false}>
@@ -92,12 +94,18 @@ export function ComparePage() {
                 <Tabs.Tab value="topology" leftSection={<IconTopologyStar3 size={16} />}>
                   Topology
                 </Tabs.Tab>
+                <Tabs.Tab value="trackers" leftSection={<IconRoute size={16} />}>
+                  Niche trackers
+                </Tabs.Tab>
               </Tabs.List>
               <Tabs.Panel value="indicators" pt="md">
                 <IndicatorComparison experiments={compared} />
               </Tabs.Panel>
               <Tabs.Panel value="topology" pt="md">
                 <TopologyComparison experiments={compared} />
+              </Tabs.Panel>
+              <Tabs.Panel value="trackers" pt="md">
+                <TrackerComparison experiments={compared} />
               </Tabs.Panel>
             </Tabs>
           )}
