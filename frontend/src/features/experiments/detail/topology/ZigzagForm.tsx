@@ -21,10 +21,24 @@ import {
   useCreateAnalysisBatch,
   useEpsilonSuggestion,
 } from "../../../../api/queries";
-import type { NormalizationKind, ZigzagAnalysisConfig } from "../../../../api/types";
+import type { MiddleComplex, NormalizationKind, ZigzagAnalysisConfig } from "../../../../api/types";
 import { formatNumber } from "../../../../lib/format";
 
 const MAX_SCALES = 5;
+
+const SAME_H0 = "Same H₀ barcode as Vietoris–Rips, from fewer simplices";
+const MIDDLE_DESCRIPTIONS: Record<MiddleComplex, (h0Only: boolean) => string> = {
+  rips: () =>
+    "Every candidate counts, including the offspring discarded at once: they join niches, and also open or fill holes for a single step.",
+  bridge_union: (h0Only) =>
+    h0Only
+      ? `${SAME_H0}.`
+      : `${SAME_H0}; H₁ and H₂ are those of Pₜ₋₁ ∪ Pₜ, so holes opened or filled only by discarded offspring are ignored.`,
+  bridge: (h0Only) =>
+    h0Only
+      ? `${SAME_H0}.`
+      : `${SAME_H0}; H₁ and H₂ are those of VR(Pₜ₋₁) ∪ VR(Pₜ), which also drops the edges from a discarded parent to the offspring that replaces it: loops can split there, and short-lived loops appear.`,
+};
 
 interface ZigzagFormProps {
   experimentId: string;
@@ -36,6 +50,7 @@ interface ZigzagFormProps {
 export function ZigzagForm({ experimentId, runId, finishedRuns, onCreated }: ZigzagFormProps) {
   const [normalization, setNormalization] = useState<NormalizationKind>("none");
   const [maxDimension, setMaxDimension] = useState("0");
+  const [middle, setMiddle] = useState<MiddleComplex>("rips");
   const [representatives, setRepresentatives] = useState(10);
   const [scales, setScales] = useState<number[] | null>(null);
   const [allRuns, setAllRuns] = useState(finishedRuns > 1);
@@ -55,6 +70,7 @@ export function ZigzagForm({ experimentId, runId, finishedRuns, onCreated }: Zig
       epsilons,
       max_dimension: Number(maxDimension),
       normalization,
+      middle,
       representatives,
     };
     const onError = (error: Error) =>
@@ -174,6 +190,18 @@ export function ZigzagForm({ experimentId, runId, finishedRuns, onCreated }: Zig
             onChange={(v) => typeof v === "number" && setRepresentatives(v)}
           />
         </SimpleGrid>
+        <Select
+          label="Complex at Rₜ (parents with their offspring)"
+          allowDeselect={false}
+          value={middle}
+          onChange={(v) => v && setMiddle(v as MiddleComplex)}
+          data={[
+            { value: "rips", label: "Vietoris–Rips of every candidate" },
+            { value: "bridge_union", label: "Bridge over VR(Pₜ₋₁ ∪ Pₜ)" },
+            { value: "bridge", label: "Bridge over VR(Pₜ₋₁) ∪ VR(Pₜ)" },
+          ]}
+          description={MIDDLE_DESCRIPTIONS[middle](maxDimension === "0")}
+        />
         <Switch
           label={`Analyse every finished run of the experiment (${finishedRuns}) as one batch`}
           description="Enables the across-run summary (median and quartiles per generation) and the comparison between experiments"

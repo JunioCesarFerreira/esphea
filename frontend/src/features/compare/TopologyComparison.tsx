@@ -96,7 +96,7 @@ export function TopologyComparison({ experiments }: { experiments: ComparedExper
 
   const reference = rows.find((r) => r.group)?.group ?? null;
   const missing = rows.filter((r) => !r.group);
-  const differing = differingSettings(configs, epsilonIndex);
+  const differing = differingSettings(configs, epsilonIndex, dimension);
   const select = (experimentId: string, key: string) =>
     setPicked((current) => ({ ...current, [`${kind}:${experimentId}`]: key }));
 

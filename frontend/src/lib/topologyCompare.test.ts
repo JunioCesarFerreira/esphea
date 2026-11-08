@@ -24,6 +24,7 @@ const zigzag = (epsilons: number[], overrides: object = {}): AnalysisConfig => (
   epsilons,
   max_dimension: 0,
   normalization: "ideal_nadir",
+  middle: "rips",
   representatives: 10,
   ...overrides,
 });
@@ -86,6 +87,12 @@ describe("differingSettings", () => {
     const configs = [zigzag([0.1, 0.2]), zigzag([0.1, 0.3])];
     expect(differingSettings(configs, 0)).toEqual([]);
     expect(differingSettings(configs, 1)).toEqual(["scale ε"]);
+  });
+
+  it("names the complex at R_t only above H0, where the bridge changes the barcode", () => {
+    const configs = [zigzag([0.1]), zigzag([0.1], { middle: "bridge" })];
+    expect(differingSettings(configs, 0, 0)).toEqual([]);
+    expect(differingSettings(configs, 0, 1)).toEqual(["complex at Rₜ"]);
   });
 });
 

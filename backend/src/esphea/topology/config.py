@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from esphea.topology.clouds import NormalizationKind, PointCloudKind
+from esphea.topology.zigzag import MiddleComplex
 
 TOPOLOGY_ANALYSIS = "topology"
 ZIGZAG_ANALYSIS = "zigzag"
@@ -55,6 +56,17 @@ class ZigzagAnalysisConfig(BaseModel):
         default=NormalizationKind.NONE,
         description=(
             "'none' or 'ideal_nadir' (a per-generation scaling would break the inclusions)."
+        ),
+    )
+    middle: MiddleComplex = Field(
+        default=MiddleComplex.RIPS,
+        description=(
+            "Complex at every R_t: 'rips' (Vietoris-Rips of all candidates), or a bridge "
+            "complex with the same H0 barcode, a base joined by a spanning forest of the other "
+            "edges of R_t: 'bridge_union' (base VR(P_{t-1} + P_t): H1/H2 of the union zigzag, "
+            "without the holes opened or filled by discarded offspring alone) or 'bridge' "
+            "(base VR(P_{t-1}) + VR(P_t), also drops the edges from a "
+            "discarded parent to a surviving offspring)."
         ),
     )
     representatives: int = Field(

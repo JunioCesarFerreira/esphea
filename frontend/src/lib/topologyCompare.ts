@@ -77,10 +77,15 @@ export function defaultGroupKeys(
 }
 
 /**
- * Settings that differ between the analyses being compared and change the
- * scale of their series; empty when the comparison is like for like.
+ * Settings that differ between the analyses being compared and change their
+ * series in ``dimension``; empty when the comparison is like for like. The
+ * complex at Rₜ only matters above H₀ (the bridge complexes keep the H₀ barcode).
  */
-export function differingSettings(configs: AnalysisConfig[], epsilonIndex: number): string[] {
+export function differingSettings(
+  configs: AnalysisConfig[],
+  epsilonIndex: number,
+  dimension = 0,
+): string[] {
   if (configs.length < 2) return [];
   const differs = (value: (c: AnalysisConfig) => unknown) =>
     new Set(configs.map((c) => JSON.stringify(value(c)))).size > 1;
@@ -91,6 +96,9 @@ export function differingSettings(configs: AnalysisConfig[], epsilonIndex: numbe
   }
   if (differs((c) => (c.kind === "topology" ? c.max_epsilon : c.epsilons[epsilonIndex]))) {
     settings.push("scale ε");
+  }
+  if (dimension > 0 && differs((c) => (c.kind === "zigzag" ? (c.middle ?? "rips") : null))) {
+    settings.push("complex at Rₜ");
   }
   return settings;
 }

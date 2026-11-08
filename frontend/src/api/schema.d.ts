@@ -1122,6 +1122,12 @@ export interface components {
              */
             reference_front_size: number;
         };
+        /**
+         * MiddleComplex
+         * @description Complex taken at every ``R_t`` (``P_t`` is always the Vietoris-Rips complex of ``P_t``).
+         * @enum {string}
+         */
+        MiddleComplex: "rips" | "bridge" | "bridge_union";
         /** NSGA2Config */
         NSGA2Config: {
             /**
@@ -1632,6 +1638,11 @@ export interface components {
              */
             normalization: components["schemas"]["NormalizationKind"];
             /**
+             * @description Complex at every R_t: 'rips' (Vietoris-Rips of all candidates), or a bridge complex with the same H0 barcode, a base joined by a spanning forest of the other edges of R_t: 'bridge_union' (base VR(P_{t-1} + P_t): H1/H2 of the union zigzag, without the holes opened or filled by discarded offspring alone) or 'bridge' (base VR(P_{t-1}) + VR(P_t), also drops the edges from a discarded parent to a surviving offspring).
+             * @default rips
+             */
+            middle: components["schemas"]["MiddleComplex"];
+            /**
              * Representatives
              * @description Longest bars per dimension and scale whose representative cycles are kept.
              * @default 10
@@ -1653,6 +1664,13 @@ export interface components {
             n_steps: number;
             /** N Simplices */
             n_simplices: number | null;
+            /** @description Complex taken at every R_t. */
+            middle: components["schemas"]["MiddleComplex"];
+            /**
+             * N Bridges
+             * @description Edges of the spanning forests of the bridge complexes (null for 'rips').
+             */
+            n_bridges: number | null;
             /**
              * Representatives Skipped
              * @description Why representatives were not extracted at this scale (null otherwise).

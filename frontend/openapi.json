@@ -3256,6 +3256,16 @@
         "type": "object",
         "title": "MetricsConfig"
       },
+      "MiddleComplex": {
+        "type": "string",
+        "enum": [
+          "rips",
+          "bridge",
+          "bridge_union"
+        ],
+        "title": "MiddleComplex",
+        "description": "Complex taken at every ``R_t`` (``P_t`` is always the Vietoris-Rips complex of ``P_t``)."
+      },
       "NSGA2Config": {
         "properties": {
           "name": {
@@ -4300,6 +4310,11 @@
             "description": "'none' or 'ideal_nadir' (a per-generation scaling would break the inclusions).",
             "default": "none"
           },
+          "middle": {
+            "$ref": "#/components/schemas/MiddleComplex",
+            "description": "Complex at every R_t: 'rips' (Vietoris-Rips of all candidates), or a bridge complex with the same H0 barcode, a base joined by a spanning forest of the other edges of R_t: 'bridge_union' (base VR(P_{t-1} + P_t): H1/H2 of the union zigzag, without the holes opened or filled by discarded offspring alone) or 'bridge' (base VR(P_{t-1}) + VR(P_t), also drops the edges from a discarded parent to a surviving offspring).",
+            "default": "rips"
+          },
           "representatives": {
             "type": "integer",
             "maximum": 50.0,
@@ -4345,6 +4360,22 @@
               }
             ],
             "title": "N Simplices"
+          },
+          "middle": {
+            "$ref": "#/components/schemas/MiddleComplex",
+            "description": "Complex taken at every R_t."
+          },
+          "n_bridges": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N Bridges",
+            "description": "Edges of the spanning forests of the bridge complexes (null for 'rips')."
           },
           "representatives_skipped": {
             "anyOf": [
@@ -4423,6 +4454,8 @@
           "n_generations",
           "n_steps",
           "n_simplices",
+          "middle",
+          "n_bridges",
           "representatives_skipped",
           "bar",
           "birth",

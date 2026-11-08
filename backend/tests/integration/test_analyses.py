@@ -194,6 +194,19 @@ def test_group_key_ignores_stored_extras_only() -> None:
     assert group_key("zigzag", zigzag) != group_key("topology", {"max_epsilon": 0.2})
 
 
+def test_group_keys_of_earlier_zigzag_analyses_do_not_change() -> None:
+    # keys computed before the "middle" setting existed
+    assert group_key("zigzag", {"epsilons": [0.2, 0.1]}) == "c9d66ad82b11f5fa"
+    assert group_key("zigzag", {"epsilons": [0.1, 0.2], "middle": "rips"}) == "c9d66ad82b11f5fa"
+    nadir = {"epsilons": [0.05], "max_dimension": 1, "normalization": "ideal_nadir"}
+    assert group_key("zigzag", nadir) == "0a079053e3884926"
+    assert group_key("zigzag", {**nadir, "middle": "bridge"}) != "0a079053e3884926"
+    assert group_key("zigzag", {**nadir, "middle": "bridge_union"}) not in (
+        "0a079053e3884926",
+        group_key("zigzag", {**nadir, "middle": "bridge"}),
+    )
+
+
 def test_analysis_groups_across_runs(
     client: TestClient,
     queue: RecordingQueue,

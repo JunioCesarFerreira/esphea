@@ -18,6 +18,27 @@ individuals), every birth and death has a cause:
 * dies entering an ``R`` step: killed by **variation**, e.g. offspring bridging niches;
 * dies entering a ``P`` step: killed by **selection**, e.g. a niche wiped out.
 
+The complex taken at ``R_t`` is the Vietoris-Rips complex of ``R_t`` (``rips``) or
+a *bridge* complex
+
+    M_t = U_t + R_t + F_t,    VR(P_{t-1}) + VR(P_t) c U_t c VR(R_t),
+
+a base ``U_t``, every candidate as a vertex, and a spanning forest ``F_t`` of the other
+edges of ``VR(R_t)`` over the components of ``U_t``. Then ``P_{t-1} -> M_t <- P_t`` are
+inclusions, ``H_0(M_t) = H_0(VR(R_t))`` and ``H_k(M_t) = H_k(U_t)`` for ``k >= 1``, both
+compatibly with the maps from ``P_{t-1}`` and ``P_t``: the ``H_0`` barcode is that of the
+Vietoris-Rips zigzag and the higher ones are those of the zigzag through ``U_t``, for
+any choice of the forest. Two bases are offered:
+
+* ``bridge``: ``U_t = VR(P_{t-1}) + VR(P_t)``, the union of the two complexes (as in
+  the lab). It also drops the edges from a discarded parent to a surviving offspring,
+  so a loop handed over from a parent to the offspring that replaces it can split,
+  and the two paths through them can close loops that live on ``R_t`` alone;
+* ``bridge_union``: ``U_t = VR(P_{t-1} + P_t)``, which drops only the simplices of the
+  offspring discarded at ``t``. Its ``H_1`` and ``H_2`` are those of the union zigzag
+  ``P_{t-1} -> P_{t-1} + P_t <- P_t``: the holes that discarded offspring alone fill or
+  open are ignored.
+
 Computed with Dionysus' fast zigzag (Dey and Hou, 2022), which reduces the
 zigzag to the extended persistence of a cone.
 """
@@ -29,6 +50,8 @@ from enum import StrEnum
 import dionysus
 import numpy as np
 from dionysus.zigzag import apex, point_representative
+from scipy.sparse import coo_array
+from scipy.sparse.csgraph import connected_components, minimum_spanning_tree
 from scipy.spatial import cKDTree
 
 from esphea.core.types import FloatArray, IntArray
@@ -47,6 +70,14 @@ class Cause(StrEnum):
     VARIATION = "variation"  # forward arrow P_{t-1} -> R_t (offspring inserted)
     SELECTION = "selection"  # backward arrow R_t <- P_t (individuals removed)
     END = "end"  # still alive in P_T
+
+
+class MiddleComplex(StrEnum):
+    """Complex taken at every ``R_t`` (``P_t`` is always the Vietoris-Rips complex of ``P_t``)."""
+
+    RIPS = "rips"  # VR(R_t)
+    BRIDGE = "bridge"  # VR(P_{t-1}) + VR(P_t) + R_t + spanning forest
+    BRIDGE_UNION = "bridge_union"  # VR(P_{t-1} + P_t) + R_t + spanning forest
 
 
 class SimplexBudgetExceededError(ValueError):
@@ -139,21 +170,37 @@ def zigzag_complex(
     max_dimension: int,
     *,
     max_simplices: int,
+    middle: MiddleComplex = MiddleComplex.RIPS,
     should_stop: Callable[[], bool] = lambda: False,
-) -> tuple[list[list[int]], list[list[int]]]:
-    """Simplices of the zigzag of Vietoris-Rips complexes and their presence times.
+) -> tuple[list[list[int]], list[list[int]], int | None]:
+    """Simplices of the zigzag of Vietoris-Rips complexes, their presence times and bridges.
 
     Every set of the sequence is contained in some ``R_t``, so the simplices
     are enumerated per ``R_t`` (cliques of the epsilon-neighbourhood graph up to
     ``max_dimension + 1``). A simplex is present while all its vertices are,
     i.e. on ``[max first, min last]``; Dionysus receives ``[insert, remove)``.
+
+    A bridge complex drops the edges of ``VR(R_t)`` outside its base (see
+    ``bridge_edges``), except the ones of the spanning forest, and takes the cliques of
+    the remaining edges: both bases are flag complexes, so these cliques are exactly
+    their simplices. The dropped simplices are present on ``R_t`` alone, and every other
+    simplex keeps its presence ``[max first, min last]``. The third value is the number
+    of forest edges (None for Vietoris-Rips).
     """
+    bridge = middle != MiddleComplex.RIPS
+    n_bridges = 0
     seen: dict[tuple[int, ...], None] = {}
     for generation in range(1, sequence.n_generations + 1):
         if should_stop():
             raise InterruptedError("the zigzag analysis was asked to stop")
-        ids = sequence.members(step_of_r(generation))
+        step = step_of_r(generation)
+        ids = sequence.members(step)
         pairs = cKDTree(sequence.points[ids]).query_pairs(epsilon, output_type="ndarray")
+        if bridge:
+            pairs, forest = bridge_edges(sequence, ids, pairs, step, middle)
+            n_bridges += forest.shape[0]
+            for a, b in forest:  # present on R_t only and never extended to triangles
+                seen[tuple(sorted((int(ids[a]), int(ids[b]))))] = None
         cliques = [tuple(sorted((int(ids[a]), int(ids[b])))) for a, b in pairs]
         neighbours: dict[int, set[int]] = {}
         for a, b in cliques:
@@ -184,7 +231,70 @@ def zigzag_complex(
         if start <= end:
             simplices.append(list(simplex))
             times.append([start, end + 1])
-    return simplices, times
+    return simplices, times, n_bridges if bridge else None
+
+
+def bridge_edges(
+    sequence: ZigzagSequence,
+    ids: IntArray,
+    pairs: IntArray,
+    step: int,
+    middle: MiddleComplex,
+) -> tuple[IntArray, IntArray]:
+    """Edges of ``VR(R_t)`` kept in the bridge complex: those of its base, and the forest.
+
+    ``ids`` are the members of ``R_t`` (at ``step``) and ``pairs`` index ``ids``.
+
+    * ``bridge``: an edge is outside ``VR(P_{t-1}) + VR(P_t)`` when it has an end born at
+      ``t`` and an end discarded at ``t`` (possibly the same end, a discarded offspring);
+    * ``bridge_union``: an edge is outside ``VR(P_{t-1} + P_t)`` when one of its ends is an
+      offspring discarded at ``t``.
+
+    Returns ``(base edges, forest edges)``, both indexing ``ids``.
+    """
+    first, last = sequence.first[ids], sequence.last[ids]
+    if middle == MiddleComplex.BRIDGE:
+        outside = (np.maximum(first[pairs[:, 0]], first[pairs[:, 1]]) == step) & (
+            np.minimum(last[pairs[:, 0]], last[pairs[:, 1]]) == step
+        )
+    elif middle == MiddleComplex.BRIDGE_UNION:
+        discarded_offspring = (first == step) & (last == step)
+        outside = discarded_offspring[pairs[:, 0]] | discarded_offspring[pairs[:, 1]]
+    else:
+        raise ValueError(f"{middle} is not a bridge complex")
+    base, others = pairs[~outside], pairs[outside]
+    return base, others[spanning_forest(sequence.points[ids], base, others)]
+
+
+def spanning_forest(points: FloatArray, base: IntArray, candidates: IntArray) -> IntArray:
+    """Indices of the ``candidates`` edges that span their graph over the components of ``base``.
+
+    Both are edges ``(i, j)`` between rows of ``points``, which are all vertices. The
+    forest is a minimum spanning forest by length (Kruskal: shortest edge first, skipping
+    edges whose ends are already connected; ties by position), so every chosen edge joins
+    two components, and with it the graph has the components of ``base + candidates``.
+    """
+    n = points.shape[0]
+    _, labels = connected_components(
+        coo_array((np.ones(base.shape[0]), (base[:, 0], base[:, 1])), shape=(n, n)),
+        directed=False,
+    )
+    u, v = labels[candidates[:, 0]], labels[candidates[:, 1]]
+    across = np.flatnonzero(u != v)
+    if across.size == 0:
+        return across
+    length = np.linalg.norm(points[candidates[across, 0]] - points[candidates[across, 1]], axis=1)
+    order = across[np.argsort(length, kind="stable")]
+    low, high = np.minimum(u[order], v[order]), np.maximum(u[order], v[order])
+    # the shortest edge between each pair of components (np.unique keeps first occurrences)
+    _, shortest = np.unique(low * n + high, return_index=True)
+    shortest.sort()
+    order, low, high = order[shortest], low[shortest], high[shortest]
+    # distinct weights in length order: the spanning forest is unique and found by Kruskal
+    weights = np.arange(1, order.size + 1, dtype=np.float64)
+    tree = minimum_spanning_tree(coo_array((weights, (low, high)), shape=(n, n))).tocoo()
+    chosen: IntArray = order[np.sort(tree.data.astype(np.intp)) - 1]
+    return chosen
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,6 +328,9 @@ class ZigzagResult:
     epsilon: float
     n_steps: int
     n_simplices: int = 0
+    middle: MiddleComplex = MiddleComplex.RIPS
+    # edges of the spanning forests of the bridge complexes (None for Vietoris-Rips)
+    n_bridges: int | None = None
     bars: list[ZigzagBar] = field(default_factory=list)
     # why representatives were not extracted (None when they were, or none were asked for)
     representatives_skipped: str | None = None
@@ -243,21 +356,34 @@ def compute_zigzag(
     max_dimension: int,
     *,
     max_simplices: int,
+    middle: MiddleComplex = MiddleComplex.RIPS,
     representatives: int = 0,
     max_representative_simplices: int = REPRESENTATIVES_MAX_SIMPLICES,
     should_stop: Callable[[], bool] = lambda: False,
 ) -> ZigzagResult:
     """Zigzag barcodes of ``H_0 .. H_max_dimension`` at scale ``epsilon``.
 
+    ``middle`` is the complex taken at every ``R_t`` (see the module docstring).
     ``representatives`` is the number of longest bars per dimension (alive on at
     least two steps) whose representative cycles are extracted, as long as the
     complex has at most ``max_representative_simplices`` simplices.
     """
-    simplices, times = zigzag_complex(
-        sequence, epsilon, max_dimension, max_simplices=max_simplices, should_stop=should_stop
+    simplices, times, n_bridges = zigzag_complex(
+        sequence,
+        epsilon,
+        max_dimension,
+        max_simplices=max_simplices,
+        middle=middle,
+        should_stop=should_stop,
     )
     n_steps = sequence.n_steps
-    result = ZigzagResult(epsilon=epsilon, n_steps=n_steps, n_simplices=len(simplices))
+    result = ZigzagResult(
+        epsilon=epsilon,
+        n_steps=n_steps,
+        n_simplices=len(simplices),
+        middle=middle,
+        n_bridges=n_bridges,
+    )
     with_representatives = representatives > 0 and len(simplices) <= max_representative_simplices
     if representatives > 0 and not with_representatives:
         result.representatives_skipped = (

@@ -189,6 +189,8 @@ def get_zigzag_bars(
         n_generations=reader.n_generations,
         n_steps=reader.n_steps,
         n_simplices=scale.get("n_simplices"),
+        middle=reader.middle,
+        n_bridges=scale.get("n_bridges"),
         representatives_skipped=scale.get("representatives_skipped"),
         bar=table["bar"],
         birth=table["birth"],

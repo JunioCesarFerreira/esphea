@@ -11,6 +11,10 @@ An analysis directory holds ``meta.json`` and:
 * ``trackers.parquet`` - ``epsilon_index, method, birth, death``: the ``H_0`` bars
   of the heuristic niche trackers (schema version 2; absent in older results).
 
+``meta.json`` records the complex taken at every ``R_t`` (``middle``: ``rips``,
+``bridge`` or ``bridge_union``; absent, i.e. ``rips``, in older results) and, per scale,
+the number of simplices and of bridge (forest) edges.
+
 Written to a temporary directory and renamed atomically.
 """
 
@@ -30,6 +34,7 @@ from esphea.core.types import FloatArray, IntArray
 from esphea.topology.trackers import TrackerMethod
 from esphea.topology.zigzag import (
     Cause,
+    MiddleComplex,
     ZigzagResult,
     ZigzagSequence,
     step_generation,
@@ -41,10 +46,18 @@ _META = "meta.json"
 
 
 class ZigzagResultWriter:
-    def __init__(self, directory: Path, *, epsilons: tuple[float, ...], max_dimension: int) -> None:
+    def __init__(
+        self,
+        directory: Path,
+        *,
+        epsilons: tuple[float, ...],
+        max_dimension: int,
+        middle: MiddleComplex = MiddleComplex.RIPS,
+    ) -> None:
         self._directory = directory
         self._epsilons = epsilons
         self._max_dimension = max_dimension
+        self._middle = middle
         self._n_generations = 0
         self._individuals: pa.Table | None = None
         self._bars: dict[str, list[Any]] = {}
@@ -73,6 +86,7 @@ class ZigzagResultWriter:
             {
                 "epsilon": result.epsilon,
                 "n_simplices": result.n_simplices,
+                "n_bridges": result.n_bridges,
                 "representatives_skipped": result.representatives_skipped,
             }
         )
@@ -175,6 +189,7 @@ class ZigzagResultWriter:
             "schema_version": SCHEMA_VERSION,
             "epsilons": list(self._epsilons),
             "max_dimension": self._max_dimension,
+            "middle": self._middle.value,
             "n_generations": self._n_generations,
             "scales": self._scales,
         }
@@ -202,6 +217,7 @@ class ZigzagResultReader:
         self._directory = directory
         self.epsilons: list[float] = meta["epsilons"]
         self.max_dimension: int = meta["max_dimension"]
+        self.middle = MiddleComplex(meta.get("middle", MiddleComplex.RIPS))
         self.n_generations: int = meta["n_generations"]
         self.n_steps = 2 * self.n_generations + 1
         self.scales: list[dict[str, Any]] = meta.get("scales", [])

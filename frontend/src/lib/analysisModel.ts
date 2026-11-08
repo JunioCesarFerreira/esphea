@@ -4,6 +4,11 @@ import { homologyLabel } from "./topologyPlots";
 
 const CLOUD_LABELS = { survivors: "survivors", merged: "candidates", first_front: "first front" };
 const NORMALIZATION_LABELS = { none: "raw", ideal_nadir: "ideal–nadir", min_max: "min–max" };
+const MIDDLE_LABELS = {
+  rips: "",
+  bridge_union: " · bridge over VR(Pₜ₋₁ ∪ Pₜ)",
+  bridge: " · bridge over VR(Pₜ₋₁) ∪ VR(Pₜ)",
+};
 
 export const ANALYSIS_KIND_LABELS: Record<AnalysisConfig["kind"], string> = {
   topology: "Barcodes per generation",
@@ -19,7 +24,8 @@ export function describeConfig(c: AnalysisConfig): string {
   const normalization = NORMALIZATION_LABELS[c.normalization ?? "none"];
   if (c.kind === "zigzag") {
     const scales = c.epsilons.map((e) => formatNumber(e)).join(", ");
-    return `zigzag · ε ${scales} · ${homologyRange(c.max_dimension ?? 0)} · ${normalization}`;
+    const middle = MIDDLE_LABELS[c.middle ?? "rips"];
+    return `zigzag · ε ${scales} · ${homologyRange(c.max_dimension ?? 0)} · ${normalization}${middle}`;
   }
   return `${CLOUD_LABELS[c.point_cloud ?? "survivors"]} · ${normalization} · ${homologyRange(c.max_dimension ?? 1)} · ε ≤ ${formatNumber(c.max_epsilon)}`;
 }

@@ -48,6 +48,7 @@ export type TrackerRuns = Schemas["TrackerRunsOut"];
 export type MethodRuns = Schemas["MethodRunsOut"];
 export type PointCloudKind = Schemas["PointCloudKind"];
 export type NormalizationKind = Schemas["NormalizationKind"];
+export type MiddleComplex = Schemas["MiddleComplex"];
 export type EpsilonSuggestion = Schemas["EpsilonSuggestionOut"];
 export type TopologySeries = Schemas["TopologySeriesOut"];
 export type Diagram = Schemas["DiagramOut"];

@@ -69,6 +69,9 @@ FINISHED = (RunStatus.COMPLETED, RunStatus.CANCELLED)
 GROUP_IGNORED_SETTINGS = frozenset({"distance_matrix", "representatives"})
 """Settings that change what is stored but not the summarised series: analyses
 differing only in them belong to the same group."""
+GROUP_LATER_DEFAULTS = {"middle": "rips"}
+"""Settings added after group keys were in use: left out of the key at their default,
+so that the keys of earlier analyses do not change."""
 BATCH_SERIES = (
     "betti",
     "births_variation",
@@ -220,6 +223,9 @@ def group_key(kind: str, config: Mapping[str, Any]) -> str:
     settings = parse_analysis_config(kind, dict(config)).model_dump(
         mode="json", exclude={"kind", *GROUP_IGNORED_SETTINGS}
     )
+    for name, default in GROUP_LATER_DEFAULTS.items():
+        if settings.get(name) == default:
+            del settings[name]
     canonical = json.dumps({"kind": kind, **settings}, sort_keys=True)
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 

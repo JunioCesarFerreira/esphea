@@ -43,6 +43,7 @@ class ZigzagAnalyzer:
                 epsilon,
                 self._config.max_dimension,
                 max_simplices=self._max_simplices,
+                middle=self._config.middle,
                 representatives=self._config.representatives,
                 should_stop=should_stop,
             )

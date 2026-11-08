@@ -126,7 +126,10 @@ class ZigzagRunner(AnalysisRunner):
             config, normalizer=build_normalizer(config.normalization, context.problem)
         )
         writer = ZigzagResultWriter(
-            output, epsilons=config.epsilons, max_dimension=config.max_dimension
+            output,
+            epsilons=config.epsilons,
+            max_dimension=config.max_dimension,
+            middle=config.middle,
         )
         analyzer.analyze(context.snapshots, writer, progress=progress, should_stop=should_stop)
 

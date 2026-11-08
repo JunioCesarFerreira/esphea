@@ -67,7 +67,14 @@ populations *inside* each generation:
   stored generations and explored in the *Topology* tab;
 - **zigzag persistence** of P₀ → R₁ ← P₁ → … at fixed scales: niches and loops followed across
   generations, every birth and death attributed to variation (offspring) or selection (removal),
-  representative niches/cycles in objective space and across-run summaries;
+  representative niches/cycles in objective space and across-run summaries. At every R_t the
+  complex is the Vietoris–Rips complex of all candidates (default) or a *bridge* complex
+  M_t = U_t ∪ R_t ∪ F_t: a base U_t, every candidate as a vertex, and a minimum spanning forest F_t
+  of the other edges of R_t. The bridge zigzag has the same H₀ barcode, and its H₁ and H₂ barcodes
+  are those of the base, with far fewer simplices. With U_t = VR(P_{t-1} ∪ P_t) (`bridge_union`)
+  they are those of the union zigzag, without the holes that only discarded offspring open or fill.
+  With U_t = VR(P_{t-1}) ∪ VR(P_t) (`bridge`), the edges from a discarded parent to the offspring
+  that replaces it are also dropped;
 - **niche trackers** beside the zigzag H₀ barcode: the same niches linked by local rules (elder
   rule on every set, or matching through shared survivors), with how much of the zigzag barcode
   each reproduces and whether it ranks experiments the same way (*Compare* tab *Niche trackers*);
