@@ -11,9 +11,9 @@ An analysis directory holds ``meta.json`` and:
 * ``trackers.parquet`` - ``epsilon_index, method, birth, death``: the ``H_0`` bars
   of the heuristic niche trackers (schema version 2; absent in older results).
 
-``meta.json`` records the complex taken at every ``R_t`` (``middle``: ``rips``,
-``bridge`` or ``bridge_union``; absent, i.e. ``rips``, in older results) and, per scale,
-the number of simplices and of bridge (forest) edges.
+``meta.json`` records the complex taken at every ``R_t`` (``middle``: ``rips`` or
+``bridge_union``; absent, i.e. ``rips``, in older results) and, per scale, the number of
+simplices and of bridge (forest) edges.
 
 Written to a temporary directory and renamed atomically.
 """

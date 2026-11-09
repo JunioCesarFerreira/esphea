@@ -200,11 +200,7 @@ def test_group_keys_of_earlier_zigzag_analyses_do_not_change() -> None:
     assert group_key("zigzag", {"epsilons": [0.1, 0.2], "middle": "rips"}) == "c9d66ad82b11f5fa"
     nadir = {"epsilons": [0.05], "max_dimension": 1, "normalization": "ideal_nadir"}
     assert group_key("zigzag", nadir) == "0a079053e3884926"
-    assert group_key("zigzag", {**nadir, "middle": "bridge"}) != "0a079053e3884926"
-    assert group_key("zigzag", {**nadir, "middle": "bridge_union"}) not in (
-        "0a079053e3884926",
-        group_key("zigzag", {**nadir, "middle": "bridge"}),
-    )
+    assert group_key("zigzag", {**nadir, "middle": "bridge_union"}) != "0a079053e3884926"
 
 
 def test_analysis_groups_across_runs(

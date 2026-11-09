@@ -61,12 +61,10 @@ class ZigzagAnalysisConfig(BaseModel):
     middle: MiddleComplex = Field(
         default=MiddleComplex.RIPS,
         description=(
-            "Complex at every R_t: 'rips' (Vietoris-Rips of all candidates), or a bridge "
-            "complex with the same H0 barcode, a base joined by a spanning forest of the other "
-            "edges of R_t: 'bridge_union' (base VR(P_{t-1} + P_t): H1/H2 of the union zigzag, "
-            "without the holes opened or filled by discarded offspring alone) or 'bridge' "
-            "(base VR(P_{t-1}) + VR(P_t), also drops the edges from a "
-            "discarded parent to a surviving offspring)."
+            "Complex at every R_t: 'rips' (Vietoris-Rips of all candidates) or "
+            "'bridge_union', the bridge complex VR(P_{t-1} + P_t) joined by a spanning forest "
+            "of the other edges of R_t: the same H0 barcode, and the H1/H2 of the union zigzag, "
+            "without the holes opened or filled by discarded offspring alone."
         ),
     )
     representatives: int = Field(

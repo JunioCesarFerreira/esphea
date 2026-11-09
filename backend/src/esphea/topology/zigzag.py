@@ -18,26 +18,24 @@ individuals), every birth and death has a cause:
 * dies entering an ``R`` step: killed by **variation**, e.g. offspring bridging niches;
 * dies entering a ``P`` step: killed by **selection**, e.g. a niche wiped out.
 
-The complex taken at ``R_t`` is the Vietoris-Rips complex of ``R_t`` (``rips``) or
-a *bridge* complex
+The complex taken at ``R_t`` is the Vietoris-Rips complex of ``R_t`` (``rips``) or the
+*bridge* complex (``bridge_union``)
 
-    M_t = U_t + R_t + F_t,    VR(P_{t-1}) + VR(P_t) c U_t c VR(R_t),
+    M_t = VR(P_{t-1} + P_t) + R_t + F_t,
 
-a base ``U_t``, every candidate as a vertex, and a spanning forest ``F_t`` of the other
-edges of ``VR(R_t)`` over the components of ``U_t``. Then ``P_{t-1} -> M_t <- P_t`` are
-inclusions, ``H_0(M_t) = H_0(VR(R_t))`` and ``H_k(M_t) = H_k(U_t)`` for ``k >= 1``, both
-compatibly with the maps from ``P_{t-1}`` and ``P_t``: the ``H_0`` barcode is that of the
-Vietoris-Rips zigzag and the higher ones are those of the zigzag through ``U_t``, for
-any choice of the forest. Two bases are offered:
+the Vietoris-Rips complex of the parents and the survivors, every candidate as a vertex,
+and a spanning forest ``F_t`` of the other edges of ``VR(R_t)`` (those of the offspring
+discarded at ``t``) over the components of ``VR(P_{t-1} + P_t)``. Then
+``P_{t-1} -> M_t <- P_t`` are inclusions, ``H_0(M_t) = H_0(VR(R_t))`` and
+``H_k(M_t) = H_k(VR(P_{t-1} + P_t))`` for ``k >= 1``, both compatibly with the maps from
+``P_{t-1}`` and ``P_t``: the ``H_0`` barcode is that of the Vietoris-Rips zigzag and the
+higher ones are those of the union zigzag ``P_{t-1} -> P_{t-1} + P_t <- P_t``, for any
+choice of the forest. The holes that discarded offspring alone fill or open are ignored.
 
-* ``bridge``: ``U_t = VR(P_{t-1}) + VR(P_t)``, the union of the two complexes (as in
-  the lab). It also drops the edges from a discarded parent to a surviving offspring,
-  so a loop handed over from a parent to the offspring that replaces it can split,
-  and the two paths through them can close loops that live on ``R_t`` alone;
-* ``bridge_union``: ``U_t = VR(P_{t-1} + P_t)``, which drops only the simplices of the
-  offspring discarded at ``t``. Its ``H_1`` and ``H_2`` are those of the union zigzag
-  ``P_{t-1} -> P_{t-1} + P_t <- P_t``: the holes that discarded offspring alone fill or
-  open are ignored.
+The base is ``VR(P_{t-1} + P_t)`` and not the union of the two complexes
+``VR(P_{t-1}) + VR(P_t)``, which would also drop the edges from a discarded parent to
+the offspring that replaces it: a loop handed over from one to the other would split,
+and the two paths through them would close loops that live on ``R_t`` alone.
 
 Computed with Dionysus' fast zigzag (Dey and Hou, 2022), which reduces the
 zigzag to the extended persistence of a cone.
@@ -76,7 +74,6 @@ class MiddleComplex(StrEnum):
     """Complex taken at every ``R_t`` (``P_t`` is always the Vietoris-Rips complex of ``P_t``)."""
 
     RIPS = "rips"  # VR(R_t)
-    BRIDGE = "bridge"  # VR(P_{t-1}) + VR(P_t) + R_t + spanning forest
     BRIDGE_UNION = "bridge_union"  # VR(P_{t-1} + P_t) + R_t + spanning forest
 
 
@@ -180,14 +177,14 @@ def zigzag_complex(
     ``max_dimension + 1``). A simplex is present while all its vertices are,
     i.e. on ``[max first, min last]``; Dionysus receives ``[insert, remove)``.
 
-    A bridge complex drops the edges of ``VR(R_t)`` outside its base (see
+    The bridge complex drops the edges of ``VR(R_t)`` outside its base (see
     ``bridge_edges``), except the ones of the spanning forest, and takes the cliques of
-    the remaining edges: both bases are flag complexes, so these cliques are exactly
-    their simplices. The dropped simplices are present on ``R_t`` alone, and every other
+    the remaining edges: the base is a flag complex, so these cliques are exactly its
+    simplices. The dropped simplices are present on ``R_t`` alone, and every other
     simplex keeps its presence ``[max first, min last]``. The third value is the number
     of forest edges (None for Vietoris-Rips).
     """
-    bridge = middle != MiddleComplex.RIPS
+    bridge = middle == MiddleComplex.BRIDGE_UNION
     n_bridges = 0
     seen: dict[tuple[int, ...], None] = {}
     for generation in range(1, sequence.n_generations + 1):
@@ -197,7 +194,7 @@ def zigzag_complex(
         ids = sequence.members(step)
         pairs = cKDTree(sequence.points[ids]).query_pairs(epsilon, output_type="ndarray")
         if bridge:
-            pairs, forest = bridge_edges(sequence, ids, pairs, step, middle)
+            pairs, forest = bridge_edges(sequence, ids, pairs, step)
             n_bridges += forest.shape[0]
             for a, b in forest:  # present on R_t only and never extended to triangles
                 seen[tuple(sorted((int(ids[a]), int(ids[b]))))] = None
@@ -235,33 +232,18 @@ def zigzag_complex(
 
 
 def bridge_edges(
-    sequence: ZigzagSequence,
-    ids: IntArray,
-    pairs: IntArray,
-    step: int,
-    middle: MiddleComplex,
+    sequence: ZigzagSequence, ids: IntArray, pairs: IntArray, step: int
 ) -> tuple[IntArray, IntArray]:
     """Edges of ``VR(R_t)`` kept in the bridge complex: those of its base, and the forest.
 
-    ``ids`` are the members of ``R_t`` (at ``step``) and ``pairs`` index ``ids``.
-
-    * ``bridge``: an edge is outside ``VR(P_{t-1}) + VR(P_t)`` when it has an end born at
-      ``t`` and an end discarded at ``t`` (possibly the same end, a discarded offspring);
-    * ``bridge_union``: an edge is outside ``VR(P_{t-1} + P_t)`` when one of its ends is an
-      offspring discarded at ``t``.
+    ``ids`` are the members of ``R_t`` (at ``step``) and ``pairs`` index ``ids``. An edge
+    is outside the base ``VR(P_{t-1} + P_t)`` when one of its ends is an offspring
+    discarded at ``t`` (present on ``R_t`` alone).
 
     Returns ``(base edges, forest edges)``, both indexing ``ids``.
     """
-    first, last = sequence.first[ids], sequence.last[ids]
-    if middle == MiddleComplex.BRIDGE:
-        outside = (np.maximum(first[pairs[:, 0]], first[pairs[:, 1]]) == step) & (
-            np.minimum(last[pairs[:, 0]], last[pairs[:, 1]]) == step
-        )
-    elif middle == MiddleComplex.BRIDGE_UNION:
-        discarded_offspring = (first == step) & (last == step)
-        outside = discarded_offspring[pairs[:, 0]] | discarded_offspring[pairs[:, 1]]
-    else:
-        raise ValueError(f"{middle} is not a bridge complex")
+    discarded_offspring = (sequence.first[ids] == step) & (sequence.last[ids] == step)
+    outside = discarded_offspring[pairs[:, 0]] | discarded_offspring[pairs[:, 1]]
     base, others = pairs[~outside], pairs[outside]
     return base, others[spanning_forest(sequence.points[ids], base, others)]
 

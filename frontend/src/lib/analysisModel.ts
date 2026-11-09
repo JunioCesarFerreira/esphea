@@ -7,7 +7,6 @@ const NORMALIZATION_LABELS = { none: "raw", ideal_nadir: "ideal–nadir", min_ma
 const MIDDLE_LABELS = {
   rips: "",
   bridge_union: " · bridge over VR(Pₜ₋₁ ∪ Pₜ)",
-  bridge: " · bridge over VR(Pₜ₋₁) ∪ VR(Pₜ)",
 };
 
 export const ANALYSIS_KIND_LABELS: Record<AnalysisConfig["kind"], string> = {

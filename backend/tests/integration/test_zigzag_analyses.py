@@ -121,9 +121,8 @@ def test_batch_over_every_run(client: TestClient, experiment: dict[str, Any]) ->
 
 def test_bridge_zigzags_beside_the_rips_one(client: TestClient, experiment: dict[str, Any]) -> None:
     run_id = experiment["runs"][0]["id"]
-    models = ("rips", "bridge", "bridge_union")
     analyses = {}
-    for middle in models:
+    for middle in ("rips", "bridge_union"):
         config = ZIGZAG if middle == "rips" else {**ZIGZAG, "middle": middle}
         analysis = client.post(f"/api/runs/{run_id}/analyses", json=config).json()
         assert analysis["config"]["middle"] == middle
@@ -133,21 +132,19 @@ def test_bridge_zigzags_beside_the_rips_one(client: TestClient, experiment: dict
         params = {"epsilon_index": 1, "dimension": dimension}
         return dict(client.get(analyses[middle], params=params).json())
 
-    rips = bars("rips", 0)
+    rips, bridge = bars("rips", 0), bars("bridge_union", 0)
     assert (rips["middle"], rips["n_bridges"]) == ("rips", None)
-    for middle in models[1:]:
-        bridge = bars(middle, 0)
-        # the same components, through fewer simplices
-        assert sorted(zip(bridge["birth"], bridge["death"], strict=True)) == sorted(
-            zip(rips["birth"], rips["death"], strict=True)
-        )
-        assert bridge["middle"] == middle
-        assert bridge["n_bridges"] > 0
-        assert bridge["n_simplices"] < rips["n_simplices"]
-        loops = bars(middle, 1)
-        assert all(0 <= b < d for b, d in zip(loops["birth"], loops["death"], strict=True))
+    # the same components, through fewer simplices
+    assert sorted(zip(bridge["birth"], bridge["death"], strict=True)) == sorted(
+        zip(rips["birth"], rips["death"], strict=True)
+    )
+    assert bridge["middle"] == "bridge_union"
+    assert bridge["n_bridges"] > 0
+    assert bridge["n_simplices"] < rips["n_simplices"]
+    loops = bars("bridge_union", 1)
+    assert all(0 <= b < d for b, d in zip(loops["birth"], loops["death"], strict=True))
     groups = client.get(f"/api/experiments/{experiment['id']}/analysis-groups").json()
-    assert len(groups) == 3  # the models are not summarised together
+    assert len(groups) == 2  # the models are not summarised together
 
 
 def test_zigzag_group_summary(client: TestClient, experiment: dict[str, Any]) -> None:

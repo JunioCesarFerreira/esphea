@@ -90,7 +90,7 @@ describe("differingSettings", () => {
   });
 
   it("names the complex at R_t only above H0, where the bridge changes the barcode", () => {
-    const configs = [zigzag([0.1]), zigzag([0.1], { middle: "bridge" })];
+    const configs = [zigzag([0.1]), zigzag([0.1], { middle: "bridge_union" })];
     expect(differingSettings(configs, 0, 0)).toEqual([]);
     expect(differingSettings(configs, 0, 1)).toEqual(["complex at Rₜ"]);
   });

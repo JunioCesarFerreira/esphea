@@ -34,10 +34,6 @@ const MIDDLE_DESCRIPTIONS: Record<MiddleComplex, (h0Only: boolean) => string> = 
     h0Only
       ? `${SAME_H0}.`
       : `${SAME_H0}; H₁ and H₂ are those of Pₜ₋₁ ∪ Pₜ, so holes opened or filled only by discarded offspring are ignored.`,
-  bridge: (h0Only) =>
-    h0Only
-      ? `${SAME_H0}.`
-      : `${SAME_H0}; H₁ and H₂ are those of VR(Pₜ₋₁) ∪ VR(Pₜ), which also drops the edges from a discarded parent to the offspring that replaces it: loops can split there, and short-lived loops appear.`,
 };
 
 interface ZigzagFormProps {
@@ -198,7 +194,6 @@ export function ZigzagForm({ experimentId, runId, finishedRuns, onCreated }: Zig
           data={[
             { value: "rips", label: "Vietoris–Rips of every candidate" },
             { value: "bridge_union", label: "Bridge over VR(Pₜ₋₁ ∪ Pₜ)" },
-            { value: "bridge", label: "Bridge over VR(Pₜ₋₁) ∪ VR(Pₜ)" },
           ]}
           description={MIDDLE_DESCRIPTIONS[middle](maxDimension === "0")}
         />
