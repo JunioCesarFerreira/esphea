@@ -33,6 +33,21 @@ class DTLZ2Config(_Model):
         return self.n_obj + self.k - 1
 
 
+class DTLZ2HConfig(_Model):
+    """DTLZ2 with a dominated cap at the centre of the octant: a front with one hole."""
+
+    name: Literal["dtlz2h"] = "dtlz2h"
+    n_obj: Literal[3] = Field(default=3, description="DTLZ2-H is three-objective.")
+    k: int = Field(default=10, ge=1, le=100, description="Distance variables; n_var = k + 2.")
+    radius: float = Field(
+        default=20.0, ge=5.0, le=25.0, description="Angular radius of the hole, in degrees."
+    )
+
+    @property
+    def n_var(self) -> int:
+        return self.n_obj + self.k - 1
+
+
 class DTLZ7Config(_Model):
     """Disconnected front: 2^(M-1) pieces."""
 
@@ -70,7 +85,8 @@ class ZDT4Config(_ZDTConfig):
 
 
 ProblemConfig = Annotated[
-    DTLZ2Config | DTLZ7Config | ZDT1Config | ZDT3Config | ZDT4Config, Field(discriminator="name")
+    DTLZ2Config | DTLZ2HConfig | DTLZ7Config | ZDT1Config | ZDT3Config | ZDT4Config,
+    Field(discriminator="name"),
 ]
 
 

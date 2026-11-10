@@ -706,7 +706,7 @@ export interface components {
          */
         CatalogOut: {
             /** Problems */
-            problems: (components["schemas"]["DTLZ2Config"] | components["schemas"]["DTLZ7Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"])[];
+            problems: (components["schemas"]["DTLZ2Config"] | components["schemas"]["DTLZ2HConfig"] | components["schemas"]["DTLZ7Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"])[];
             /** Algorithms */
             algorithms: (components["schemas"]["NSGA2Config"] | components["schemas"]["NSGA3Config"] | components["schemas"]["SMSEMOAConfig"])[];
             metrics: components["schemas"]["MetricsConfig"];
@@ -731,6 +731,36 @@ export interface components {
              * @default 10
              */
             k: number;
+        };
+        /**
+         * DTLZ2HConfig
+         * @description DTLZ2 with a dominated cap at the centre of the octant: a front with one hole.
+         */
+        DTLZ2HConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "dtlz2h";
+            /**
+             * N Obj
+             * @description DTLZ2-H is three-objective.
+             * @default 3
+             * @constant
+             */
+            n_obj: 3;
+            /**
+             * K
+             * @description Distance variables; n_var = k + 2.
+             * @default 10
+             */
+            k: number;
+            /**
+             * Radius
+             * @description Angular radius of the hole, in degrees.
+             * @default 20
+             */
+            radius: number;
         };
         /**
          * DTLZ7Config
@@ -831,7 +861,7 @@ export interface components {
              *       "k": 10
              *     }
              */
-            problem: components["schemas"]["DTLZ2Config"] | components["schemas"]["DTLZ7Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"];
+            problem: components["schemas"]["DTLZ2Config"] | components["schemas"]["DTLZ2HConfig"] | components["schemas"]["DTLZ7Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"];
             /** Algorithm */
             algorithm: components["schemas"]["NSGA2Config"] | components["schemas"]["NSGA3Config"] | components["schemas"]["SMSEMOAConfig"];
             /**

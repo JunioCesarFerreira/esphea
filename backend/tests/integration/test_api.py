@@ -28,7 +28,14 @@ def test_health(client: TestClient) -> None:
 
 def test_catalog_lists_defaults(client: TestClient) -> None:
     catalog = client.get("/api/catalog").json()
-    assert [p["name"] for p in catalog["problems"]] == ["dtlz2", "dtlz7", "zdt1", "zdt3", "zdt4"]
+    assert [p["name"] for p in catalog["problems"]] == [
+        "dtlz2",
+        "dtlz2h",
+        "dtlz7",
+        "zdt1",
+        "zdt3",
+        "zdt4",
+    ]
     assert [a["name"] for a in catalog["algorithms"]] == ["nsga2", "nsga3", "smsemoa"]
 
 

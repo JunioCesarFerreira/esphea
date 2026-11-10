@@ -41,7 +41,7 @@ The backend (`backend/src/esphea`) is layered so that inner layers never import 
 ```
 core            domain: Problem, Population, operator interfaces, the evolutionary loop
 topology        persistent homology: point clouds, Vietoris-Rips, diagram distances, analyses
-problems        benchmark problems (DTLZ2, DTLZ7, ZDT1, ZDT3, ZDT4)
+problems        benchmark problems (DTLZ2, DTLZ2-H, DTLZ7, ZDT1, ZDT3, ZDT4)
 operators       concrete strategies (sampling, selection, SBX, PM, survival)
 algorithms      NSGA-II, NSGA-III and SMS-EMOA as compositions of strategies
 metrics         quality indicators (IGD, IGD+, GD, hypervolume) and diversity metrics

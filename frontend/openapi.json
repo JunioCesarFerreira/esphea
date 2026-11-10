@@ -2181,6 +2181,9 @@
                   "$ref": "#/components/schemas/DTLZ2Config"
                 },
                 {
+                  "$ref": "#/components/schemas/DTLZ2HConfig"
+                },
+                {
                   "$ref": "#/components/schemas/DTLZ7Config"
                 },
                 {
@@ -2197,6 +2200,7 @@
                 "propertyName": "name",
                 "mapping": {
                   "dtlz2": "#/components/schemas/DTLZ2Config",
+                  "dtlz2h": "#/components/schemas/DTLZ2HConfig",
                   "dtlz7": "#/components/schemas/DTLZ7Config",
                   "zdt1": "#/components/schemas/ZDT1Config",
                   "zdt3": "#/components/schemas/ZDT3Config",
@@ -2277,6 +2281,43 @@
         "additionalProperties": false,
         "type": "object",
         "title": "DTLZ2Config"
+      },
+      "DTLZ2HConfig": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "const": "dtlz2h",
+            "title": "Name",
+            "default": "dtlz2h"
+          },
+          "n_obj": {
+            "type": "integer",
+            "const": 3,
+            "title": "N Obj",
+            "description": "DTLZ2-H is three-objective.",
+            "default": 3
+          },
+          "k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "K",
+            "description": "Distance variables; n_var = k + 2.",
+            "default": 10
+          },
+          "radius": {
+            "type": "number",
+            "maximum": 25.0,
+            "minimum": 5.0,
+            "title": "Radius",
+            "description": "Angular radius of the hole, in degrees.",
+            "default": 20.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DTLZ2HConfig",
+        "description": "DTLZ2 with a dominated cap at the centre of the octant: a front with one hole."
       },
       "DTLZ7Config": {
         "properties": {
@@ -2500,6 +2541,9 @@
                 "$ref": "#/components/schemas/DTLZ2Config"
               },
               {
+                "$ref": "#/components/schemas/DTLZ2HConfig"
+              },
+              {
                 "$ref": "#/components/schemas/DTLZ7Config"
               },
               {
@@ -2522,6 +2566,7 @@
               "propertyName": "name",
               "mapping": {
                 "dtlz2": "#/components/schemas/DTLZ2Config",
+                "dtlz2h": "#/components/schemas/DTLZ2HConfig",
                 "dtlz7": "#/components/schemas/DTLZ7Config",
                 "zdt1": "#/components/schemas/ZDT1Config",
                 "zdt3": "#/components/schemas/ZDT3Config",

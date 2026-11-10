@@ -123,7 +123,29 @@ function ProblemSection({ config, catalog, onChange }: FormProps) {
         allowDeselect={false}
         onChange={(name) => name && onChange(switchProblem(config, catalog, name as ProblemName))}
       />
-      {problem.name === "dtlz2" || problem.name === "dtlz7" ? (
+      {problem.name === "dtlz2h" ? (
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+          <NumberField
+            path="problem.k"
+            label="Distance variables (k)"
+            description={`Objectives: M = 3; n_var = k + 2 = ${problem.k + 2}`}
+            min={1}
+            max={100}
+            allowDecimal={false}
+            value={problem.k}
+            onChange={(k) => update({ ...problem, k })}
+          />
+          <NumberField
+            path="problem.radius"
+            label="Hole radius (degrees)"
+            description="Angle from the centre of the octant"
+            min={5}
+            max={25}
+            value={problem.radius}
+            onChange={(radius) => update({ ...problem, radius })}
+          />
+        </SimpleGrid>
+      ) : problem.name === "dtlz2" || problem.name === "dtlz7" ? (
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <NumberField
             path="problem.n_obj"

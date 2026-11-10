@@ -17,6 +17,7 @@ export const ALGORITHM_LABELS: Record<AlgorithmName, string> = {
 
 export const PROBLEM_LABELS: Record<string, string> = {
   dtlz2: "DTLZ2",
+  dtlz2h: "DTLZ2-H",
   dtlz7: "DTLZ7",
   zdt1: "ZDT1",
   zdt3: "ZDT3",
@@ -25,6 +26,8 @@ export const PROBLEM_LABELS: Record<string, string> = {
 
 export const PROBLEM_DESCRIPTIONS: Record<ProblemName, string> = {
   dtlz2: "Scalable number of objectives; the front is a sphere octant.",
+  dtlz2h:
+    "Three objectives; the DTLZ2 octant with a dominated cap at its centre, so the front has one hole.",
   dtlz7: "Scalable number of objectives; front split into 2^(M−1) disconnected pieces.",
   zdt1: "Bi-objective; convex, connected front.",
   zdt3: "Bi-objective; front split into five disconnected pieces.",

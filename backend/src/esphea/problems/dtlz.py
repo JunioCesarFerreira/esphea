@@ -59,6 +59,57 @@ class DTLZ2(Problem):
         return frozen(np.ones(self.n_obj))
 
 
+HOLE_PENALTY = 1.0
+"""Height of the bump over the cap of DTLZ2-H, relative to the unit sphere."""
+
+
+class DTLZ2H(DTLZ2):
+    """DTLZ2 with a hole in its front (three objectives).
+
+    ``f = (1 + g) (1 + h(s)) s``, where ``(1 + g) s`` is DTLZ2, ``s`` a unit vector of the
+    positive octant, and ``h = HOLE_PENALTY * max(0, 1 - alpha / radius)`` a cone over the
+    cap of directions within ``radius`` of the centre ``c = (1, 1, 1) / sqrt(3)``, with
+    ``alpha`` the angle between ``s`` and ``c``. Every point over the cap is dominated by the
+    point of the unit sphere on the same meridian at ``alpha = radius`` (checked on dense
+    samples for radii up to 25 degrees, see the tests), so the front is the octant of the
+    unit sphere without the open cap: a disc with one hole (``beta_1 = 1``). The objective is
+    continuous; the offspring that land over the cap are dominated, as in a dominated region
+    between the pieces of a disconnected front.
+    """
+
+    def __init__(self, k: int = 10, radius: float = 20.0) -> None:
+        if not 0.0 < radius < 35.0:
+            raise ValueError(f"radius must be in (0, 35) degrees, got {radius}")
+        super().__init__(n_obj=3, k=k)
+        self.radius = float(np.radians(radius))
+        self._centre = np.full(3, 1.0 / np.sqrt(3.0))
+
+    @property
+    def name(self) -> str:
+        return "DTLZ2-H"
+
+    def angle_to_centre(self, F: FloatArray) -> FloatArray:
+        """Angle between each objective vector and the centre of the octant."""
+        cosine: FloatArray = (F @ self._centre) / np.linalg.norm(F, axis=1)
+        angle: FloatArray = np.arccos(np.clip(cosine, -1.0, 1.0))
+        return angle
+
+    def _evaluate(self, X: FloatArray) -> FloatArray:
+        F = super()._evaluate(X)
+        bump = HOLE_PENALTY * np.clip(1.0 - self.angle_to_centre(F) / self.radius, 0.0, None)
+        return F * (1.0 + bump)[:, None]
+
+    def pareto_front(self, n_points: int) -> FloatArray:
+        partitions = das_dennis_partitions_for(self.n_obj, n_points)
+        while True:
+            directions = das_dennis(self.n_obj, partitions)
+            directions = directions / np.linalg.norm(directions, axis=1, keepdims=True)
+            front = directions[self.angle_to_centre(directions) >= self.radius]
+            if len(front) >= n_points:
+                return front
+            partitions += 1
+
+
 DTLZ7_RESOLUTION = 100_001
 """Samples of ``f_i`` in [0, 1] from which the Pareto-optimal intervals are extracted."""
 

@@ -48,8 +48,10 @@ Evolutionary algorithms (EAs) operate on populations of candidate solutions that
 
 The first milestone is an experimentation platform for **NSGA-II**, **NSGA-III** and
 **SMS-EMOA** (generational variant) on the scalable **DTLZ2** and **DTLZ7** (disconnected front)
-benchmarks and the bi-objective **ZDT1**, **ZDT3** (disconnected front) and **ZDT4** (multimodal)
-benchmarks, built so that persistent homology can be applied to the
+benchmarks, the bi-objective **ZDT1**, **ZDT3** (disconnected front) and **ZDT4** (multimodal)
+benchmarks, and **DTLZ2-H**, a three-objective DTLZ2 whose front has a hole (a dominated cap at the
+centre of the octant, so the front topology is known in dimension one), built so that persistent homology
+can be applied to the
 populations *inside* each generation:
 
 - own generational loop exposing, at every generation, the parent pool `P_t`, the matings, the
@@ -72,7 +74,10 @@ populations *inside* each generation:
   M_t = VR(P_{t-1} ∪ P_t) ∪ R_t ∪ F_t (`bridge_union`): the complex of the parents and the
   survivors, every candidate as a vertex, and a minimum spanning forest F_t of the other edges of
   R_t. The bridge zigzag has the same H₀ barcode, and its H₁ and H₂ barcodes are those of the union
-  zigzag, without the holes that only discarded offspring open or fill, from far fewer simplices;
+  zigzag, without the holes that only discarded offspring open or fill, from far fewer simplices. The
+  Vietoris–Rips zigzag records what each generation builds and destroys; the bridge zigzag follows the loops
+  of the populations through the induced maps, whatever individuals carry them (on DTLZ2-H, one bar per run
+  for the hole, whose representative is replaced entirely along the run);
 - **niche trackers** beside the zigzag H₀ barcode: the same niches linked by local rules (elder
   rule on every set, or matching through shared survivors), with how much of the zigzag barcode
   each reproduces and whether it ranks experiments the same way (*Compare* tab *Niche trackers*);

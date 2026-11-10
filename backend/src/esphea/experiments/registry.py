@@ -12,6 +12,7 @@ from esphea.core.algorithm import EvolutionaryAlgorithm
 from esphea.core.problem import Problem
 from esphea.experiments.config import (
     DTLZ2Config,
+    DTLZ2HConfig,
     DTLZ7Config,
     NSGA2Config,
     NSGA3Config,
@@ -23,7 +24,7 @@ from esphea.experiments.config import (
     ZDT4Config,
 )
 from esphea.operators import PolynomialMutation, SimulatedBinaryCrossover
-from esphea.problems import DTLZ2, DTLZ7, ZDT1, ZDT3, ZDT4
+from esphea.problems import DTLZ2, DTLZ2H, DTLZ7, ZDT1, ZDT3, ZDT4
 from esphea.reference_directions import das_dennis
 
 type ProblemBuilder = Callable[[Any], Problem]
@@ -87,6 +88,10 @@ def _build_dtlz2(config: DTLZ2Config) -> Problem:
     return DTLZ2(n_obj=config.n_obj, k=config.k)
 
 
+def _build_dtlz2h(config: DTLZ2HConfig) -> Problem:
+    return DTLZ2H(k=config.k, radius=config.radius)
+
+
 def _build_dtlz7(config: DTLZ7Config) -> Problem:
     return DTLZ7(n_obj=config.n_obj, k=config.k)
 
@@ -134,6 +139,7 @@ def _build_smsemoa(config: SMSEMOAConfig, problem: Problem) -> EvolutionaryAlgor
 def default_problem_registry() -> ProblemRegistry:
     registry = ProblemRegistry()
     registry.register("dtlz2", _build_dtlz2)
+    registry.register("dtlz2h", _build_dtlz2h)
     registry.register("dtlz7", _build_dtlz7)
     registry.register("zdt1", _build_zdt1)
     registry.register("zdt3", _build_zdt3)
