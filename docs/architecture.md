@@ -223,6 +223,19 @@ Vietoris–Rips complex at a **fixed scale ε** (up to five scales per analysis,
 Individuals keep their identity along the sequence (the `individual_id` of the snapshots, so
 runs stored before schema 2 cannot be zigzagged, and every generation must be stored).
 
+**Complex at `R_t`.** `rips` (default) takes the Vietoris–Rips complex of every candidate;
+`union` takes VR(P_{t-1} ∪ P_t), the subcomplex induced by the parents and the survivors, and
+leaves out the offspring discarded at once (not even their vertices). The first zigzag records
+what each generation builds and destroys, including the niches joined and the holes opened or
+filled for a single step by candidates that selection rejects; the union zigzag
+`P_{t-1} → P_{t-1} ∪ P_t ← P_t` follows the features of the populations themselves, since a class of
+`P_{t-1}` and one of `P_t` are the same feature exactly when their images in VR(P_{t-1} ∪ P_t)
+agree, whoever carries them. VR(P_{t-1}) ∪ VR(P_t) would not do: it lacks the edges from a
+discarded parent to the offspring that replaces it, and a loop handed over between them would
+split. The niche trackers see the same sets as the zigzag they are compared with. `bridge` and
+`bridge_union` (a base joined by a spanning forest, with the H₀ of `rips`) are retired: analyses
+stored with them still load, and new ones are rejected.
+
 A bar is alive on steps `[birth, death − 1]`. Forward arrows only insert simplices (offspring)
 and backward arrows only remove them (discarded individuals), so every event has a cause:
 

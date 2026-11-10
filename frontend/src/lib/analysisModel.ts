@@ -1,12 +1,14 @@
-import type { Analysis, AnalysisConfig } from "../api/types";
+import type { Analysis, AnalysisConfig, MiddleComplex } from "../api/types";
 import { formatNumber } from "./format";
 import { homologyLabel } from "./topologyPlots";
 
 const CLOUD_LABELS = { survivors: "survivors", merged: "candidates", first_front: "first front" };
 const NORMALIZATION_LABELS = { none: "raw", ideal_nadir: "ideal–nadir", min_max: "min–max" };
-const MIDDLE_LABELS = {
+const MIDDLE_LABELS: Record<MiddleComplex, string> = {
   rips: "",
-  bridge_union: " · bridge over VR(Pₜ₋₁ ∪ Pₜ)",
+  union: " · union VR(Pₜ₋₁ ∪ Pₜ)",
+  bridge: " · bridge over VR(Pₜ₋₁) ∪ VR(Pₜ) (retired)",
+  bridge_union: " · bridge over VR(Pₜ₋₁ ∪ Pₜ) (retired)",
 };
 
 export const ANALYSIS_KIND_LABELS: Record<AnalysisConfig["kind"], string> = {

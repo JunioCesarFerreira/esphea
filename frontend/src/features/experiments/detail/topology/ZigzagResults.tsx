@@ -304,9 +304,6 @@ export function ZigzagResults({
                 {bars.data.n_simplices
                   ? ` · ${formatInteger(bars.data.n_simplices)} simplices`
                   : ""}
-                {bars.data.n_bridges !== null
-                  ? ` · bridge complexes (${formatInteger(bars.data.n_bridges)} forest edges)`
-                  : ""}
                 {bars.data.bar.length > MAX_BARS_WITH_MARKERS &&
                   " · end markers hidden: raise the minimum lifetime to see how bars end"}
               </Text>

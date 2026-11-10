@@ -35,7 +35,7 @@ from scipy.sparse.csgraph import connected_components
 from scipy.spatial import cKDTree
 
 from esphea.core.types import BoolArray, FloatArray, IntArray
-from esphea.topology.zigzag import ZigzagSequence, is_r_step, step_generation
+from esphea.topology.zigzag import MiddleComplex, ZigzagSequence, is_r_step, step_generation
 
 ZIGZAG_METHOD = "zigzag"
 
@@ -163,14 +163,19 @@ def track_niches(
     sequence: ZigzagSequence,
     epsilon: float,
     *,
+    middle: MiddleComplex = MiddleComplex.RIPS,
     should_stop: Callable[[], bool] = lambda: False,
 ) -> dict[TrackerMethod, IntArray]:
-    """Bars ``(birth, death)`` of every tracker at scale ``epsilon``, shape ``(n, 2)``."""
+    """Bars ``(birth, death)`` of every tracker at scale ``epsilon``, shape ``(n, 2)``.
+
+    The trackers see the vertices of the zigzag's complexes (``middle``), so that they
+    are compared with its ``H_0`` on the same sets.
+    """
     steps = []
     for k in range(sequence.n_steps):
         if should_stop():
             raise InterruptedError("the zigzag analysis was asked to stop")
-        steps.append(_components(sequence.points, sequence.members(k), epsilon))
+        steps.append(_components(sequence.points, sequence.vertices(k, middle), epsilon))
     return {
         TrackerMethod.T1: _track_every_step(steps, sequence.first, oldest_fragment=False),
         TrackerMethod.T1O: _track_every_step(steps, sequence.first, oldest_fragment=True),

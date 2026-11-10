@@ -1157,7 +1157,7 @@ export interface components {
          * @description Complex taken at every ``R_t`` (``P_t`` is always the Vietoris-Rips complex of ``P_t``).
          * @enum {string}
          */
-        MiddleComplex: "rips" | "bridge_union";
+        MiddleComplex: "rips" | "union" | "bridge" | "bridge_union";
         /** NSGA2Config */
         NSGA2Config: {
             /**
@@ -1668,7 +1668,7 @@ export interface components {
              */
             normalization: components["schemas"]["NormalizationKind"];
             /**
-             * @description Complex at every R_t: 'rips' (Vietoris-Rips of all candidates) or 'bridge_union', the bridge complex VR(P_{t-1} + P_t) joined by a spanning forest of the other edges of R_t: the same H0 barcode, and the H1/H2 of the union zigzag, without the holes opened or filled by discarded offspring alone.
+             * @description Complex at every R_t: 'rips' (Vietoris-Rips of all candidates: what each generation builds and destroys) or 'union' (Vietoris-Rips of the parents and the survivors, leaving out the offspring discarded at once: the features of the populations, followed through the induced maps). 'bridge' and 'bridge_union' are retired and only appear in stored analyses.
              * @default rips
              */
             middle: components["schemas"]["MiddleComplex"];
@@ -1696,11 +1696,6 @@ export interface components {
             n_simplices: number | null;
             /** @description Complex taken at every R_t. */
             middle: components["schemas"]["MiddleComplex"];
-            /**
-             * N Bridges
-             * @description Edges of the spanning forests of the bridge complexes (null for 'rips').
-             */
-            n_bridges: number | null;
             /**
              * Representatives Skipped
              * @description Why representatives were not extracted at this scale (null otherwise).

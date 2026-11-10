@@ -13,10 +13,13 @@ const zigzag: ZigzagAnalysisConfig = {
 };
 
 describe("describeConfig", () => {
-  it("names the bridge complex, and only it", () => {
+  it("names the complex at Rₜ when it is not Vietoris–Rips", () => {
     expect(describeConfig(zigzag)).toBe("zigzag · ε 0.05, 0.1 · H₀–H₁ · ideal–nadir");
+    expect(describeConfig({ ...zigzag, middle: "union" })).toBe(
+      "zigzag · ε 0.05, 0.1 · H₀–H₁ · ideal–nadir · union VR(Pₜ₋₁ ∪ Pₜ)",
+    );
     expect(describeConfig({ ...zigzag, middle: "bridge_union" })).toBe(
-      "zigzag · ε 0.05, 0.1 · H₀–H₁ · ideal–nadir · bridge over VR(Pₜ₋₁ ∪ Pₜ)",
+      "zigzag · ε 0.05, 0.1 · H₀–H₁ · ideal–nadir · bridge over VR(Pₜ₋₁ ∪ Pₜ) (retired)",
     );
   });
 });

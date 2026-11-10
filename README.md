@@ -70,14 +70,12 @@ populations *inside* each generation:
 - **zigzag persistence** of P₀ → R₁ ← P₁ → … at fixed scales: niches and loops followed across
   generations, every birth and death attributed to variation (offspring) or selection (removal),
   representative niches/cycles in objective space and across-run summaries. At every R_t the
-  complex is the Vietoris–Rips complex of all candidates (default) or the *bridge* complex
-  M_t = VR(P_{t-1} ∪ P_t) ∪ R_t ∪ F_t (`bridge_union`): the complex of the parents and the
-  survivors, every candidate as a vertex, and a minimum spanning forest F_t of the other edges of
-  R_t. The bridge zigzag has the same H₀ barcode, and its H₁ and H₂ barcodes are those of the union
-  zigzag, without the holes that only discarded offspring open or fill, from far fewer simplices. The
-  Vietoris–Rips zigzag records what each generation builds and destroys; the bridge zigzag follows the loops
-  of the populations through the induced maps, whatever individuals carry them (on DTLZ2-H, one bar per run
-  for the hole, whose representative is replaced entirely along the run);
+  complex is the Vietoris–Rips complex of all candidates (`rips`, default) or that of the parents
+  and the survivors, VR(P_{t-1} ∪ P_t) (`union`), which leaves out the offspring discarded at once.
+  The first records what each generation builds and destroys, including what discarded offspring
+  join, open or fill for a single step; the union zigzag follows the niches and loops of the
+  populations through the induced maps, whatever individuals carry them (on DTLZ2-H, one bar per
+  run for the hole, whose representative is replaced entirely along the run), from fewer simplices;
 - **niche trackers** beside the zigzag H₀ barcode: the same niches linked by local rules (elder
   rule on every set, or matching through shared survivors), with how much of the zigzag barcode
   each reproduces and whether it ranks experiments the same way (*Compare* tab *Niche trackers*);

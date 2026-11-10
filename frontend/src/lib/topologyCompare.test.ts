@@ -89,10 +89,14 @@ describe("differingSettings", () => {
     expect(differingSettings(configs, 1)).toEqual(["scale ε"]);
   });
 
-  it("names the complex at R_t only above H0, where the bridge changes the barcode", () => {
-    const configs = [zigzag([0.1]), zigzag([0.1], { middle: "bridge_union" })];
-    expect(differingSettings(configs, 0, 0)).toEqual([]);
-    expect(differingSettings(configs, 0, 1)).toEqual(["complex at Rₜ"]);
+  it("names the complex at Rₜ wherever it changes the barcode", () => {
+    const union = [zigzag([0.1]), zigzag([0.1], { middle: "union" })];
+    expect(differingSettings(union, 0, 0)).toEqual(["complex at Rₜ"]);
+    expect(differingSettings(union, 0, 1)).toEqual(["complex at Rₜ"]);
+    // the retired bridge complexes had the H₀ barcode of Vietoris–Rips
+    const bridge = [zigzag([0.1]), zigzag([0.1], { middle: "bridge_union" })];
+    expect(differingSettings(bridge, 0, 0)).toEqual([]);
+    expect(differingSettings(bridge, 0, 1)).toEqual(["complex at Rₜ"]);
   });
 });
 

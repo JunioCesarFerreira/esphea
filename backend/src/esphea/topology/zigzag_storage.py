@@ -12,8 +12,9 @@ An analysis directory holds ``meta.json`` and:
   of the heuristic niche trackers (schema version 2; absent in older results).
 
 ``meta.json`` records the complex taken at every ``R_t`` (``middle``: ``rips`` or
-``bridge_union``; absent, i.e. ``rips``, in older results) and, per scale, the number of
-simplices and of bridge (forest) edges.
+``union``, or a retired bridge complex in older results; absent, i.e. ``rips``, in the
+oldest) and, per scale, the number of simplices (and of bridge edges, in the results of
+the retired bridge complexes).
 
 Written to a temporary directory and renamed atomically.
 """
@@ -86,7 +87,6 @@ class ZigzagResultWriter:
             {
                 "epsilon": result.epsilon,
                 "n_simplices": result.n_simplices,
-                "n_bridges": result.n_bridges,
                 "representatives_skipped": result.representatives_skipped,
             }
         )

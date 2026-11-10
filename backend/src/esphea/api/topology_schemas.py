@@ -202,9 +202,6 @@ class ZigzagBarsOut(BaseModel):
     n_steps: int
     n_simplices: int | None
     middle: MiddleComplex = Field(description="Complex taken at every R_t.")
-    n_bridges: int | None = Field(
-        description="Edges of the spanning forests of the bridge complexes (null for 'rips')."
-    )
     representatives_skipped: str | None = Field(
         description="Why representatives were not extracted at this scale (null otherwise)."
     )

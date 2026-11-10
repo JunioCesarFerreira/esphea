@@ -1,12 +1,15 @@
+import uuid
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 from sqlalchemy.orm import Session, sessionmaker
 
 from esphea.experiments.registry import default_problem_registry
 from esphea.messaging.ports import JobKind
+from esphea.persistence.models import AnalysisRow
 from esphea.services.analysis_execution import AnalysisExecutionService
 from esphea.services.execution import RunService
 from tests.integration.conftest import RecordingQueue
@@ -119,32 +122,59 @@ def test_batch_over_every_run(client: TestClient, experiment: dict[str, Any]) ->
         )
 
 
-def test_bridge_zigzags_beside_the_rips_one(client: TestClient, experiment: dict[str, Any]) -> None:
+def test_union_zigzags_beside_the_rips_one(client: TestClient, experiment: dict[str, Any]) -> None:
     run_id = experiment["runs"][0]["id"]
     analyses = {}
-    for middle in ("rips", "bridge_union"):
+    for middle in ("rips", "union"):
         config = ZIGZAG if middle == "rips" else {**ZIGZAG, "middle": middle}
         analysis = client.post(f"/api/runs/{run_id}/analyses", json=config).json()
         assert analysis["config"]["middle"] == middle
-        analyses[middle] = f"/api/analyses/{analysis['id']}/zigzag/bars"
+        analyses[middle] = f"/api/analyses/{analysis['id']}/zigzag"
 
     def bars(middle: str, dimension: int) -> dict[str, Any]:
         params = {"epsilon_index": 1, "dimension": dimension}
-        return dict(client.get(analyses[middle], params=params).json())
+        return dict(client.get(f"{analyses[middle]}/bars", params=params).json())
 
-    rips, bridge = bars("rips", 0), bars("bridge_union", 0)
-    assert (rips["middle"], rips["n_bridges"]) == ("rips", None)
-    # the same components, through fewer simplices
-    assert sorted(zip(bridge["birth"], bridge["death"], strict=True)) == sorted(
-        zip(rips["birth"], rips["death"], strict=True)
-    )
-    assert bridge["middle"] == "bridge_union"
-    assert bridge["n_bridges"] > 0
-    assert bridge["n_simplices"] < rips["n_simplices"]
-    loops = bars("bridge_union", 1)
+    rips, union = bars("rips", 0), bars("union", 0)
+    assert (rips["middle"], union["middle"]) == ("rips", "union")
+    assert union["n_simplices"] < rips["n_simplices"]  # no offspring discarded at once
+    loops = bars("union", 1)
     assert all(0 <= b < d for b, d in zip(loops["birth"], loops["death"], strict=True))
     groups = client.get(f"/api/experiments/{experiment['id']}/analysis-groups").json()
     assert len(groups) == 2  # the models are not summarised together
+
+    # at R_1 the union shows the parents and the survivors only
+    def population_at_r1(middle: str, components: dict[str, Any]) -> set[int]:
+        bar = next(
+            b
+            for b, birth, death in zip(
+                components["bar"], components["birth"], components["death"], strict=True
+            )
+            if birth <= 1 < death
+        )
+        params = {"epsilon_index": 1, "bar": bar, "step": 1}
+        view = client.get(f"{analyses[middle]}/representative", params=params).json()
+        return set(view["members"])
+
+    assert population_at_r1("union", union) < population_at_r1("rips", rips)
+
+
+def test_retired_complexes_are_read_but_not_created(
+    client: TestClient, experiment: dict[str, Any], sessions: sessionmaker[Session]
+) -> None:
+    run_id = experiment["runs"][0]["id"]
+    retired = {**ZIGZAG, "middle": "bridge_union"}
+    assert client.post(f"/api/runs/{run_id}/analyses", json=retired).status_code == 422
+    analysis = client.post(f"/api/runs/{run_id}/analyses", json=ZIGZAG).json()
+    with sessions.begin() as session:  # as stored before the bridge complexes were retired
+        session.execute(
+            update(AnalysisRow)
+            .where(AnalysisRow.id == uuid.UUID(analysis["id"]))
+            .values(config={**analysis["config"], "middle": "bridge_union"})
+        )
+    listed = client.get(f"/api/runs/{run_id}/analyses")
+    assert listed.status_code == 200
+    assert [a["config"]["middle"] for a in listed.json()] == ["bridge_union"]
 
 
 def test_zigzag_group_summary(client: TestClient, experiment: dict[str, Any]) -> None:

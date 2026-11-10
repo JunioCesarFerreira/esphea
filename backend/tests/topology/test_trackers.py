@@ -14,7 +14,7 @@ from esphea.topology.trackers import (
     summarize,
     track_niches,
 )
-from esphea.topology.zigzag import ZigzagSequence, compute_zigzag
+from esphea.topology.zigzag import MiddleComplex, ZigzagSequence, compute_zigzag
 
 BUDGET = 1_000_000
 
@@ -30,8 +30,10 @@ def as_set(bars: np.ndarray) -> list[tuple[int, int]]:
     return sorted((int(b), int(d)) for b, d in bars)
 
 
-def zigzag_h0(sequence: ZigzagSequence, epsilon: float) -> np.ndarray:
-    bars = compute_zigzag(sequence, epsilon, 0, max_simplices=BUDGET).bars
+def zigzag_h0(
+    sequence: ZigzagSequence, epsilon: float, middle: MiddleComplex = MiddleComplex.RIPS
+) -> np.ndarray:
+    bars = compute_zigzag(sequence, epsilon, 0, max_simplices=BUDGET, middle=middle).bars
     return np.array([(b.birth, b.death) for b in bars], dtype=np.intp).reshape(-1, 2)
 
 
@@ -108,14 +110,21 @@ def alive(bars: np.ndarray, n_steps: int) -> np.ndarray:
     return count
 
 
+MIDDLES = [MiddleComplex.RIPS, MiddleComplex.UNION]
+
+
+@pytest.mark.parametrize("middle", MIDDLES)
 @pytest.mark.parametrize("seed", range(6))
-def test_every_tracker_follows_the_components_of_the_sets_it_sees(seed: int) -> None:
+def test_every_tracker_follows_the_components_of_the_sets_it_sees(
+    seed: int, middle: MiddleComplex
+) -> None:
     sequence = random_sequence(seed)
     epsilon = 0.25
     expected = [
-        n_components(sequence.points[sequence.members(k)], epsilon) for k in range(sequence.n_steps)
+        n_components(sequence.points[sequence.vertices(k, middle)], epsilon)
+        for k in range(sequence.n_steps)
     ]
-    bars = track_niches(sequence, epsilon)
+    bars = track_niches(sequence, epsilon, middle=middle)
     for method in (TrackerMethod.T1, TrackerMethod.T1O):
         np.testing.assert_array_equal(alive(bars[method], sequence.n_steps), expected)
     # the survivor tracker only sees the populations P_t (even steps)
@@ -125,11 +134,14 @@ def test_every_tracker_follows_the_components_of_the_sets_it_sees(seed: int) -> 
     assert all(birth % 2 == 0 for birth, _ in bars[TrackerMethod.T2])
 
 
+@pytest.mark.parametrize("middle", MIDDLES)
 @pytest.mark.parametrize("seed", range(6))
-def test_full_trackers_have_the_zigzag_events_but_not_always_its_pairing(seed: int) -> None:
+def test_full_trackers_have_the_zigzag_events_but_not_always_its_pairing(
+    seed: int, middle: MiddleComplex
+) -> None:
     sequence = random_sequence(seed)
-    zigzag = zigzag_h0(sequence, 0.25)
-    bars = track_niches(sequence, 0.25)
+    zigzag = zigzag_h0(sequence, 0.25, middle)
+    bars = track_niches(sequence, 0.25, middle=middle)
     for method in (TrackerMethod.T1, TrackerMethod.T1O):
         for column in (0, 1):  # births and deaths per step
             np.testing.assert_array_equal(

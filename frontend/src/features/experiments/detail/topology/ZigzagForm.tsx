@@ -26,14 +26,11 @@ import { formatNumber } from "../../../../lib/format";
 
 const MAX_SCALES = 5;
 
-const SAME_H0 = "Same H₀ barcode as Vietoris–Rips, from fewer simplices";
-const MIDDLE_DESCRIPTIONS: Record<MiddleComplex, (h0Only: boolean) => string> = {
-  rips: () =>
-    "Every candidate counts, including the offspring discarded at once: they join niches, and also open or fill holes for a single step.",
-  bridge_union: (h0Only) =>
-    h0Only
-      ? `${SAME_H0}.`
-      : `${SAME_H0}; H₁ and H₂ are those of Pₜ₋₁ ∪ Pₜ, so holes opened or filled only by discarded offspring are ignored.`,
+type NewMiddleComplex = Extract<MiddleComplex, "rips" | "union">;
+const MIDDLE_DESCRIPTIONS: Record<NewMiddleComplex, string> = {
+  rips: "Every candidate counts: what each generation builds and destroys, including the niches joined and the holes opened or filled for a single step by offspring discarded at once.",
+  union:
+    "Only the parents and the survivors: the offspring discarded at once are left out, and the features of the populations are followed across generations, whatever individuals carry them.",
 };
 
 interface ZigzagFormProps {
@@ -46,7 +43,7 @@ interface ZigzagFormProps {
 export function ZigzagForm({ experimentId, runId, finishedRuns, onCreated }: ZigzagFormProps) {
   const [normalization, setNormalization] = useState<NormalizationKind>("none");
   const [maxDimension, setMaxDimension] = useState("0");
-  const [middle, setMiddle] = useState<MiddleComplex>("rips");
+  const [middle, setMiddle] = useState<NewMiddleComplex>("rips");
   const [representatives, setRepresentatives] = useState(10);
   const [scales, setScales] = useState<number[] | null>(null);
   const [allRuns, setAllRuns] = useState(finishedRuns > 1);
@@ -190,12 +187,12 @@ export function ZigzagForm({ experimentId, runId, finishedRuns, onCreated }: Zig
           label="Complex at Rₜ (parents with their offspring)"
           allowDeselect={false}
           value={middle}
-          onChange={(v) => v && setMiddle(v as MiddleComplex)}
+          onChange={(v) => v && setMiddle(v as NewMiddleComplex)}
           data={[
             { value: "rips", label: "Vietoris–Rips of every candidate" },
-            { value: "bridge_union", label: "Bridge over VR(Pₜ₋₁ ∪ Pₜ)" },
+            { value: "union", label: "Union VR(Pₜ₋₁ ∪ Pₜ), without discarded offspring" },
           ]}
-          description={MIDDLE_DESCRIPTIONS[middle](maxDimension === "0")}
+          description={MIDDLE_DESCRIPTIONS[middle]}
         />
         <Switch
           label={`Analyse every finished run of the experiment (${finishedRuns}) as one batch`}

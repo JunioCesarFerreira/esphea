@@ -4,6 +4,7 @@ from pathlib import Path
 import dionysus
 import numpy as np
 import pytest
+from pydantic import ValidationError
 from ripser import ripser
 from scipy.sparse.csgraph import connected_components
 from scipy.spatial.distance import pdist, squareform
@@ -14,16 +15,17 @@ from esphea.experiments.observers import SnapshotObserver
 from esphea.experiments.storage import SnapshotReader, SnapshotWriter
 from esphea.problems import DTLZ2
 from esphea.topology.clouds import Identity
+from esphea.topology.config import ZIGZAG_ANALYSIS, ZigzagAnalysisConfig, parse_analysis_config
 from esphea.topology.zigzag import (
     Cause,
     MiddleComplex,
     SimplexBudgetExceededError,
     ZigzagResult,
     ZigzagSequence,
-    bridge_edges,
+    complex_members,
     compute_zigzag,
     is_r_step,
-    step_of_r,
+    zigzag_complex,
 )
 
 BUDGET = 1_000_000
@@ -179,9 +181,9 @@ def test_representatives_are_skipped_above_their_budget() -> None:
     assert result.bars  # the barcode itself is still computed
 
 
-# --- bridge complexes M_t --------------------------------------------------------------
+# --- union complexes W_t = VR(P_{t-1} + P_t) ---------------------------------------------
 
-BRIDGE_UNION = MiddleComplex.BRIDGE_UNION
+UNION = MiddleComplex.UNION
 
 Simplex = tuple[int, ...]
 
@@ -199,13 +201,13 @@ def rips_cliques(
     }
 
 
-def base_complexes(
+def union_complexes(
     sequence: ZigzagSequence, epsilon: float, size: int, *, union_of_points: bool = True
 ) -> list[set[Simplex]]:
-    """VR(P_t) at P steps and, at R steps, the base VR(P_{t-1} + P_t), by brute force.
+    """VR(P_t) at P steps and, at R steps, VR(P_{t-1} + P_t), by brute force.
 
     With ``union_of_points=False`` the R steps take the union of the two complexes
-    VR(P_{t-1}) + VR(P_t) instead (the base that was not adopted).
+    VR(P_{t-1}) + VR(P_t) instead (the complex that was not adopted).
     """
     members = [sequence.members(2 * t) for t in range(sequence.n_generations + 1)]
     p = [rips_cliques(sequence.points, m, epsilon, size) for m in members]
@@ -234,12 +236,27 @@ def f2_rank(columns: list[set[Simplex]]) -> int:
     return len(pivots)
 
 
+def betti_0(complex_: set[Simplex]) -> int:
+    vertices = sorted(s[0] for s in complex_ if len(s) == 1)
+    index = {v: i for i, v in enumerate(vertices)}
+    edges = np.array(
+        [(index[a], index[b]) for a, b in (s for s in complex_ if len(s) == 2)], dtype=np.intp
+    ).reshape(-1, 2)
+    return components(len(vertices), edges)
+
+
 def betti_1(complex_: set[Simplex]) -> int:
     edges = [s for s in complex_ if len(s) == 2]
     triangles = [s for s in complex_ if len(s) == 3]
     rank_1 = f2_rank([{(a,), (b,)} for a, b in edges])
     rank_2 = f2_rank([set(combinations(t, 2)) for t in triangles])
     return len(edges) - rank_1 - rank_2
+
+
+def components(n: int, edges: np.ndarray) -> int:
+    graph = np.zeros((n, n))
+    graph[edges[:, 0], edges[:, 1]] = 1
+    return int(connected_components(graph, directed=False)[0])
 
 
 def zigzag_bars(complexes: list[set[Simplex]], dimension: int) -> list[tuple[int, int]]:
@@ -276,30 +293,63 @@ def events_of(result: ZigzagResult, dimension: int) -> list[tuple[int, int, Caus
     )
 
 
+def alive_counts(bars: list[tuple[int, int]], n_steps: int) -> np.ndarray:
+    alive = np.zeros(n_steps, dtype=int)
+    for birth, death in bars:
+        alive[birth:death] += 1
+    return alive
+
+
 @pytest.mark.parametrize("seed", range(8))
-def test_bridge_has_the_rips_components_and_the_holes_of_its_base(seed: int) -> None:
-    """H0 of P -> M <- P is that of the Vietoris-Rips zigzag, H1 that of VR(P_{t-1} + P_t)."""
+def test_union_is_the_zigzag_of_the_parents_and_the_survivors(seed: int) -> None:
+    """P_{t-1} -> VR(P_{t-1} + P_t) <- P_t, against an independent construction."""
     sequence = random_sequence(np.random.default_rng(seed))
     epsilon = 0.3
     rips = compute_zigzag(sequence, epsilon, 1, max_simplices=BUDGET)
-    bridge = compute_zigzag(sequence, epsilon, 1, max_simplices=BUDGET, middle=BRIDGE_UNION)
-    assert events_of(bridge, 0) == events_of(rips, 0)
-    base = base_complexes(sequence, epsilon, 3)
-    assert bars_of(bridge, 1) == zigzag_bars(base, 1)
-    # and, independently of Dionysus, the number of loops alive at every step
-    alive = np.zeros(sequence.n_steps, dtype=int)
-    for birth, death in bars_of(bridge, 1):
-        alive[birth:death] += 1
-    np.testing.assert_array_equal(alive, [betti_1(c) for c in base])
-    assert bridge.n_simplices < rips.n_simplices
-    assert rips.n_bridges is None
-    assert bridge.n_bridges is not None
-    assert bridge.n_bridges > 0
+    union = compute_zigzag(sequence, epsilon, 1, max_simplices=BUDGET, middle=UNION)
+    complexes = union_complexes(sequence, epsilon, 3)
+    for dimension in (0, 1):
+        assert bars_of(union, dimension) == zigzag_bars(complexes, dimension)
+    # and, independently of Dionysus, the features alive at every step
+    n = sequence.n_steps
+    for dimension, betti in ((0, betti_0), (1, betti_1)):
+        np.testing.assert_array_equal(
+            alive_counts(bars_of(union, dimension), n), [betti(c) for c in complexes]
+        )
+    assert union.n_simplices == len(set().union(*complexes))
+    assert union.n_simplices < rips.n_simplices
+
+
+@pytest.mark.parametrize("seed", range(4))
+def test_union_leaves_out_only_the_offspring_discarded_at_once(seed: int) -> None:
+    sequence = random_sequence(np.random.default_rng(seed))
+    for step in range(sequence.n_steps):
+        members = sequence.members(step)
+        np.testing.assert_array_equal(sequence.vertices(step, MiddleComplex.RIPS), members)
+        if is_r_step(step):
+            kept = np.union1d(sequence.members(step - 1), sequence.members(step + 1))
+            np.testing.assert_array_equal(sequence.vertices(step, UNION), kept)
+            assert len(kept) < len(members)  # random survival discards some offspring
+        else:
+            np.testing.assert_array_equal(sequence.vertices(step, UNION), members)
+        np.testing.assert_array_equal(
+            complex_members(sequence.first, sequence.last, step, UNION),
+            sequence.vertices(step, UNION),
+        )
+    simplices, _ = zigzag_complex(sequence, 0.3, 1, max_simplices=BUDGET, middle=UNION)
+    vertices = {v for simplex in simplices for v in simplex}
+    discarded = {
+        i for i in range(len(sequence.first)) if sequence.first[i] == sequence.last[i] != 0
+    }
+    assert discarded
+    assert not vertices & discarded
 
 
 @pytest.mark.parametrize(("n", "epsilon", "seed"), [(12, 1.3, 3), (16, 1.3, 5), (16, 1.3, 6)])
-def test_bridge_voids_are_those_of_its_base(n: int, epsilon: float, seed: int) -> None:
-    """Individuals on the unit sphere (cases where the voids of rips and bridge differ)."""
+def test_union_voids_are_those_of_the_parents_and_the_survivors(
+    n: int, epsilon: float, seed: int
+) -> None:
+    """Individuals on the unit sphere (cases where the voids of rips and union differ)."""
     rng = np.random.default_rng(seed)
     genealogy = random_sequence(rng, generations=3, n=n)
     directions = rng.normal(size=(genealogy.points.shape[0], 3))
@@ -310,52 +360,24 @@ def test_bridge_voids_are_those_of_its_base(n: int, epsilon: float, seed: int) -
         genealogy.n_generations,
     )
     rips = compute_zigzag(sequence, epsilon, 2, max_simplices=BUDGET)
-    bridge = compute_zigzag(sequence, epsilon, 2, max_simplices=BUDGET, middle=BRIDGE_UNION)
-    assert bars_of(bridge, 2) != bars_of(rips, 2)
-    base = base_complexes(sequence, epsilon, 4)
-    for dimension in (1, 2):
-        assert bars_of(bridge, dimension) == zigzag_bars(base, dimension)
-    assert bars_of(bridge, 0) == bars_of(rips, 0)
+    union = compute_zigzag(sequence, epsilon, 2, max_simplices=BUDGET, middle=UNION)
+    assert bars_of(union, 2) != bars_of(rips, 2)
+    complexes = union_complexes(sequence, epsilon, 4)
+    for dimension in (0, 1, 2):
+        assert bars_of(union, dimension) == zigzag_bars(complexes, dimension)
 
 
-def test_a_void_filled_only_by_a_discarded_offspring_persists_in_the_bridge() -> None:
+def test_a_void_filled_only_by_a_discarded_offspring_persists_in_the_union() -> None:
     """The hollow octahedron is a sphere at 1.5; an offspring at its centre cones it in R_1."""
     axes = np.vstack((np.eye(3), -np.eye(3)))
     points = np.vstack((axes, [[0.0, 0.0, 0.0]]))
     sequence = ZigzagSequence(points, np.array([0] * 6 + [1]), np.array([2] * 6 + [1]), 1)
     rips = compute_zigzag(sequence, 1.5, 2, max_simplices=BUDGET)
-    bridge = compute_zigzag(sequence, 1.5, 2, max_simplices=BUDGET, middle=BRIDGE_UNION)
+    union = compute_zigzag(sequence, 1.5, 2, max_simplices=BUDGET, middle=UNION)
     assert bars_of(rips, 2) == [(0, 1), (2, 3)]
-    assert bars_of(bridge, 2) == [(0, 3)]
-    assert bars_of(bridge, 1) == bars_of(rips, 1) == []
-
-
-@pytest.mark.parametrize("seed", range(4))
-def test_the_bridge_forest_connects_like_r_t_without_closing_loops(seed: int) -> None:
-    sequence = random_sequence(np.random.default_rng(seed))
-    epsilon = 0.3
-    for generation in range(1, sequence.n_generations + 1):
-        step = step_of_r(generation)
-        ids = sequence.members(step)
-        close = squareform(pdist(sequence.points[ids])) <= epsilon
-        pairs = np.array(
-            [(a, b) for a, b in combinations(range(len(ids)), 2) if close[a, b]], dtype=np.intp
-        ).reshape(-1, 2)
-        base, forest = bridge_edges(sequence, ids, pairs, step)
-        kept = set(sequence.members(step - 1)) | set(sequence.members(step + 1))
-        in_base = {(a, b) for a, b in pairs.tolist() if {ids[a], ids[b]} <= kept}
-        assert {(a, b) for a, b in base.tolist()} == in_base
-        assert {(a, b) for a, b in forest.tolist()} <= set(map(tuple, pairs.tolist())) - in_base
-        # every forest edge merges two components, and together they connect like VR(R_t)
-        n = len(ids)
-        assert components(n, np.vstack((base, forest))) == components(n, pairs)
-        assert components(n, base) - components(n, pairs) == len(forest)
-
-
-def components(n: int, edges: np.ndarray) -> int:
-    graph = np.zeros((n, n))
-    graph[edges[:, 0], edges[:, 1]] = 1
-    return int(connected_components(graph, directed=False)[0])
+    assert bars_of(union, 2) == [(0, 3)]
+    assert bars_of(union, 1) == bars_of(rips, 1) == []
+    assert bars_of(union, 0) == bars_of(rips, 0) == [(0, 3)]
 
 
 def square_with_a_discarded_centre() -> ZigzagSequence:
@@ -364,23 +386,20 @@ def square_with_a_discarded_centre() -> ZigzagSequence:
     return ZigzagSequence(points, np.array([0, 0, 0, 0, 1]), np.array([2, 2, 2, 2, 1]), 1)
 
 
-def test_a_hole_filled_only_by_a_discarded_offspring_persists_in_the_bridge() -> None:
+def test_a_hole_filled_only_by_a_discarded_offspring_persists_in_the_union() -> None:
     sequence = square_with_a_discarded_centre()
     rips = compute_zigzag(sequence, 1.1, 1, max_simplices=BUDGET, representatives=5)
-    bridge = compute_zigzag(
-        sequence, 1.1, 1, max_simplices=BUDGET, middle=BRIDGE_UNION, representatives=5
-    )
+    union = compute_zigzag(sequence, 1.1, 1, max_simplices=BUDGET, middle=UNION, representatives=5)
     assert events_of(rips, 1) == [
         (0, 1, Cause.INITIAL, Cause.VARIATION),  # filled by the offspring
         (2, 3, Cause.SELECTION, Cause.END),  # reopened when it is discarded
     ]
-    [loop] = [i for i, b in enumerate(bridge.bars) if b.dimension == 1]
-    assert (bridge.bars[loop].birth, bridge.bars[loop].death) == (0, 3)
-    [segment] = bridge.representatives[loop]
+    [loop] = [i for i, b in enumerate(union.bars) if b.dimension == 1]
+    assert (union.bars[loop].birth, union.bars[loop].death) == (0, 3)
+    [segment] = union.representatives[loop]
     assert (segment.start, segment.end) == (0, 2)
     assert segment.simplices == ((0, 1), (0, 3), (1, 2), (2, 3))
-    assert bars_of(bridge, 0) == bars_of(rips, 0) == [(0, 3)]
-    assert bridge.n_bridges == 1  # the centre is joined to the square by one edge
+    assert bars_of(union, 0) == bars_of(rips, 0) == [(0, 3)]
 
 
 def test_a_loop_handed_over_to_an_offspring_keeps_one_bar() -> None:
@@ -397,26 +416,42 @@ def test_a_loop_handed_over_to_an_offspring_keeps_one_bar() -> None:
     last = np.array([1] + [2] * 5 + [2])  # 0 is discarded at t = 1, 6 survives
     sequence = ZigzagSequence(points, first, last, 1)
     rips = compute_zigzag(sequence, 1.1, 1, max_simplices=BUDGET)
-    bridge = compute_zigzag(sequence, 1.1, 1, max_simplices=BUDGET, middle=BRIDGE_UNION)
-    assert bars_of(rips, 1) == bars_of(bridge, 1) == [(0, 3)]
-    assert bridge.n_bridges == 0
+    union = compute_zigzag(sequence, 1.1, 1, max_simplices=BUDGET, middle=UNION)
+    assert bars_of(rips, 1) == bars_of(union, 1) == [(0, 3)]
     # the loop through the parent (steps 0-1) and the loop through the offspring (1-2)
-    assert zigzag_bars(base_complexes(sequence, 1.1, 3, union_of_points=False), 1) == [
+    assert zigzag_bars(union_complexes(sequence, 1.1, 3, union_of_points=False), 1) == [
         (0, 2),
         (1, 3),
     ]
 
 
-def test_a_discarded_offspring_still_bridges_two_niches() -> None:
-    """H0 keeps the connection made through R_t (the forest edge), unlike the base alone."""
+def test_a_discarded_offspring_joins_two_niches_in_rips_only() -> None:
+    """Two niches joined in R_1 by an offspring that selection discards at once."""
     points = np.array([[0.0, 0.0], [1.6, 0.0], [0.8, 0.0]])
     sequence = ZigzagSequence(points, np.array([0, 0, 1]), np.array([2, 2, 1]), 1)
     rips = compute_zigzag(sequence, 1.0, 0, max_simplices=BUDGET)
-    bridge = compute_zigzag(sequence, 1.0, 0, max_simplices=BUDGET, middle=BRIDGE_UNION)
-    expected = [
+    union = compute_zigzag(sequence, 1.0, 0, max_simplices=BUDGET, middle=UNION)
+    assert events_of(rips, 0) == [
         (0, 1, Cause.INITIAL, Cause.VARIATION),
         (0, 3, Cause.INITIAL, Cause.END),
         (2, 3, Cause.SELECTION, Cause.END),
     ]
-    assert events_of(rips, 0) == events_of(bridge, 0) == expected
-    assert bridge.n_bridges == 2  # both edges through the offspring are needed
+    assert events_of(union, 0) == [(0, 3, Cause.INITIAL, Cause.END)] * 2
+
+
+@pytest.mark.parametrize("middle", [MiddleComplex.BRIDGE, MiddleComplex.BRIDGE_UNION])
+def test_retired_complexes_are_not_computed(middle: MiddleComplex) -> None:
+    assert middle.retired
+    sequence = square_with_a_discarded_centre()
+    with pytest.raises(ValueError, match="retired"):
+        compute_zigzag(sequence, 1.1, 1, max_simplices=BUDGET, middle=middle)
+
+
+def test_retired_complexes_load_from_storage_only() -> None:
+    settings = {"epsilons": [0.1], "middle": "bridge_union"}
+    with pytest.raises(ValidationError, match="retired"):
+        ZigzagAnalysisConfig.model_validate(settings)
+    stored = parse_analysis_config(ZIGZAG_ANALYSIS, settings)
+    assert isinstance(stored, ZigzagAnalysisConfig)
+    assert stored.middle == MiddleComplex.BRIDGE_UNION
+    assert ZigzagAnalysisConfig.model_validate({**settings, "middle": "union"}).middle == UNION

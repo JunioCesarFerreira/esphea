@@ -48,6 +48,9 @@ class ZigzagAnalyzer:
                 should_stop=should_stop,
             )
             writer.add_result(index, result)
-            writer.add_trackers(index, track_niches(sequence, epsilon, should_stop=should_stop))
+            trackers = track_niches(
+                sequence, epsilon, middle=self._config.middle, should_stop=should_stop
+            )
+            writer.add_trackers(index, trackers)
             progress(index + 1, total)
         writer.close()

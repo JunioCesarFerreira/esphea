@@ -2,7 +2,15 @@
 
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from esphea.topology.clouds import NormalizationKind, PointCloudKind
 from esphea.topology.zigzag import MiddleComplex
@@ -12,6 +20,8 @@ ZIGZAG_ANALYSIS = "zigzag"
 MAX_POINTS = 2000
 """Largest point cloud accepted for Vietoris-Rips (cost grows quickly with size)."""
 MAX_EPSILONS = 5
+_STORED = "stored"
+"""Validation context flag of a configuration read back from the database."""
 
 
 class TopologyAnalysisConfig(BaseModel):
@@ -61,10 +71,11 @@ class ZigzagAnalysisConfig(BaseModel):
     middle: MiddleComplex = Field(
         default=MiddleComplex.RIPS,
         description=(
-            "Complex at every R_t: 'rips' (Vietoris-Rips of all candidates) or "
-            "'bridge_union', the bridge complex VR(P_{t-1} + P_t) joined by a spanning forest "
-            "of the other edges of R_t: the same H0 barcode, and the H1/H2 of the union zigzag, "
-            "without the holes opened or filled by discarded offspring alone."
+            "Complex at every R_t: 'rips' (Vietoris-Rips of all candidates: what each "
+            "generation builds and destroys) or 'union' (Vietoris-Rips of the parents and the "
+            "survivors, leaving out the offspring discarded at once: the features of the "
+            "populations, followed through the induced maps). 'bridge' and 'bridge_union' are "
+            "retired and only appear in stored analyses."
         ),
     )
     representatives: int = Field(
@@ -73,6 +84,13 @@ class ZigzagAnalysisConfig(BaseModel):
         le=50,
         description="Longest bars per dimension and scale whose representative cycles are kept.",
     )
+
+    @field_validator("middle")
+    @classmethod
+    def _current_middle(cls, middle: MiddleComplex, info: ValidationInfo) -> MiddleComplex:
+        if middle.retired and not (info.context or {}).get(_STORED):
+            raise ValueError(f"the '{middle}' complex was retired; use 'rips' or 'union'")
+        return middle
 
     @model_validator(mode="after")
     def _check(self) -> Self:
@@ -100,5 +118,8 @@ _ANALYSIS_CONFIG: TypeAdapter[TopologyAnalysisConfig | ZigzagAnalysisConfig] = T
 def parse_analysis_config(
     kind: str, data: dict[str, Any]
 ) -> TopologyAnalysisConfig | ZigzagAnalysisConfig:
-    """Rebuild a stored configuration (rows keep ``kind`` in their own column)."""
-    return _ANALYSIS_CONFIG.validate_python({**data, "kind": kind})
+    """Rebuild a stored configuration (rows keep ``kind`` in their own column).
+
+    Retired settings are accepted here, so that the analyses stored with them still load.
+    """
+    return _ANALYSIS_CONFIG.validate_python({**data, "kind": kind}, context={_STORED: True})

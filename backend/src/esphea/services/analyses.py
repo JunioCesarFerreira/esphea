@@ -51,7 +51,12 @@ from esphea.topology.trackers import (
     compare_with_zigzag,
     matched,
 )
-from esphea.topology.zigzag import epsilon_components, is_r_step, step_generation
+from esphea.topology.zigzag import (
+    complex_members,
+    epsilon_components,
+    is_r_step,
+    step_generation,
+)
 from esphea.topology.zigzag_storage import ZigzagResultReader
 
 logger = logging.getLogger(__name__)
@@ -413,7 +418,7 @@ class AnalysisService:
         if not row["birth"] <= step < row["death"]:
             raise InvalidRequestError(f"bar {bar} is not alive at step {step}")
         first, last, points = reader.individuals()
-        members = np.flatnonzero((first <= step) & (last >= step))
+        members = complex_members(first, last, step, reader.middle)
         simplices = reader.representative(epsilon_index, bar, step)
         component = np.empty(0, dtype=np.intp)
         if simplices and row["dimension"] == 0:

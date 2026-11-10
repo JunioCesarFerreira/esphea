@@ -1,4 +1,9 @@
-import type { AnalysisConfig, AnalysisGroup, AnalysisGroupSummary } from "../api/types";
+import type {
+  AnalysisConfig,
+  AnalysisGroup,
+  AnalysisGroupSummary,
+  MiddleComplex,
+} from "../api/types";
 import { formatNumber } from "./format";
 import { METRIC_LABELS, SUMMARY_LABELS } from "./topologyPlots";
 
@@ -78,8 +83,7 @@ export function defaultGroupKeys(
 
 /**
  * Settings that differ between the analyses being compared and change their
- * series in ``dimension``; empty when the comparison is like for like. The
- * complex at Rₜ only matters above H₀ (the bridge complexes keep the H₀ barcode).
+ * series in ``dimension``; empty when the comparison is like for like.
  */
 export function differingSettings(
   configs: AnalysisConfig[],
@@ -97,10 +101,15 @@ export function differingSettings(
   if (differs((c) => (c.kind === "topology" ? c.max_epsilon : c.epsilons[epsilonIndex]))) {
     settings.push("scale ε");
   }
-  if (dimension > 0 && differs((c) => (c.kind === "zigzag" ? (c.middle ?? "rips") : null))) {
+  if (differs((c) => (c.kind === "zigzag" ? middleBarcode(c.middle ?? "rips", dimension) : null))) {
     settings.push("complex at Rₜ");
   }
   return settings;
+}
+
+/** The retired bridge complexes had the H₀ barcode of Vietoris–Rips. */
+function middleBarcode(middle: MiddleComplex, dimension: number): MiddleComplex {
+  return dimension === 0 && (middle === "bridge" || middle === "bridge_union") ? "rips" : middle;
 }
 
 const defaultMaxDimension = (c: AnalysisConfig) => c.max_dimension ?? (c.kind === "zigzag" ? 0 : 1);

@@ -21,7 +21,6 @@ const bars: ZigzagBars = {
   n_steps: 7,
   n_simplices: 100,
   middle: "rips",
-  n_bridges: null,
   representatives_skipped: null,
   bar: [0, 1, 2],
   birth: [0, 3, 1],
