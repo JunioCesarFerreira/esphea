@@ -263,7 +263,8 @@ reported as such.
 
 **Batches.** The same analysis can be queued for every finished run of an experiment; the batch
 summary gives the median and quartiles across runs of the Betti numbers and of births and deaths
-by cause, per generation.
+by cause, per generation, and the batch persistence diagram pools the bars of every run, counted
+per (birth, death) step (runs of different lengths are cut to the shortest).
 
 **Niche trackers.** At every scale the zigzag analysis also follows the H₀ niches with three
 heuristic trackers (`esphea.topology.trackers`), stored as `trackers.parquet` (zigzag results

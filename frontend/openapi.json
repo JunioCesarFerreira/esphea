@@ -1576,6 +1576,73 @@
         }
       }
     },
+    "/api/analysis-batches/{batch_id}/zigzag-diagram": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get Zigzag Batch Diagram",
+        "description": "Persistence diagram of every run of a batch: the bars counted per (birth, death).",
+        "operationId": "get_zigzag_batch_diagram_api_analysis_batches__batch_id__zigzag_diagram_get",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "epsilon_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Epsilon Index"
+            }
+          },
+          {
+            "name": "dimension",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2,
+              "minimum": 0,
+              "default": 0,
+              "title": "Dimension"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZigzagBatchDiagramOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/analyses/{analysis_id}/zigzag/trackers/comparison": {
       "get": {
         "tags": [
@@ -4500,6 +4567,64 @@
         ],
         "title": "ZigzagBarsOut",
         "description": "Bars alive on steps [birth, death - 1]; step 2t is P_t and step 2t - 1 is R_t."
+      },
+      "ZigzagBatchDiagramOut": {
+        "properties": {
+          "n_runs": {
+            "type": "integer",
+            "title": "N Runs"
+          },
+          "n_generations": {
+            "type": "integer",
+            "title": "N Generations"
+          },
+          "n_steps": {
+            "type": "integer",
+            "title": "N Steps"
+          },
+          "birth": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Birth"
+          },
+          "death": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Death"
+          },
+          "count": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Count",
+            "description": "bars at the point, over every run"
+          },
+          "runs": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Runs",
+            "description": "runs with at least one bar at the point"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_runs",
+          "n_generations",
+          "n_steps",
+          "birth",
+          "death",
+          "count",
+          "runs"
+        ],
+        "title": "ZigzagBatchDiagramOut",
+        "description": "Bars of every run of a batch, pooled by (birth, death) step; ``death == n_steps``:\nalive at the end."
       },
       "ZigzagBatchSummaryOut": {
         "properties": {

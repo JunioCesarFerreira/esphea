@@ -1,4 +1,5 @@
 import uuid
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -100,8 +101,9 @@ def test_batch_over_every_run(client: TestClient, experiment: dict[str, Any]) ->
     listed = client.get(f"/api/experiments/{experiment['id']}/analyses").json()
     assert {a["id"] for a in listed} == {a["id"] for a in created}
 
+    batch_id = batch_ids.pop()
     summary = client.get(
-        f"/api/analysis-batches/{batch_ids.pop()}/zigzag-summary",
+        f"/api/analysis-batches/{batch_id}/zigzag-summary",
         params={"epsilon_index": 0, "dimension": 1},
     ).json()
     assert summary["n_runs"] == 2
@@ -120,6 +122,30 @@ def test_batch_over_every_run(client: TestClient, experiment: dict[str, Any]) ->
                 quartiles["q1"], quartiles["median"], quartiles["q3"], strict=True
             )
         )
+
+    for dimension in (0, 1):
+        params = {"epsilon_index": 1, "dimension": dimension}
+        diagram = client.get(
+            f"/api/analysis-batches/{batch_id}/zigzag-diagram", params=params
+        ).json()
+        assert diagram["n_runs"] == 2
+        assert diagram["n_steps"] == 2 * N_GEN + 1
+        # every bar of every run, once, at its (birth, death) point
+        pooled: Counter[tuple[int, int]] = Counter()
+        per_run: Counter[tuple[int, int]] = Counter()
+        for analysis in created:
+            bars = client.get(f"/api/analyses/{analysis['id']}/zigzag/bars", params=params).json()
+            points = list(zip(bars["birth"], bars["death"], strict=True))
+            pooled.update(points)
+            per_run.update(set(points))
+        points = list(zip(diagram["birth"], diagram["death"], strict=True))
+        assert dict(zip(points, diagram["count"], strict=True)) == pooled
+        assert dict(zip(points, diagram["runs"], strict=True)) == per_run
+        assert all(b < d <= diagram["n_steps"] for b, d in points)
+    missing = client.get(
+        f"/api/analysis-batches/{batch_id}/zigzag-diagram", params={"dimension": 2}
+    )
+    assert missing.status_code == 404
 
 
 def test_union_zigzags_beside_the_rips_one(client: TestClient, experiment: dict[str, Any]) -> None:

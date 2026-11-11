@@ -496,6 +496,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/analysis-batches/{batch_id}/zigzag-diagram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Zigzag Batch Diagram
+         * @description Persistence diagram of every run of a batch: the bars counted per (birth, death).
+         */
+        get: operations["get_zigzag_batch_diagram_api_analysis_batches__batch_id__zigzag_diagram_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/analyses/{analysis_id}/zigzag/trackers/comparison": {
         parameters: {
             query?: never;
@@ -1719,6 +1739,33 @@ export interface components {
              */
             representative: (boolean | null)[];
         };
+        /**
+         * ZigzagBatchDiagramOut
+         * @description Bars of every run of a batch, pooled by (birth, death) step; ``death == n_steps``:
+         *     alive at the end.
+         */
+        ZigzagBatchDiagramOut: {
+            /** N Runs */
+            n_runs: number;
+            /** N Generations */
+            n_generations: number;
+            /** N Steps */
+            n_steps: number;
+            /** Birth */
+            birth: number[];
+            /** Death */
+            death: number[];
+            /**
+             * Count
+             * @description bars at the point, over every run
+             */
+            count: number[];
+            /**
+             * Runs
+             * @description runs with at least one bar at the point
+             */
+            runs: number[];
+        };
         /** ZigzagBatchSummaryOut */
         ZigzagBatchSummaryOut: {
             /** Generation */
@@ -2721,6 +2768,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ZigzagBatchSummaryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_zigzag_batch_diagram_api_analysis_batches__batch_id__zigzag_diagram_get: {
+        parameters: {
+            query?: {
+                epsilon_index?: number;
+                dimension?: number;
+            };
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZigzagBatchDiagramOut"];
                 };
             };
             /** @description Validation Error */

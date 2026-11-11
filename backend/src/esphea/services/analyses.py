@@ -136,6 +136,19 @@ class ZigzagBatchSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class ZigzagBatchDiagram:
+    """Bars of every run of a zigzag batch, pooled by their (birth, death) steps."""
+
+    n_runs: int
+    n_generations: int
+    n_steps: int
+    birth: IntArray
+    death: IntArray  # n_steps: alive at the end
+    count: IntArray  # bars at the point, over every run
+    runs: IntArray  # runs with at least one bar at the point
+
+
+@dataclass(frozen=True, slots=True)
 class Spread:
     q1: float
     median: float
@@ -540,13 +553,7 @@ class AnalysisService:
         self, batch_id: uuid.UUID, epsilon_index: int, dimension: int
     ) -> ZigzagBatchSummary:
         """Median and quartiles across runs of the zigzag events and Betti numbers."""
-        analyses = [
-            a
-            for a in self._analyses.list_batch(batch_id)
-            if a.kind == ZIGZAG_ANALYSIS and a.status == RunStatus.COMPLETED
-        ]
-        if not analyses:
-            raise NotFoundError(f"no completed zigzag analysis in batch {batch_id}")
+        analyses = self._batch_zigzags(batch_id)
         samples: dict[str, list[np.ndarray]] = {}
         length = None
         for analysis in analyses:
@@ -563,6 +570,52 @@ class AnalysisService:
         return ZigzagBatchSummary(
             generations=list(range(length)), n_runs=len(analyses), series=quartiles
         )
+
+    def zigzag_batch_diagram(
+        self, batch_id: uuid.UUID, epsilon_index: int, dimension: int
+    ) -> ZigzagBatchDiagram:
+        """Persistence diagram of every run of a batch: the bars counted per (birth, death).
+
+        Runs of different lengths are cut to the shortest: a bar alive at its end is
+        alive at the end.
+        """
+        readers = [self.zigzag_results(a.id) for a in self._batch_zigzags(batch_id)]
+        n_steps = min(reader.n_steps for reader in readers)
+        rows = []
+        for run, reader in enumerate(readers):
+            try:
+                bars = reader.bar_array(epsilon_index, dimension)
+            except KeyError as exc:
+                raise NotFoundError(str(exc.args[0])) from None
+            bars = bars[bars[:, 0] < n_steps]
+            rows.append(
+                np.column_stack(
+                    [np.full(len(bars), run), bars[:, 0], np.minimum(bars[:, 1], n_steps)]
+                )
+            )
+        stacked = np.vstack(rows).astype(np.intp)
+        # both sort the distinct (birth, death) pairs alike
+        points, count = np.unique(stacked[:, 1:], axis=0, return_counts=True)
+        _, runs = np.unique(np.unique(stacked, axis=0)[:, 1:], axis=0, return_counts=True)
+        return ZigzagBatchDiagram(
+            n_runs=len(readers),
+            n_generations=(n_steps - 1) // 2,
+            n_steps=n_steps,
+            birth=points[:, 0],
+            death=points[:, 1],
+            count=count,
+            runs=runs,
+        )
+
+    def _batch_zigzags(self, batch_id: uuid.UUID) -> list[AnalysisRow]:
+        analyses = [
+            a
+            for a in self._analyses.list_batch(batch_id)
+            if a.kind == ZIGZAG_ANALYSIS and a.status == RunStatus.COMPLETED
+        ]
+        if not analyses:
+            raise NotFoundError(f"no completed zigzag analysis in batch {batch_id}")
+        return analyses
 
     def _zigzag_series(
         self, analysis: AnalysisRow, epsilon_index: int, dimension: int

@@ -1,5 +1,6 @@
 import {
   Alert,
+  Box,
   Group,
   NumberInput,
   SegmentedControl,
@@ -10,10 +11,12 @@ import {
   Text,
 } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
+import type { Data, Layout } from "plotly.js";
 import { useMemo, useState } from "react";
 
 import {
   useZigzagBars,
+  useZigzagBatchDiagram,
   useZigzagBatchSummary,
   useZigzagEvents,
   useZigzagRepresentative,
@@ -39,18 +42,25 @@ import {
   lifetimeHistogramTraces,
   MAX_BARS_WITH_MARKERS,
   representativeTraces,
+  runDiagramPoints,
   stepLabel,
   zigzagBarcodeLayout,
   zigzagBarcodeTraces,
   zigzagBettiTraces,
+  zigzagDiagramLayout,
+  zigzagDiagramTraces,
   zigzagEventTraces,
 } from "../../../../lib/zigzagPlots";
 import { Section } from "./Section";
 import { TrackerBarcode, TrackerBatchComparison, TrackerRunComparison } from "./TrackerResults";
 
+const DIAGRAM_READING =
+  "in generations (Rₜ at t − ½, Pₜ at t), so the step tells the cause: born on Rₜ by variation, on Pₜ by selection; gone entering Rₜ by variation, Pₜ by selection. Colour: how many bars share the point; triangles: still alive at the end. The farther from the diagonal, the longer the feature lived.";
+
 const BARCODE_DESCRIPTIONS = {
   zigzag:
     "Each bar is a feature followed across generations. Colour: what created it; end marker: what ended it (circle: offspring, cross: selection, arrow: still alive). Click a bar to inspect it.",
+  diagram: `Each bar as a point (birth, death), ${DIAGRAM_READING} Click a point to inspect a bar.`,
   tracker:
     "The same niches followed by a heuristic tracker instead of the zigzag pairing. Grey: the zigzag has the same bar; colour: it has not.",
 };
@@ -125,6 +135,31 @@ function RepresentativeViewer({
   );
 }
 
+/** A square persistence diagram; a narrower box keeps the colour bar beside it. */
+function DiagramChart({
+  ariaLabel,
+  data,
+  layout,
+  onPointClick,
+}: {
+  ariaLabel: string;
+  data: Data[];
+  layout: Partial<Layout>;
+  onPointClick?: (customdata: unknown) => void;
+}) {
+  return (
+    <Box w="100%" maw={720} mx="auto">
+      <PlotlyChart
+        ariaLabel={ariaLabel}
+        height={600}
+        data={data}
+        layout={layout}
+        onPointClick={onPointClick}
+      />
+    </Box>
+  );
+}
+
 export function ZigzagResults({
   analysis,
   config,
@@ -144,6 +179,7 @@ export function ZigzagResults({
   const [scope, setScope] = useState<"run" | "batch">("run");
   const [batchView, setBatchView] = useState<BatchView>("births");
   const [barcodeMethod, setBarcodeMethod] = useState<Method>("zigzag");
+  const [barcodeView, setBarcodeView] = useState<"barcode" | "diagram">("barcode");
   const [resolution, setResolution] = useState<Resolution>("step");
   // the niche trackers follow H0 only
   const method: Method = dimension === 0 ? barcodeMethod : "zigzag";
@@ -156,12 +192,35 @@ export function ZigzagResults({
     dimension,
     scope === "batch",
   );
+  const diagram = useZigzagBatchDiagram(
+    analysis.batch_id ?? null,
+    epsilonIndex,
+    dimension,
+    scope === "batch",
+  );
+  const batchDiagram = useMemo(
+    () =>
+      diagram.data && {
+        data: zigzagDiagramTraces(diagram.data, theme),
+        layout: zigzagDiagramLayout(theme, diagram.data.n_steps),
+      },
+    [diagram.data, theme],
+  );
 
   const rows = useMemo(() => (bars.data ? barRows(bars.data) : []), [bars.data]);
   const withRepresentative = rows
     .filter((row) => bars.data?.representative[bars.data.bar.indexOf(row.bar)] !== null)
     .sort((a, b) => b.death - b.birth - (a.death - a.birth));
   const chosen = rows.find((row) => row.bar === selected) ?? null;
+  const runPoints = useMemo(() => bars.data && runDiagramPoints(bars.data), [bars.data]);
+  const runDiagram = useMemo(
+    () =>
+      runPoints && {
+        data: zigzagDiagramTraces(runPoints, theme, chosen),
+        layout: zigzagDiagramLayout(theme, runPoints.n_steps),
+      },
+    [runPoints, theme, chosen],
+  );
 
   const controls = (
     <Group gap="xs" wrap="wrap">
@@ -236,6 +295,18 @@ export function ZigzagResults({
             />
           )}
         </Section>
+        <Section
+          title={`Persistence diagram · ${homologyLabel(dimension)} · ε ${formatNumber(epsilons[epsilonIndex])}`}
+          description={`Every bar of the ${diagram.data?.n_runs ?? "…"} runs as a point (birth, death), ${DIAGRAM_READING}`}
+        >
+          {batchDiagram && (
+            <DiagramChart
+              ariaLabel="Zigzag persistence diagram across runs"
+              data={batchDiagram.data}
+              layout={batchDiagram.layout}
+            />
+          )}
+        </Section>
         {dimension === 0 && analysis.batch_id && (
           <TrackerBatchComparison batchId={analysis.batch_id} epsilonIndex={epsilonIndex} />
         )}
@@ -252,8 +323,12 @@ export function ZigzagResults({
         </Alert>
       )}
       <Section
-        title={`${method === "zigzag" ? "Zigzag" : `${METHOD_LABELS[method]} tracker`} barcode · ${homologyLabel(dimension)} · ε ${formatNumber(epsilons[epsilonIndex])}`}
-        description={BARCODE_DESCRIPTIONS[method === "zigzag" ? "zigzag" : "tracker"]}
+        title={`${method !== "zigzag" ? `${METHOD_LABELS[method]} tracker barcode` : barcodeView === "diagram" ? "Zigzag persistence diagram" : "Zigzag barcode"} · ${homologyLabel(dimension)} · ε ${formatNumber(epsilons[epsilonIndex])}`}
+        description={
+          BARCODE_DESCRIPTIONS[
+            method !== "zigzag" ? "tracker" : barcodeView === "diagram" ? "diagram" : "zigzag"
+          ]
+        }
         controls={
           <Group gap="xs" align="flex-end">
             {dimension === 0 && (
@@ -263,6 +338,18 @@ export function ZigzagResults({
                 value={method}
                 onChange={(v) => setBarcodeMethod(v as Method)}
                 data={METHODS.map((m) => ({ value: m, label: METHOD_LABELS[m] }))}
+              />
+            )}
+            {method === "zigzag" && (
+              <SegmentedControl
+                size="xs"
+                aria-label="View"
+                value={barcodeView}
+                onChange={(v) => setBarcodeView(v as "barcode" | "diagram")}
+                data={[
+                  { value: "barcode", label: "Barcode" },
+                  { value: "diagram", label: "Diagram" },
+                ]}
               />
             )}
             {method !== "zigzag" && (
@@ -304,16 +391,26 @@ export function ZigzagResults({
                 {bars.data.n_simplices
                   ? ` · ${formatInteger(bars.data.n_simplices)} simplices`
                   : ""}
-                {bars.data.bar.length > MAX_BARS_WITH_MARKERS &&
+                {barcodeView === "barcode" &&
+                  bars.data.bar.length > MAX_BARS_WITH_MARKERS &&
                   " · end markers hidden: raise the minimum lifetime to see how bars end"}
               </Text>
-              <PlotlyChart
-                ariaLabel="Zigzag barcode"
-                height={Math.min(900, Math.max(320, 120 + rows.length * 3))}
-                data={zigzagBarcodeTraces(bars.data, theme, selected)}
-                layout={zigzagBarcodeLayout(theme, bars.data.n_generations)}
-                onPointClick={(value) => typeof value === "number" && setSelected(value)}
-              />
+              {barcodeView === "diagram" && runDiagram ? (
+                <DiagramChart
+                  ariaLabel="Zigzag persistence diagram"
+                  data={runDiagram.data}
+                  layout={runDiagram.layout}
+                  onPointClick={(value) => typeof value === "number" && setSelected(value)}
+                />
+              ) : (
+                <PlotlyChart
+                  ariaLabel="Zigzag barcode"
+                  height={Math.min(900, Math.max(320, 120 + rows.length * 3))}
+                  data={zigzagBarcodeTraces(bars.data, theme, selected)}
+                  layout={zigzagBarcodeLayout(theme, bars.data.n_generations)}
+                  onPointClick={(value) => typeof value === "number" && setSelected(value)}
+                />
+              )}
             </>
           )
         )}

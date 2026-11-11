@@ -20,6 +20,7 @@ from esphea.api.topology_schemas import (
     TrackerComparisonOut,
     TrackerRunsOut,
     ZigzagBarsOut,
+    ZigzagBatchDiagramOut,
     ZigzagBatchSummaryOut,
     ZigzagEventsOut,
 )
@@ -251,6 +252,19 @@ def get_zigzag_batch_summary(
     """Median and quartiles across the runs of a batch, per generation."""
     return ZigzagBatchSummaryOut.from_summary(
         service.zigzag_batch_summary(batch_id, epsilon_index, dimension)
+    )
+
+
+@router.get("/analysis-batches/{batch_id}/zigzag-diagram")
+def get_zigzag_batch_diagram(
+    batch_id: uuid.UUID,
+    service: AnalysisServiceDep,
+    epsilon_index: Annotated[int, Query(ge=0)] = 0,
+    dimension: Annotated[int, Query(ge=0, le=2)] = 0,
+) -> ZigzagBatchDiagramOut:
+    """Persistence diagram of every run of a batch: the bars counted per (birth, death)."""
+    return ZigzagBatchDiagramOut.from_diagram(
+        service.zigzag_batch_diagram(batch_id, epsilon_index, dimension)
     )
 
 

@@ -3,7 +3,9 @@ import type { Data, Layout } from "plotly.js";
 
 import type { Representative, ZigzagBars, ZigzagBatchSummary, ZigzagEvents } from "../api/types";
 import { seriesColor, withAlpha, type ChartTheme } from "./chartTheme";
+import { formatInteger } from "./format";
 import { bandTraces, baseLayout } from "./plots";
+import { sequentialScale } from "./topologyPlots";
 
 export type Cause = "initial" | "variation" | "selection" | "end";
 
@@ -318,4 +320,168 @@ export function batchTraces(
       label,
     );
   });
+}
+
+/** Cause of a birth (on ``step``) or of a death (entering ``step``): the step tells it. */
+export function stepCause(step: number, nSteps: number, birth: boolean): Cause {
+  if (birth && step === 0) return "initial";
+  if (!birth && step >= nSteps) return "end";
+  return step % 2 === 1 ? "variation" : "selection";
+}
+
+/**
+ * Bars of one run or of a batch counted per (birth, death) step; ``death >= n_steps``:
+ * alive at the end. A batch diagram (``ZigzagBatchDiagram``) is one.
+ */
+export interface DiagramPoints {
+  n_steps: number;
+  n_runs: number;
+  birth: number[];
+  death: number[];
+  count: number[];
+  runs: number[];
+  /** One run: a bar at each point (with a representative when one has), to inspect it. */
+  bar?: number[];
+}
+
+/** The diagram points of the bars of one run. */
+export function runDiagramPoints(bars: ZigzagBars): DiagramPoints {
+  const hasRepresentative = (i: number) => (bars.representative[i] ?? null) !== null;
+  const points = new Map<string, { birth: number; death: number; count: number; index: number }>();
+  bars.bar.forEach((_, i) => {
+    const birth = bars.birth[i] ?? 0;
+    const death = Math.min(bars.death[i] ?? 0, bars.n_steps);
+    const key = `${birth}:${death}`;
+    const point = points.get(key);
+    if (!point) {
+      points.set(key, { birth, death, count: 1, index: i });
+      return;
+    }
+    point.count += 1;
+    if (!hasRepresentative(point.index) && hasRepresentative(i)) point.index = i;
+  });
+  const list = [...points.values()];
+  return {
+    n_steps: bars.n_steps,
+    n_runs: 1,
+    birth: list.map((p) => p.birth),
+    death: list.map((p) => p.death),
+    count: list.map((p) => p.count),
+    runs: list.map(() => 1),
+    bar: list.map((p) => bars.bar[p.index] ?? 0),
+  };
+}
+
+/**
+ * Zigzag persistence diagram: one point per (birth, death) step, in generations (R_t at
+ * t − ½, P_t at t), coloured by how many bars share it (log scale). Bars alive at the
+ * end are triangles on the top edge; ``selected`` is ringed.
+ */
+export function zigzagDiagramTraces(
+  points: DiagramPoints,
+  theme: ChartTheme,
+  selected: { birth: number; death: number } | null = null,
+): Data[] {
+  const nSteps = points.n_steps;
+  const top = stepX(nSteps);
+  const y = (death: number) => (death >= nSteps ? top : stepX(death));
+  // the most shared points last, on top
+  const shared = (i: number) => points.count[i] ?? 0;
+  const order = points.count.map((_, i) => i).sort((a, b) => shared(a) - shared(b));
+  const birth = order.map((i) => points.birth[i] ?? 0);
+  const death = order.map((i) => points.death[i] ?? 0);
+  const count = order.map(shared);
+  const runs = order.map((i) => points.runs[i] ?? 0);
+  const bar = points.bar && order.map((i) => points.bar?.[i] ?? null);
+  const decades = Math.max(1, Math.ceil(Math.log10(count.reduce((m, c) => Math.max(m, c), 1))));
+  const ticks = Array.from({ length: decades + 1 }, (_, k) => k);
+  const describePoint = (b: number, d: number, i: number) => {
+    const born = `born at ${stepLabel(b)} by ${CAUSE_LABELS[stepCause(b, nSteps, true)]}`;
+    const ends =
+      d >= nSteps
+        ? "alive at the end"
+        : `gone at ${stepLabel(d)} by ${CAUSE_LABELS[stepCause(d, nSteps, false)]}`;
+    const n = `${formatInteger(count[i] ?? 0)} bar(s)`;
+    const where =
+      points.n_runs > 1
+        ? `${n} in ${runs[i] ?? 0} of ${points.n_runs} runs`
+        : `${n} · click to inspect bar ${bar?.[i] ?? ""}`;
+    return `${born}<br>${ends} · ${Math.min(d, nSteps) - b} step(s)<br>${where}`;
+  };
+  const line = (name: string, ys: [number, number], color: string): Data => ({
+    type: "scatter",
+    mode: "lines",
+    name,
+    x: [0, top],
+    y: ys,
+    line: { color, width: 1 },
+    hoverinfo: "skip",
+    showlegend: false,
+  });
+  const traces: Data[] = [
+    line("Diagonal", [0, top], theme.axis),
+    line("Alive at the end", [top, top], theme.muted),
+    {
+      type: "scattergl",
+      mode: "markers",
+      name: "Bars",
+      x: birth.map(stepX),
+      y: death.map(y),
+      text: birth.map((b, i) => describePoint(b, death[i] ?? 0, i)),
+      ...(bar ? { customdata: bar } : {}),
+      hovertemplate: "%{text}<extra></extra>",
+      marker: {
+        size: 7,
+        symbol: death.map((d) => (d >= nSteps ? "triangle-up" : "circle")),
+        color: count.map((c) => Math.log10(c)),
+        cmin: 0,
+        cmax: decades,
+        colorscale: sequentialScale(theme, 2),
+        colorbar: {
+          title: { text: "bars" },
+          tickvals: ticks,
+          ticktext: ticks.map((k) => formatInteger(10 ** k)),
+          outlinewidth: 0,
+        },
+        line: { color: theme.surface, width: 1 },
+      },
+      showlegend: false,
+    } as Data,
+  ];
+  if (selected) {
+    traces.push({
+      type: "scattergl",
+      mode: "markers",
+      name: "Selected bar",
+      x: [stepX(selected.birth)],
+      y: [y(selected.death)],
+      marker: {
+        size: 16,
+        symbol: "circle-open",
+        color: theme.ink,
+        line: { color: theme.ink, width: 2 },
+      },
+      hoverinfo: "skip",
+      showlegend: false,
+    });
+  }
+  return traces;
+}
+
+export function zigzagDiagramLayout(theme: ChartTheme, nSteps: number): Partial<Layout> {
+  const layout = baseLayout(theme);
+  const top = stepX(nSteps);
+  const range = [-0.5, top + Math.max(1, 0.03 * top)];
+  return {
+    ...layout,
+    hovermode: "closest",
+    xaxis: { ...layout.xaxis, title: { text: "birth (generation)" }, range, constrain: "domain" },
+    yaxis: {
+      ...layout.yaxis,
+      title: { text: "death (generation)" },
+      range,
+      scaleanchor: "x",
+      constrain: "domain",
+    },
+  };
 }

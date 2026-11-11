@@ -38,6 +38,7 @@ export type ZigzagBars = Schemas["ZigzagBarsOut"];
 export type ZigzagEvents = Schemas["ZigzagEventsOut"];
 export type Representative = Schemas["RepresentativeOut"];
 export type ZigzagBatchSummary = Schemas["ZigzagBatchSummaryOut"];
+export type ZigzagBatchDiagram = Schemas["ZigzagBatchDiagramOut"];
 export type Quartiles = Schemas["QuartilesOut"];
 export type AnalysisGroup = Schemas["AnalysisGroupOut"];
 export type AnalysisGroupSummary = Schemas["AnalysisGroupSummaryOut"];

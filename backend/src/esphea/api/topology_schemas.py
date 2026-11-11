@@ -16,6 +16,7 @@ from esphea.services.analyses import (
     TrackerBarsView,
     TrackerComparison,
     TrackerRuns,
+    ZigzagBatchDiagram,
     ZigzagBatchSummary,
 )
 from esphea.topology.config import AnalysisConfig, parse_analysis_config
@@ -274,6 +275,31 @@ class ZigzagBatchSummaryOut(BaseModel):
                 name: QuartilesOut(q1=q.q1.tolist(), median=q.median.tolist(), q3=q.q3.tolist())
                 for name, q in summary.series.items()
             },
+        )
+
+
+class ZigzagBatchDiagramOut(BaseModel):
+    """Bars of every run of a batch, pooled by (birth, death) step; ``death == n_steps``:
+    alive at the end."""
+
+    n_runs: int
+    n_generations: int
+    n_steps: int
+    birth: list[int]
+    death: list[int]
+    count: list[int] = Field(description="bars at the point, over every run")
+    runs: list[int] = Field(description="runs with at least one bar at the point")
+
+    @classmethod
+    def from_diagram(cls, diagram: ZigzagBatchDiagram) -> Self:
+        return cls(
+            n_runs=diagram.n_runs,
+            n_generations=diagram.n_generations,
+            n_steps=diagram.n_steps,
+            birth=diagram.birth.tolist(),
+            death=diagram.death.tolist(),
+            count=diagram.count.tolist(),
+            runs=diagram.runs.tolist(),
         )
 
 

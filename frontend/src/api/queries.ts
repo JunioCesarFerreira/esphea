@@ -454,6 +454,31 @@ export function useZigzagBatchSummary(
   });
 }
 
+export function useZigzagBatchDiagram(
+  batchId: string | null,
+  epsilonIndex: number,
+  dimension: number,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [...queryKeys.batch(batchId ?? "none"), "zigzag-diagram", epsilonIndex, dimension],
+    queryFn:
+      batchId && enabled
+        ? () =>
+            unwrap(
+              api.GET("/api/analysis-batches/{batch_id}/zigzag-diagram", {
+                params: {
+                  path: { batch_id: batchId },
+                  query: { epsilon_index: epsilonIndex, dimension },
+                },
+              }),
+            )
+        : skipToken,
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  });
+}
+
 // --- niche trackers -------------------------------------------------------------------
 
 /** A 404 means the results lack the trackers (or the scale): retrying will not help. */

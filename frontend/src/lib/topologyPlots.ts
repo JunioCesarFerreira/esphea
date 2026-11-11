@@ -22,10 +22,14 @@ export type Reference = "previous" | "final";
 const SUBSCRIPTS = ["₀", "₁", "₂"];
 export const homologyLabel = (dimension: number) => `H${SUBSCRIPTS[dimension] ?? dimension}`;
 
-/** Single-hue sequential ramp; in dark mode low values recede towards the dark surface. */
-function sequentialScale(theme: ChartTheme): [number, string][] {
+/**
+ * Single-hue sequential ramp; in dark mode low values recede towards the dark surface.
+ * ``skip`` drops the steps closest to the surface, so that the lowest value of a
+ * scatter stays visible.
+ */
+export function sequentialScale(theme: ChartTheme, skip = 0): [number, string][] {
   const ramp = ["#cde2fb", "#86b6ef", "#3987e5", "#256abf", "#184f95", "#0d366b"];
-  const steps = theme.surface === "#1a1a19" ? [...ramp].reverse() : ramp;
+  const steps = (theme.surface === "#1a1a19" ? [...ramp].reverse() : ramp).slice(skip);
   return steps.map((color, i) => [i / (steps.length - 1), color]);
 }
 
