@@ -2,7 +2,91 @@
 
 **E**xploratory **S**tudy of **P**ersistent **H**omology in **E**volutionary **A**lgorithms
 
+ESPHEA is a research platform for studying the topology of evolving populations. It records
+parents, offspring and survivors, then computes persistent homology and zigzag persistence from
+those snapshots so that variation and selection can be studied separately.
+
 > ⚠️ **Status:** early-stage research. Hypotheses, methods and repository layout are subject to change.
+
+- [Getting started](#getting-started)
+- [Platform capabilities](#platform-capabilities)
+- [Motivation](#motivation)
+- [Research questions](#research-questions)
+- [Broader research scope](#broader-research-scope)
+- [Development](#development)
+- [Repository layout](#repository-layout)
+- [Tooling](#tooling)
+- [Introductory references](#introductory-references)
+- [License](#license)
+- [How to cite](#how-to-cite)
+
+## Getting started
+
+Requirement: Docker with the Compose plugin. The `make` shortcuts also require Make; no Python
+or Node.js installation is needed on the host.
+
+```bash
+docker compose up -d --build
+# Equivalent shortcut: make up
+```
+
+| Resource                      | Location                                                 |
+| ----------------------------- | -------------------------------------------------------- |
+| Web interface                 | <http://localhost:8090>                                  |
+| Interactive API documentation | <http://localhost:8000/api/docs>                         |
+| Generation snapshots          | `data/runs/<run-id>/attempt-<n>/part-*.parquet`          |
+| Offline analysis results      | `data/runs/<run-id>/analyses/<analysis-id>/attempt-<n>/` |
+
+Create an experiment in the web interface, choose an algorithm and problem, and follow its runs
+live. After a run finishes, replay its generations and queue analyses in the _Topology_ tab.
+For zigzag persistence, keep snapshots enabled with **every generation stored** (`every: 1`);
+it also requires individual identities, available in snapshot schema 2.
+
+```mermaid
+flowchart LR
+    Configure["Configure an experiment"] --> Run["Run the evolutionary algorithm"]
+    Run --> Metrics["Quality and diversity metrics"]
+    Run --> Snapshots["Generation snapshots<br/>Parents, offspring, survivors"]
+    Snapshots --> PH["Persistent homology<br/>Shape across scales"]
+    Snapshots --> Zigzag["Zigzag persistence<br/>Features across generations"]
+    Metrics --> Compare["Explore and compare experiments"]
+    PH --> Compare
+    Zigzag --> Compare
+```
+
+Ports can be changed with `ESPHEA_UI_PORT` and `ESPHEA_API_PORT`. Set `ESPHEA_WORKERS`
+(default `2`) or use `docker compose up -d --scale worker=4` to change worker concurrency.
+These workers share the queue for runs and analyses.
+
+Use `docker compose logs -f api worker` to follow execution and `docker compose down` to stop
+the platform. PostgreSQL data stays in the `pgdata` Docker volume; snapshots and analysis
+results stay in the host's `./data` directory.
+
+## Platform capabilities
+
+The implemented platform supports **NSGA-II**, **NSGA-III** and a **generational SMS-EMOA** on
+**DTLZ2**, **DTLZ7**, **ZDT1**, **ZDT3**, **ZDT4** and **DTLZ2-H**. DTLZ7 and ZDT3 have
+disconnected fronts, ZDT4 is multimodal, and DTLZ2-H provides a three-objective front with a
+known hole for studying H₁.
+
+| Capability             | What is available                                                                                                                                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Instrumented evolution | A shared generational loop exposes parents, matings, offspring lineage, mutation flags and survivors. Numerical kernels come from pymoo; slow tests compare NSGA-II/III statistically with its native implementations. |
+| Quality and diversity  | IGD, IGD+, GD, survivor and offspring hypervolume, spacing, generalised spread, mean objective-space distance and decision-space inertia.                                                                              |
+| Reusable snapshots     | Compressed Parquet stores individuals and their identities, with configurable frequency, precision and decision-variable storage.                                                                                      |
+| Live exploration       | Configuration validation, live progress, generation replay in 2D/3D/parallel coordinates and convergence comparisons.                                                                                                  |
+| Persistent homology    | Offline Vietoris–Rips barcodes, Betti curves, persistence summaries, bottleneck/Wasserstein distances and the Hausdorff stability baseline.                                                                            |
+| Zigzag persistence     | Features tracked across generations at fixed scales, births and deaths attributed to variation or selection, and representative niches/cycles when computational limits allow.                                         |
+| Niche trackers         | Three H₀ tracking heuristics compared with zigzag barcodes and experiment rankings.                                                                                                                                    |
+| Across-run comparison  | Median and interquartile range of indicators and topological series, grouped by analysis configuration.                                                                                                                |
+
+Zigzag analyses support two middle complexes: `rips` uses all parents and offspring;
+`union` uses the parents and survivors, leaving out offspring discarded immediately. Both use
+Vietoris–Rips complexes, so they answer different questions about transient candidate features
+and the features carried by successive populations.
+
+See the [architecture guide](docs/architecture.md) for service and dependency diagrams, execution
+and recovery, storage schemas, analysis details and extension points.
 
 ## Motivation
 
@@ -14,96 +98,46 @@ Evolutionary algorithms (EAs) operate on populations of candidate solutions that
 
 1. **Population characterization:** do persistence diagrams recover niche structure that classical
    diversity metrics miss, and tell configurations apart earlier?
-   *Status:* supported, mostly through H₀; over time the summaries are largely redundant with
+   _Status:_ supported, mostly through H₀; over time the summaries are largely redundant with
    classical metrics.
 2. **Early warning:** can front-free signals anticipate a failed run (truncated front, local front)?
-   *Status:* negative so far. With ideal–nadir scaling the diagrams are translation-invariant, so
+   _Status:_ negative so far. With ideal–nadir scaling the diagrams are translation-invariant, so
    they do not see convergence.
 3. **Fitness landscape analysis:** do sublevel filtrations reveal problem modality, and does the
    population topology follow which basins of attraction (local fronts, in multi-objective
    problems) are occupied?
-   *Status:* sublevel H₀ counts the local minima exactly; tracking of occupied basins is moderate.
+   _Status:_ sublevel H₀ counts the local minima exactly; tracking of occupied basins is moderate.
 4. **Adaptive control:** can topological descriptors drive operator and parameter control?
-   *Status:* deferred until question 2 yields an anticipatory signal.
+   _Status:_ deferred until question 2 yields an anticipatory signal.
 5. **Front coverage indicator:** can the diagram distance to the reference front measure gaps and
    holes alongside IGD and hypervolume?
-   *Status:* supported for interior gaps and holes; it is blind to the front extent and is not
+   _Status:_ supported for interior gaps and holes; it is blind to the front extent and is not
    Pareto-compliant.
 6. **Variation vs. selection:** does zigzag persistence of P₀ → R₁ ← P₁ → …, attributing each niche
    birth and death to variation or selection, explain how problems, algorithms and operators shape
    niche dynamics, beyond simpler niche trackers?
-   *Status:* main line of the project; open points are the added value over simple proxies and
+   _Status:_ main line of the project; open points are the added value over simple proxies and
    choosing the scale without the true front.
 
-## Planned approach
+## Broader research scope
+
+The following scope includes directions beyond the implemented platform above:
 
 - **Representation:** the population at each generation is treated as a point cloud in genotype and/or phenotype space (or in objective space).
 - **Filtrations:** Vietoris–Rips and Alpha complexes, and sublevel-set filtrations of the fitness function.
-- **Descriptors:** persistence diagrams, barcodes, persistent entropy, persistence landscapes and images, and *bottleneck* / *Wasserstein* distances between generations.
+- **Descriptors:** persistence diagrams, barcodes, persistent entropy, persistence landscapes and images, and _bottleneck_ / _Wasserstein_ distances between generations.
 - **Algorithms:** Genetic Algorithms, Evolution Strategies (incl. CMA-ES), Differential Evolution and multi-objective EAs (e.g. NSGA-II).
 - **Test problems:** continuous benchmark functions (e.g. the BBOB/COCO suite, Rastrigin, Schwefel), combinatorial problems and multi-objective problems (ZDT, DTLZ).
 - **Evaluation:** comparison against classical diversity and performance metrics, with multiple independent runs and appropriate statistical tests.
 
-## Current status
+## Development
 
-The first milestone is an experimentation platform for **NSGA-II**, **NSGA-III** and
-**SMS-EMOA** (generational variant) on the scalable **DTLZ2** and **DTLZ7** (disconnected front)
-benchmarks, the bi-objective **ZDT1**, **ZDT3** (disconnected front) and **ZDT4** (multimodal)
-benchmarks, and **DTLZ2-H**, a three-objective DTLZ2 whose front has a hole (a dominated cap at the
-centre of the octant, so the front topology is known in dimension one), built so that persistent homology
-can be applied to the
-populations *inside* each generation:
-
-- own generational loop exposing, at every generation, the parent pool `P_t`, the matings, the
-  offspring `Q_t` with their lineage and mutation flags, and the survivors `P_{t+1}`, while the
-  numerical kernels (SBX, polynomial mutation, non-dominated sorting, NSGA-III niching) come from
-  [pymoo](https://pymoo.org/), validated statistically against pymoo's native algorithms;
-- quality indicators (IGD, IGD+, hypervolume) from [moocore](https://multi-objective.github.io/moocore/python/), and GD (nearest reference point via a SciPy KD-tree), on the first front of each generation; the hypervolume is also measured on the offspring of each generation, with the same reference point;
-- classical diversity metrics per generation, to compare with the topological summaries: spacing (Schott) and generalised spread Δ of the first front, mean distance between individuals (objectives scaled by the ideal and nadir points) and moment of inertia in decision space;
-- every stored generation persisted as compressed Parquet, ready for notebooks;
-- a web interface to configure experiments, follow runs live, replay generations in objective
-  space (2D, 3D or parallel coordinates) and compare convergence across experiments;
-- **persistent homology** of the population at every generation: Vietoris–Rips barcodes in
-  objective space up to a configurable ε, bottleneck/Wasserstein distances between generations
-  (with the Hausdorff stability bound), Betti curves and summaries, computed offline from the
-  stored generations and explored in the *Topology* tab;
-- **zigzag persistence** of P₀ → R₁ ← P₁ → … at fixed scales: niches and loops followed across
-  generations, every birth and death attributed to variation (offspring) or selection (removal),
-  representative niches/cycles in objective space and across-run summaries. At every R_t the
-  complex is the Vietoris–Rips complex of all candidates (`rips`, default) or that of the parents
-  and the survivors, VR(P_{t-1} ∪ P_t) (`union`), which leaves out the offspring discarded at once.
-  The first records what each generation builds and destroys, including what discarded offspring
-  join, open or fill for a single step; the union zigzag follows the niches and loops of the
-  populations through the induced maps, whatever individuals carry them (on DTLZ2-H, one bar per
-  run for the hole, whose representative is replaced entirely along the run), from fewer simplices;
-- **niche trackers** beside the zigzag H₀ barcode: the same niches linked by local rules (elder
-  rule on every set, or matching through shared survivors), with how much of the zigzag barcode
-  each reproduces and whether it ranks experiments the same way (*Compare* tab *Niche trackers*);
-- **topological comparison** of experiments: median and interquartile range across runs of the
-  barcode summaries (number of bars, total persistence, entropy, distances between generations)
-  or of the zigzag Betti numbers and births/deaths, from analyses sharing one configuration.
-
-See [docs/architecture.md](docs/architecture.md) for the design and how to extend it.
-
-## Getting started
-
-Requirements: Docker (with Compose). Nothing else needs to be installed on the host.
-
-```bash
-make up          # or: docker compose up -d --build
-```
-
-- Web interface: <http://localhost:8090>
-- API documentation: <http://localhost:8000/api/docs>
-- Generation snapshots: `./data/runs/<run-id>/attempt-<n>/*.parquet`
-
-Ports can be changed with `ESPHEA_UI_PORT` and `ESPHEA_API_PORT`; parallel workers with
-`ESPHEA_WORKERS` (default 2) or `docker compose up --scale worker=N`.
-
-### Development
+Development checks run their tools in containers. Install the locked frontend dependencies
+before running the combined checks:
 
 ```bash
 make help               # list all shortcuts
+make frontend-install   # install the locked frontend dependencies
 make check              # backend (ruff, mypy, pytest) and frontend (eslint, tsc, vitest, build)
 make backend-validate   # slow statistical comparison with pymoo's NSGA-II/NSGA-III
 make openapi            # regenerate the frontend API types after changing the API
@@ -111,35 +145,39 @@ make openapi            # regenerate the frontend API types after changing the A
 
 ## Repository layout
 
-```
-esphea/
-├── backend/            # Python package `esphea` (algorithms, experiments, API, worker)
-│   ├── src/esphea/
-│   ├── tests/
-│   └── migrations/     # Alembic
-├── frontend/           # React + TypeScript web interface
-├── docs/               # architecture, notes, literature review, paper drafts
-├── data/               # experiment outputs (git-ignored)
-└── docker-compose.yml
-```
+| Path                                           | Contents                                                          |
+| ---------------------------------------------- | ----------------------------------------------------------------- |
+| [`backend/src/esphea/`](backend/src/esphea/)   | Domain model, algorithms, experiments, topology, API and workers. |
+| [`backend/tests/`](backend/tests/)             | Unit, integration and statistical validation tests.               |
+| [`backend/migrations/`](backend/migrations/)   | Alembic database migrations.                                      |
+| [`frontend/`](frontend/)                       | React + TypeScript interface and generated API types.             |
+| [`docs/architecture.md`](docs/architecture.md) | Architecture, data flow and extension guide.                      |
+| `data/`                                        | Local experiment snapshots and analysis outputs (git-ignored).    |
+| [`docker-compose.yml`](docker-compose.yml)     | Local services, volumes, ports and worker scaling.                |
+| [`Makefile`](Makefile)                         | Container-based development commands.                             |
 
 ## Tooling
 
 Backend: Python 3.13, NumPy, pymoo, moocore, PyArrow, FastAPI, SQLAlchemy, PostgreSQL,
-Redis and RQ. Frontend: React, TypeScript, Vite, Mantine, TanStack Query and Plotly.
-Persistent homology will use TDA libraries such as [GUDHI](https://gudhi.inria.fr/),
-[Ripser](https://ripser.scikit-tda.org/), [giotto-tda](https://giotto-ai.github.io/gtda-docs/)
-and [persim](https://persim.scikit-tda.org/).
+Redis and RQ. Numerical kernels use [pymoo](https://pymoo.org/); IGD, IGD+ and hypervolume use
+[moocore](https://multi-objective.github.io/moocore/python/), while GD uses a SciPy KD-tree.
+Persistent homology uses [Ripser](https://ripser.scikit-tda.org/) for Vietoris–Rips diagrams,
+[GUDHI](https://gudhi.inria.fr/) for diagram distances and
+[Dionysus](https://mrzv.org/software/dionysus2/) for zigzag persistence.
+
+Frontend: React, TypeScript, Vite, Mantine, TanStack Query and Plotly. Dependency versions are
+locked in [`backend/uv.lock`](backend/uv.lock) and
+[`frontend/package-lock.json`](frontend/package-lock.json).
 
 ## Introductory references
 
-- Edelsbrunner, H.; Harer, J. *Computational Topology: An Introduction*. American Mathematical Society, 2010.
-- Carlsson, G. Topology and data. *Bulletin of the American Mathematical Society*, 46(2), 255–308, 2009.
-- Otter, N. et al. A roadmap for the computation of persistent homology. *EPJ Data Science*, 6(17), 2017.
-- Eiben, A. E.; Smith, J. E. *Introduction to Evolutionary Computing*. 2nd ed. Springer, 2015.
-- Deb, K.; Pratap, A.; Agarwal, S.; Meyarivan, T. A fast and elitist multiobjective genetic algorithm: NSGA-II. *IEEE Transactions on Evolutionary Computation*, 6(2), 182–197, 2002.
-- Deb, K.; Jain, H. An evolutionary many-objective optimization algorithm using reference-point-based nondominated sorting approach, Part I. *IEEE Transactions on Evolutionary Computation*, 18(4), 577–601, 2014.
-- Deb, K.; Thiele, L.; Laumanns, M.; Zitzler, E. Scalable test problems for evolutionary multiobjective optimization. In: *Evolutionary Multiobjective Optimization*, Springer, 105–145, 2005.
+- Edelsbrunner, H.; Harer, J. _Computational Topology: An Introduction_. American Mathematical Society, 2010.
+- Carlsson, G. Topology and data. _Bulletin of the American Mathematical Society_, 46(2), 255–308, 2009.
+- Otter, N. et al. A roadmap for the computation of persistent homology. _EPJ Data Science_, 6(17), 2017.
+- Eiben, A. E.; Smith, J. E. _Introduction to Evolutionary Computing_. 2nd ed. Springer, 2015.
+- Deb, K.; Pratap, A.; Agarwal, S.; Meyarivan, T. A fast and elitist multiobjective genetic algorithm: NSGA-II. _IEEE Transactions on Evolutionary Computation_, 6(2), 182–197, 2002.
+- Deb, K.; Jain, H. An evolutionary many-objective optimization algorithm using reference-point-based nondominated sorting approach, Part I. _IEEE Transactions on Evolutionary Computation_, 18(4), 577–601, 2014.
+- Deb, K.; Thiele, L.; Laumanns, M.; Zitzler, E. Scalable test problems for evolutionary multiobjective optimization. In: _Evolutionary Multiobjective Optimization_, Springer, 105–145, 2005.
 
 ## License
 
@@ -152,7 +190,7 @@ Both allow broad reuse, provided that **authorship is properly attributed**.
 
 ## How to cite
 
-If this work is useful for your research, please cite it. Citation metadata is provided in [`CITATION.cff`](CITATION.cff) (GitHub automatically shows a *"Cite this repository"* option).
+If this work is useful for your research, please cite it. Citation metadata is provided in [`CITATION.cff`](CITATION.cff) (GitHub automatically shows a _"Cite this repository"_ option).
 
 ```bibtex
 @misc{ferreira2026esphea,
