@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy import ColumnElement, delete, func, select, update
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.sql.base import ExecutableOption
 
 from esphea.experiments.config import ExperimentConfig
 from esphea.experiments.observers import GenerationMetrics
@@ -18,6 +19,8 @@ from esphea.persistence.models import (
     RunRow,
     RunStatus,
 )
+
+_ACTIVE = (RunStatus.QUEUED, RunStatus.RUNNING)
 
 
 def _now() -> datetime:
@@ -191,6 +194,49 @@ class LeasedJobRepository[J: LeasedJob]:
         job.heartbeat_at = None
         job.error = error
 
+    # --- monitoring -------------------------------------------------------------------
+
+    def _related(self) -> tuple[ExecutableOption, ...]:
+        """Relationships loaded with the jobs listed for monitoring."""
+        return ()
+
+    def list_active(self) -> Sequence[J]:
+        """Queued and running jobs, oldest first."""
+        model = self.model
+        statement = (
+            select(model)
+            .where(model.status.in_(_ACTIVE))
+            .options(*self._related())
+            .order_by(func.coalesce(model.enqueued_at, model.started_at), model.id)
+        )
+        return self._session.scalars(statement).all()
+
+    def list_by_ids(self, ids: Sequence[uuid.UUID]) -> Sequence[J]:
+        statement = select(self.model).where(self.model.id.in_(ids)).options(*self._related())
+        return self._session.scalars(statement).all()
+
+    def list_failed(self, limit: int) -> Sequence[J]:
+        """The most recently failed jobs."""
+        model = self.model
+        statement = (
+            select(model)
+            .where(model.status == RunStatus.FAILED)
+            .options(*self._related())
+            .order_by(model.finished_at.desc().nulls_last(), model.id)
+            .limit(limit)
+        )
+        return self._session.scalars(statement).all()
+
+    def count_finished_since(self, cutoff: datetime) -> dict[RunStatus, int]:
+        """Jobs that ended at or after ``cutoff``, per final status."""
+        model = self.model
+        statement = (
+            select(model.status, func.count())
+            .where(model.finished_at >= cutoff, model.status.not_in(_ACTIVE))
+            .group_by(model.status)
+        )
+        return dict(self._session.execute(statement).all())
+
 
 class RunRepository(LeasedJobRepository[RunRow]):
     model = RunRow
@@ -203,6 +249,9 @@ class RunRepository(LeasedJobRepository[RunRow]):
 
     def _claim_values(self) -> dict[str, object]:
         return {"generation": 0}
+
+    def _related(self) -> tuple[ExecutableOption, ...]:
+        return (selectinload(RunRow.experiment),)
 
     def _reset(self, job: RunRow) -> None:
         job.generation = 0
@@ -305,6 +354,9 @@ class AnalysisRepository(LeasedJobRepository[AnalysisRow]):
 
     def _claim_values(self) -> dict[str, object]:
         return {"progress": 0}
+
+    def _related(self) -> tuple[ExecutableOption, ...]:
+        return (selectinload(AnalysisRow.run).selectinload(RunRow.experiment),)
 
     def _reset(self, job: AnalysisRow) -> None:
         job.progress = 0

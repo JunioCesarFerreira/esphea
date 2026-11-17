@@ -23,9 +23,10 @@ export function formatInteger(value: number): string {
 }
 
 export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)} s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ${Math.round(seconds % 60)} s`;
+  if (seconds < 59.5) return `${seconds.toFixed(seconds < 9.95 ? 1 : 0)} s`;
+  const total = Math.round(seconds); // round once, so that 179.6 s reads 3 min 0 s
+  const minutes = Math.floor(total / 60);
+  if (minutes < 60) return `${minutes} min ${total % 60} s`;
   return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 }
 

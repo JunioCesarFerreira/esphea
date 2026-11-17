@@ -13,7 +13,7 @@ from esphea.api.app import create_app
 from esphea.api.infrastructure import Infrastructure
 from esphea.experiments.registry import default_algorithm_registry, default_problem_registry
 from esphea.experiments.runner import RunExecutor
-from esphea.messaging.ports import JobKind, JobRef
+from esphea.messaging.ports import JobKind, JobRef, QueueState, WatchdogState
 from esphea.persistence.db import create_db_engine, create_session_factory
 from esphea.persistence.models import Base
 from esphea.services.execution import RunService
@@ -83,6 +83,32 @@ class RecordingQueue:
         return [(job.entity_id, job.attempt) for job in self.enqueued if job.kind == JobKind.RUN]
 
 
+class FakeMonitor:
+    """Serves a fixed view of the queue; ``error`` makes the queue unreachable."""
+
+    def __init__(self) -> None:
+        self.state = QueueState(
+            name="esphea-runs",
+            waiting=(),
+            started=0,
+            failed=0,
+            finished=0,
+            deferred=0,
+            scheduled=0,
+            workers=(),
+        )
+        self.watchdog_state: WatchdogState | None = None
+        self.error: Exception | None = None
+
+    def queue(self) -> QueueState:
+        if self.error is not None:
+            raise self.error
+        return self.state
+
+    def watchdog(self) -> WatchdogState | None:
+        return self.watchdog_state
+
+
 @pytest.fixture
 def sessions(tmp_path: Path) -> sessionmaker[Session]:
     engine = create_db_engine(f"sqlite:///{tmp_path / 'test.db'}")
@@ -129,12 +155,18 @@ def subscriber() -> FakeSubscriber:
 
 
 @pytest.fixture
+def monitor() -> FakeMonitor:
+    return FakeMonitor()
+
+
+@pytest.fixture
 def client(
     sessions: sessionmaker[Session],
     queue: RecordingQueue,
     flags: FakeFlags,
     publisher: FakePublisher,
     subscriber: FakeSubscriber,
+    monitor: FakeMonitor,
     runs_dir: Path,
 ) -> Iterator[TestClient]:
     infrastructure = Infrastructure(
@@ -143,6 +175,7 @@ def client(
         cancellation=flags,
         publisher=publisher,
         subscriber=subscriber,
+        monitor=monitor,
         problems=default_problem_registry(),
         runs_dir=runs_dir,
     )

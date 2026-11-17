@@ -9,8 +9,15 @@ from redis.asyncio import Redis as AsyncRedis
 from sqlalchemy.orm import Session, sessionmaker
 
 from esphea.experiments.registry import ProblemRegistry, default_problem_registry
-from esphea.messaging.ports import CancellationFlags, EventPublisher, EventSubscriber, JobQueue
+from esphea.messaging.ports import (
+    ActivityMonitor,
+    CancellationFlags,
+    EventPublisher,
+    EventSubscriber,
+    JobQueue,
+)
 from esphea.messaging.redis import (
+    RedisActivityMonitor,
     RedisCancellationFlags,
     RedisEventPublisher,
     RedisEventSubscriber,
@@ -31,6 +38,7 @@ class Infrastructure:
     cancellation: CancellationFlags
     publisher: EventPublisher
     subscriber: EventSubscriber
+    monitor: ActivityMonitor
     problems: ProblemRegistry
     runs_dir: Path
     close: Callable[[], Awaitable[None]] = _nothing
@@ -54,6 +62,7 @@ def build_infrastructure(settings: Settings) -> Infrastructure:
         cancellation=RedisCancellationFlags(redis),
         publisher=RedisEventPublisher(redis),
         subscriber=RedisEventSubscriber(async_redis),
+        monitor=RedisActivityMonitor(redis, queue_name=settings.queue_name),
         problems=default_problem_registry(),
         runs_dir=settings.runs_dir,
         close=close,

@@ -56,6 +56,16 @@ export type TopologySeries = Schemas["TopologySeriesOut"];
 export type Diagram = Schemas["DiagramOut"];
 export type BettiCurves = Schemas["BettiCurvesOut"];
 export type DistanceMatrix = Schemas["DistanceMatrixOut"];
+export type Activity = Schemas["ActivityOut"];
+export type ActivityWorker = Schemas["WorkerOut"];
+export type RunningJob = Schemas["RunningJobOut"];
+export type WaitingGroup = Schemas["WaitingGroupOut"];
+export type FailedJob = Schemas["FailedJobOut"];
+export type JobSubject = Schemas["SubjectOut"];
+export type JobKind = Schemas["JobKind"];
+export type LeaseHealth = Schemas["LeaseHealth"];
+export type Recovery = Schemas["RecoveryOut"];
+export type Watchdog = Schemas["WatchdogOut"];
 
 export interface RunStatusEvent {
   type: "run.status";

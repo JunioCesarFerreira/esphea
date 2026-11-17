@@ -593,10 +593,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Activity
+         * @description Workers, job queue, jobs in progress or waiting, recent failures and the watchdog.
+         */
+        get: operations["get_activity_api_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActivityOut */
+        ActivityOut: {
+            /**
+             * At
+             * Format: date-time
+             * @description Server time of the snapshot (ages are relative to it).
+             */
+            at: string;
+            limits: components["schemas"]["LimitsOut"];
+            /** @description Null when the queue could not be read. */
+            queue: components["schemas"]["QueueOut"] | null;
+            /** Queue Error */
+            queue_error: string | null;
+            /** Workers */
+            workers: components["schemas"]["WorkerOut"][];
+            /** @description Null if it never reported a sweep. */
+            watchdog: components["schemas"]["WatchdogOut"] | null;
+            /** Running */
+            running: components["schemas"]["RunningJobOut"][];
+            /** Waiting */
+            waiting: components["schemas"]["WaitingGroupOut"][];
+            /**
+             * Failures
+             * @description The most recent failures.
+             */
+            failures: components["schemas"]["FailedJobOut"][];
+            /**
+             * Finished
+             * @description Jobs that ended in the last 24 hours.
+             */
+            finished: components["schemas"]["FinishedOut"][];
+        };
         /**
          * AnalysisGroupOut
          * @description Analyses of an experiment's runs that share a configuration.
@@ -1013,6 +1065,32 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** FailedJobOut */
+        FailedJobOut: {
+            kind: components["schemas"]["JobKind"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            subject: components["schemas"]["SubjectOut"];
+            /** Attempt */
+            attempt: number;
+            /** Finished At */
+            finished_at: string | null;
+            /** Error */
+            error: string | null;
+        };
+        /** FinishedOut */
+        FinishedOut: {
+            kind: components["schemas"]["JobKind"];
+            /** Completed */
+            completed: number;
+            /** Failed */
+            failed: number;
+            /** Cancelled */
+            cancelled: number;
+        };
         /** GenerationSnapshotOut */
         GenerationSnapshotOut: {
             /**
@@ -1042,6 +1120,38 @@ export interface components {
             q3: number[];
             /** N Runs */
             n_runs: number[];
+        };
+        /**
+         * JobKind
+         * @enum {string}
+         */
+        JobKind: "run" | "analysis";
+        /** JobRefOut */
+        JobRefOut: {
+            kind: components["schemas"]["JobKind"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Attempt */
+            attempt: number;
+        };
+        /**
+         * LeaseHealth
+         * @enum {string}
+         */
+        LeaseHealth: "healthy" | "late" | "expired";
+        /** LimitsOut */
+        LimitsOut: {
+            /** Heartbeat Interval Seconds */
+            heartbeat_interval_seconds: number;
+            /** Lease Timeout Seconds */
+            lease_timeout_seconds: number;
+            /** Max Attempts */
+            max_attempts: number;
+            /** Enqueue Grace Seconds */
+            enqueue_grace_seconds: number;
         };
         /**
          * MethodRunsOut
@@ -1279,6 +1389,51 @@ export interface components {
             /** Q3 */
             q3: number[];
         };
+        /**
+         * QueueOut
+         * @description Job counts of the queue and of its registries.
+         */
+        QueueOut: {
+            /** Name */
+            name: string;
+            /**
+             * Waiting
+             * @description Jobs waiting for a worker.
+             */
+            waiting: number;
+            /** Started */
+            started: number;
+            /**
+             * Failed
+             * @description Jobs that crashed their worker process (kept a week).
+             */
+            failed: number;
+            /**
+             * Finished
+             * @description Jobs finished in the last hour.
+             */
+            finished: number;
+            /** Deferred */
+            deferred: number;
+            /** Scheduled */
+            scheduled: number;
+        };
+        /** RecoveryOut */
+        RecoveryOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            job: components["schemas"]["JobRefOut"];
+            /**
+             * Action
+             * @description retried, failed or reenqueued
+             */
+            action: string;
+            /** @description Null if the job was deleted since. */
+            subject: components["schemas"]["SubjectOut"] | null;
+        };
         /** RepresentativeOut */
         RepresentativeOut: {
             /** Step */
@@ -1329,6 +1484,38 @@ export interface components {
          * @enum {string}
          */
         RunStatus: "queued" | "running" | "completed" | "failed" | "cancelled";
+        /** RunningJobOut */
+        RunningJobOut: {
+            kind: components["schemas"]["JobKind"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            subject: components["schemas"]["SubjectOut"];
+            /** Attempt */
+            attempt: number;
+            /**
+             * Done
+             * @description Generations of a run, steps of an analysis.
+             */
+            done: number;
+            /**
+             * Total
+             * @description 0 while an analysis has not counted its steps yet.
+             */
+            total: number;
+            /** Started At */
+            started_at: string | null;
+            /** Heartbeat At */
+            heartbeat_at: string | null;
+            lease: components["schemas"]["LeaseHealth"];
+            /**
+             * Worker
+             * @description Null when no worker reports holding the job.
+             */
+            worker: string | null;
+        };
         /** SBXConfig */
         SBXConfig: {
             /**
@@ -1448,6 +1635,30 @@ export interface components {
         StoredGenerationsOut: {
             /** Generations */
             generations: number[];
+        };
+        /** SubjectOut */
+        SubjectOut: {
+            /**
+             * Experiment Id
+             * Format: uuid
+             */
+            experiment_id: string;
+            /** Experiment Name */
+            experiment_name: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Run Index */
+            run_index: number;
+            /**
+             * Analysis
+             * @description Null for a run.
+             */
+            analysis: (components["schemas"]["TopologyAnalysisConfig"] | components["schemas"]["ZigzagAnalysisConfig"]) | null;
+            /** Batch Id */
+            batch_id: string | null;
         };
         /**
          * TopologyAnalysisConfig
@@ -1588,6 +1799,100 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WaitingGroupOut
+         * @description Queued jobs of one experiment (runs) or of one batch of analyses.
+         */
+        WaitingGroupOut: {
+            kind: components["schemas"]["JobKind"];
+            /**
+             * Experiment Id
+             * Format: uuid
+             */
+            experiment_id: string;
+            /** Experiment Name */
+            experiment_name: string;
+            /** Analysis */
+            analysis: (components["schemas"]["TopologyAnalysisConfig"] | components["schemas"]["ZigzagAnalysisConfig"]) | null;
+            /** Batch Id */
+            batch_id: string | null;
+            /** Run Indices */
+            run_indices: number[];
+            /**
+             * Retries
+             * @description Jobs queued again after their worker was lost.
+             */
+            retries: number;
+            /**
+             * Next Position
+             * @description 1 = the next job a worker takes; 0 = being taken now; null = not queued.
+             */
+            next_position: number | null;
+            /**
+             * Missing
+             * @description Jobs absent from the queue (the watchdog enqueues them again).
+             */
+            missing: number | null;
+            /**
+             * Enqueued At
+             * @description The oldest of the group.
+             */
+            enqueued_at: string | null;
+        };
+        /** WatchdogOut */
+        WatchdogOut: {
+            /**
+             * Swept At
+             * Format: date-time
+             */
+            swept_at: string;
+            /** Interval Seconds */
+            interval_seconds: number;
+            /**
+             * Recoveries
+             * @description The last 50, most recent first.
+             */
+            recoveries: components["schemas"]["RecoveryOut"][];
+        };
+        /**
+         * WorkerJobStatus
+         * @description How the job a worker holds stands in the database.
+         * @enum {string}
+         */
+        WorkerJobStatus: "running" | "claiming" | "ended" | "superseded";
+        /** WorkerOut */
+        WorkerOut: {
+            /** Name */
+            name: string;
+            /**
+             * State
+             * @description busy, idle, suspended, ... or unknown
+             */
+            state: string;
+            /** Hostname */
+            hostname: string | null;
+            /** Pid */
+            pid: number | null;
+            /** @description The job it is executing. */
+            job: components["schemas"]["JobRefOut"] | null;
+            /** @description How that job stands in the database (null without a job). */
+            job_status: components["schemas"]["WorkerJobStatus"] | null;
+            /** @description What that job works on. */
+            subject: components["schemas"]["SubjectOut"] | null;
+            /** Born At */
+            born_at: string | null;
+            /**
+             * Seen At
+             * @description Last heartbeat sent to the queue.
+             */
+            seen_at: string | null;
+            /** Successful Jobs */
+            successful_jobs: number;
+            /** Failed Jobs */
+            failed_jobs: number;
+            /** Working Seconds */
+            working_seconds: number;
         };
         /**
          * ZDT1Config
@@ -2949,6 +3254,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_activity_api_activity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityOut"];
                 };
             };
         };

@@ -1922,10 +1922,129 @@
           }
         }
       }
+    },
+    "/api/activity": {
+      "get": {
+        "tags": [
+          "activity"
+        ],
+        "summary": "Get Activity",
+        "description": "Workers, job queue, jobs in progress or waiting, recent failures and the watchdog.",
+        "operationId": "get_activity_api_activity_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityOut"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ActivityOut": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At",
+            "description": "Server time of the snapshot (ages are relative to it)."
+          },
+          "limits": {
+            "$ref": "#/components/schemas/LimitsOut"
+          },
+          "queue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueueOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the queue could not be read."
+          },
+          "queue_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Error"
+          },
+          "workers": {
+            "items": {
+              "$ref": "#/components/schemas/WorkerOut"
+            },
+            "type": "array",
+            "title": "Workers"
+          },
+          "watchdog": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WatchdogOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null if it never reported a sweep."
+          },
+          "running": {
+            "items": {
+              "$ref": "#/components/schemas/RunningJobOut"
+            },
+            "type": "array",
+            "title": "Running"
+          },
+          "waiting": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingGroupOut"
+            },
+            "type": "array",
+            "title": "Waiting"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/FailedJobOut"
+            },
+            "type": "array",
+            "title": "Failures",
+            "description": "The most recent failures."
+          },
+          "finished": {
+            "items": {
+              "$ref": "#/components/schemas/FinishedOut"
+            },
+            "type": "array",
+            "title": "Finished",
+            "description": "Jobs that ended in the last 24 hours."
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "limits",
+          "queue",
+          "queue_error",
+          "workers",
+          "watchdog",
+          "running",
+          "waiting",
+          "failures",
+          "finished"
+        ],
+        "title": "ActivityOut"
+      },
       "AnalysisGroupOut": {
         "properties": {
           "key": {
@@ -2929,6 +3048,85 @@
         ],
         "title": "ExperimentSummaryOut"
       },
+      "FailedJobOut": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/JobKind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectOut"
+          },
+          "attempt": {
+            "type": "integer",
+            "title": "Attempt"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "subject",
+          "attempt",
+          "finished_at",
+          "error"
+        ],
+        "title": "FailedJobOut"
+      },
+      "FinishedOut": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/JobKind"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "cancelled": {
+            "type": "integer",
+            "title": "Cancelled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "FinishedOut"
+      },
       "GenerationSnapshotOut": {
         "properties": {
           "run_id": {
@@ -3023,6 +3221,74 @@
           "n_runs"
         ],
         "title": "IndicatorSummaryOut"
+      },
+      "JobKind": {
+        "type": "string",
+        "enum": [
+          "run",
+          "analysis"
+        ],
+        "title": "JobKind"
+      },
+      "JobRefOut": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/JobKind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "attempt": {
+            "type": "integer",
+            "title": "Attempt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "attempt"
+        ],
+        "title": "JobRefOut"
+      },
+      "LeaseHealth": {
+        "type": "string",
+        "enum": [
+          "healthy",
+          "late",
+          "expired"
+        ],
+        "title": "LeaseHealth"
+      },
+      "LimitsOut": {
+        "properties": {
+          "heartbeat_interval_seconds": {
+            "type": "number",
+            "title": "Heartbeat Interval Seconds"
+          },
+          "lease_timeout_seconds": {
+            "type": "number",
+            "title": "Lease Timeout Seconds"
+          },
+          "max_attempts": {
+            "type": "integer",
+            "title": "Max Attempts"
+          },
+          "enqueue_grace_seconds": {
+            "type": "number",
+            "title": "Enqueue Grace Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "heartbeat_interval_seconds",
+          "lease_timeout_seconds",
+          "max_attempts",
+          "enqueue_grace_seconds"
+        ],
+        "title": "LimitsOut"
       },
       "MethodRunsOut": {
         "properties": {
@@ -3568,6 +3834,89 @@
         ],
         "title": "QuartilesOut"
       },
+      "QueueOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting",
+            "description": "Jobs waiting for a worker."
+          },
+          "started": {
+            "type": "integer",
+            "title": "Started"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed",
+            "description": "Jobs that crashed their worker process (kept a week)."
+          },
+          "finished": {
+            "type": "integer",
+            "title": "Finished",
+            "description": "Jobs finished in the last hour."
+          },
+          "deferred": {
+            "type": "integer",
+            "title": "Deferred"
+          },
+          "scheduled": {
+            "type": "integer",
+            "title": "Scheduled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "waiting",
+          "started",
+          "failed",
+          "finished",
+          "deferred",
+          "scheduled"
+        ],
+        "title": "QueueOut",
+        "description": "Job counts of the queue and of its registries."
+      },
+      "RecoveryOut": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobRefOut"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "retried, failed or reenqueued"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubjectOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null if the job was deleted since."
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "job",
+          "action",
+          "subject"
+        ],
+        "title": "RecoveryOut"
+      },
       "RepresentativeOut": {
         "properties": {
           "step": {
@@ -3728,6 +4077,88 @@
           "cancelled"
         ],
         "title": "RunStatus"
+      },
+      "RunningJobOut": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/JobKind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectOut"
+          },
+          "attempt": {
+            "type": "integer",
+            "title": "Attempt"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done",
+            "description": "Generations of a run, steps of an analysis."
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "0 while an analysis has not counted its steps yet."
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "heartbeat_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat At"
+          },
+          "lease": {
+            "$ref": "#/components/schemas/LeaseHealth"
+          },
+          "worker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker",
+            "description": "Null when no worker reports holding the job."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "subject",
+          "attempt",
+          "done",
+          "total",
+          "started_at",
+          "heartbeat_at",
+          "lease",
+          "worker"
+        ],
+        "title": "RunningJobOut"
       },
       "SBXConfig": {
         "properties": {
@@ -4001,6 +4432,76 @@
           "generations"
         ],
         "title": "StoredGenerationsOut"
+      },
+      "SubjectOut": {
+        "properties": {
+          "experiment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Experiment Id"
+          },
+          "experiment_name": {
+            "type": "string",
+            "title": "Experiment Name"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "run_index": {
+            "type": "integer",
+            "title": "Run Index"
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TopologyAnalysisConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ZigzagAnalysisConfig"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "topology": "#/components/schemas/TopologyAnalysisConfig",
+                    "zigzag": "#/components/schemas/ZigzagAnalysisConfig"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis",
+            "description": "Null for a run."
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "experiment_id",
+          "experiment_name",
+          "run_id",
+          "run_index",
+          "analysis",
+          "batch_id"
+        ],
+        "title": "SubjectOut"
       },
       "TopologyAnalysisConfig": {
         "properties": {
@@ -4304,6 +4805,283 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WaitingGroupOut": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/JobKind"
+          },
+          "experiment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Experiment Id"
+          },
+          "experiment_name": {
+            "type": "string",
+            "title": "Experiment Name"
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TopologyAnalysisConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ZigzagAnalysisConfig"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "topology": "#/components/schemas/TopologyAnalysisConfig",
+                    "zigzag": "#/components/schemas/ZigzagAnalysisConfig"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "run_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Run Indices"
+          },
+          "retries": {
+            "type": "integer",
+            "title": "Retries",
+            "description": "Jobs queued again after their worker was lost."
+          },
+          "next_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Position",
+            "description": "1 = the next job a worker takes; 0 = being taken now; null = not queued."
+          },
+          "missing": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing",
+            "description": "Jobs absent from the queue (the watchdog enqueues them again)."
+          },
+          "enqueued_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enqueued At",
+            "description": "The oldest of the group."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "experiment_id",
+          "experiment_name",
+          "analysis",
+          "batch_id",
+          "run_indices",
+          "retries",
+          "next_position",
+          "missing",
+          "enqueued_at"
+        ],
+        "title": "WaitingGroupOut",
+        "description": "Queued jobs of one experiment (runs) or of one batch of analyses."
+      },
+      "WatchdogOut": {
+        "properties": {
+          "swept_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Swept At"
+          },
+          "interval_seconds": {
+            "type": "number",
+            "title": "Interval Seconds"
+          },
+          "recoveries": {
+            "items": {
+              "$ref": "#/components/schemas/RecoveryOut"
+            },
+            "type": "array",
+            "title": "Recoveries",
+            "description": "The last 50, most recent first."
+          }
+        },
+        "type": "object",
+        "required": [
+          "swept_at",
+          "interval_seconds",
+          "recoveries"
+        ],
+        "title": "WatchdogOut"
+      },
+      "WorkerJobStatus": {
+        "type": "string",
+        "enum": [
+          "running",
+          "claiming",
+          "ended",
+          "superseded"
+        ],
+        "title": "WorkerJobStatus",
+        "description": "How the job a worker holds stands in the database."
+      },
+      "WorkerOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "state": {
+            "type": "string",
+            "title": "State",
+            "description": "busy, idle, suspended, ... or unknown"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostname"
+          },
+          "pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pid"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobRefOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The job it is executing."
+          },
+          "job_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkerJobStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How that job stands in the database (null without a job)."
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubjectOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What that job works on."
+          },
+          "born_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Born At"
+          },
+          "seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seen At",
+            "description": "Last heartbeat sent to the queue."
+          },
+          "successful_jobs": {
+            "type": "integer",
+            "title": "Successful Jobs"
+          },
+          "failed_jobs": {
+            "type": "integer",
+            "title": "Failed Jobs"
+          },
+          "working_seconds": {
+            "type": "number",
+            "title": "Working Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "state",
+          "hostname",
+          "pid",
+          "job",
+          "job_status",
+          "subject",
+          "born_at",
+          "seen_at",
+          "successful_jobs",
+          "failed_jobs",
+          "working_seconds"
+        ],
+        "title": "WorkerOut"
       },
       "ZDT1Config": {
         "properties": {

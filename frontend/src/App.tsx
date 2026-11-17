@@ -14,6 +14,7 @@ import {
 import { IconApi, IconMoon, IconPlus, IconSun } from "@tabler/icons-react";
 import { Link, NavLink, Navigate, Route, Routes } from "react-router";
 
+import { ActivityPage } from "./features/activity/ActivityPage";
 import { ComparePage } from "./features/compare/ComparePage";
 import { ExperimentDetailPage } from "./features/experiments/ExperimentDetailPage";
 import { ExperimentListPage } from "./features/experiments/ExperimentListPage";
@@ -68,6 +69,9 @@ export function App() {
               <NavLink to="/compare" className={classes.link}>
                 Compare
               </NavLink>
+              <NavLink to="/activity" className={classes.link}>
+                Activity
+              </NavLink>
             </Group>
           </Group>
           <Group gap="xs" wrap="nowrap">
@@ -102,6 +106,7 @@ export function App() {
           <Route path="/experiments/new" element={<NewExperimentPage />} />
           <Route path="/experiments/:experimentId" element={<ExperimentDetailPage />} />
           <Route path="/compare" element={<ComparePage />} />
+          <Route path="/activity" element={<ActivityPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppShell.Main>

@@ -32,7 +32,7 @@ flowchart LR
 
     Browser <-->|"HTTP / WebSocket"| Frontend
     Frontend <-->|"/api proxy"| API
-    API <-->|"Queue, cancellation, run events"| Redis
+    API <-->|"Queue, workers, cancellation, run events"| Redis
     Redis -->|"RQ jobs"| Worker
     Worker -->|"Run events"| Redis
     API <-->|"Read and write"| DB
@@ -40,7 +40,7 @@ flowchart LR
     Worker <-->|"Read snapshots, write results"| Data
     API -->|"Read snapshots and results"| Data
     Watchdog <-->|"Leases and retries"| DB
-    Watchdog -->|"Re-enqueue missing jobs"| Redis
+    Watchdog -->|"Re-enqueue missing jobs, report sweeps"| Redis
     Watchdog -->|"Discard stale attempt files"| Data
     Migrate -->|"Schema migrations"| DB
 ```
@@ -53,7 +53,7 @@ flowchart LR
 | `watchdog` | Recovers runs and analyses with expired leases or missing queue entries.                             |
 | `migrate`  | One-shot Alembic migration before the API and workers start.                                         |
 | `postgres` | Experiment and analysis configurations, job state, batches and per-generation run metrics.           |
-| `redis`    | Job queue (RQ), run events (pub/sub) and cooperative cancellation flags.                             |
+| `redis`    | Job queue and worker registry (RQ), run events (pub/sub), cancellation flags, watchdog reports.      |
 
 Backend containers start as root only long enough to adopt the owner of the mounted `./data`
 directory, then drop privileges to that user (`backend/docker-entrypoint.sh`). Files written by
@@ -297,6 +297,30 @@ Missing queue entries are checked after the enqueue grace period (120 s by defau
 setting overrides into the backend containers' `environment` in Compose. Analyses use the same
 lease and recovery mechanism; the diagram above shows the run lifecycle, including cancellation.
 
+### Observing workers and the queue
+
+The **Activity** page polls `GET /api/activity` every 2 s. PostgreSQL is the source of truth for
+jobs; the queue says which worker holds each running job and where each waiting job stands. The
+endpoint joins both (`services/activity.py`), so the page shows where they disagree:
+
+- **Running jobs** with their progress, attempt, worker and lease health: _healthy_, _late_
+  (three heartbeats missed) or _expired_ (the watchdog will hand the job to another attempt).
+- **Waiting jobs**, grouped per experiment (runs) or per batch (analyses), with their place in
+  the queue, retries after a lost worker, and jobs missing from the queue (re-enqueued by the
+  watchdog after the grace period).
+- **Workers** from the RQ registry. The job each worker holds is checked against the database:
+  executing, claiming, ended, or _superseded_. Superseded means the job went to a new attempt,
+  so the worker is presumed lost. RQ forgets a dead busy worker only when its registration
+  expires (about 90 s). Its registration can also expire while the worker is alive, for
+  example while the host is suspended. The worker then keeps taking jobs, but its state reads
+  _unknown_ until its next job, and its host and counters stay missing until it restarts.
+- **The watchdog**: after each sweep it writes its time and its recoveries (the last 50) to
+  Redis (`esphea:watchdog*`). The page flags a watchdog that missed three sweeps.
+- The counts of the queue registries, the 20 most recent failures, and the jobs finished in
+  the last 24 hours.
+
+If Redis is unreachable, the endpoint still answers with what the database knows.
+
 ## Persistent-homology analyses
 
 Analyses are computed **offline** from the stored generations of a finished run, so the same run
@@ -461,6 +485,8 @@ state and Plotly for scientific charts (loaded lazily).
   contract is checked at compile time.
 - Configuration is validated by the server: the editor sends every change (debounced) to
   `POST /api/experiments/preview`, which returns derived quantities or field-level errors.
+- The tab of an experiment page is kept in the URL (`?tab=runs`, `?tab=topology`, ...), so the
+  Activity page links each job to the tab where its results appear.
 - Chart colours come from a palette validated for colour-vision deficiency in both themes.
   Identity is never colour alone (filled = survived, open = discarded; legends everywhere).
 

@@ -19,7 +19,7 @@ import {
   IconList,
   IconTopologyStar3,
 } from "@tabler/icons-react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 
 import { useExperimentEvents } from "../../api/events";
 import { useExperiment } from "../../api/queries";
@@ -73,13 +73,23 @@ function Header({ experiment, connected }: { experiment: Experiment; connected: 
   );
 }
 
+const TABS = ["objective-space", "convergence", "topology", "runs", "configuration"];
+
 function Detail({ experiment }: { experiment: Experiment }) {
   const live = isActive(experiment.status);
   const { connected, liveFronts } = useExperimentEvents(experiment.id, live);
+  // The tab lives in the URL (?tab=runs), so other pages can link to it.
+  const [params, setParams] = useSearchParams();
+  const requested = params.get("tab");
+  const tab = requested && TABS.includes(requested) ? requested : "objective-space";
   return (
     <Stack gap="lg">
       <Header experiment={experiment} connected={connected} />
-      <Tabs defaultValue="objective-space" keepMounted={false}>
+      <Tabs
+        value={tab}
+        onChange={(value) => value && setParams({ tab: value }, { replace: true })}
+        keepMounted={false}
+      >
         <Tabs.List>
           <Tabs.Tab value="objective-space" leftSection={<IconChartScatter size={16} />}>
             Objective space

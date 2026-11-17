@@ -24,6 +24,7 @@ import {
 const LIVE_REFRESH_MS = 2000;
 
 export const queryKeys = {
+  activity: ["activity"] as const,
   catalog: ["catalog"] as const,
   experiments: ["experiments"] as const,
   experiment: (id: string) => ["experiments", id] as const,
@@ -43,6 +44,16 @@ export const queryKeys = {
   analysisGroups: (experimentId: string) =>
     ["experiments", experimentId, "analysis-groups"] as const,
 };
+
+/** Workers, job queue and jobs in progress, polled while the page is visible. */
+export function useActivity() {
+  return useQuery({
+    queryKey: queryKeys.activity,
+    queryFn: () => unwrap(api.GET("/api/activity")),
+    refetchInterval: LIVE_REFRESH_MS,
+    staleTime: 0,
+  });
+}
 
 export function useCatalog() {
   return useQuery({

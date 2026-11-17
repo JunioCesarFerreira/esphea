@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from esphea import __version__
 from esphea.api.infrastructure import Infrastructure, build_infrastructure
-from esphea.api.routes import analyses, experiments, runs
+from esphea.api.routes import activity, analyses, experiments, runs
 from esphea.services.errors import ConflictError, InvalidRequestError, NotFoundError
 from esphea.settings import Settings, get_settings
 
@@ -23,6 +23,7 @@ def create_app(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         infra = infrastructure or build_infrastructure(settings)
         app.state.infrastructure = infra
+        app.state.settings = settings
         yield
         await infra.close()
 
@@ -62,4 +63,5 @@ def create_app(
     app.include_router(experiments.router, prefix="/api")
     app.include_router(runs.router, prefix="/api")
     app.include_router(analyses.router, prefix="/api")
+    app.include_router(activity.router, prefix="/api")
     return app
