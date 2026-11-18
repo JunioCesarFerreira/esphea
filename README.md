@@ -65,9 +65,14 @@ results stay in the host's `./data` directory.
 ## Platform capabilities
 
 The implemented platform supports **NSGA-II**, **NSGA-III** and a **generational SMS-EMOA** on
-**DTLZ2**, **DTLZ7**, **ZDT1**, **ZDT3**, **ZDT4** and **DTLZ2-H**. DTLZ7 and ZDT3 have
-disconnected fronts, ZDT4 is multimodal, and DTLZ2-H provides a three-objective front with a
-known hole for studying H₁.
+benchmarks whose fronts have known, varied topologies:
+
+| Family                       | Problems                            | Fronts                                                                                                                                                                                                    |
+| ---------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DTLZ                         | DTLZ1, DTLZ2, DTLZ2-H, DTLZ5, DTLZ7 | A linear simplex behind local fronts, a sphere octant, the octant with one hole, an arc (degenerate) and 2^(M−1) pieces.                                                                                  |
+| ZDT (two objectives)         | ZDT1, ZDT2, ZDT3, ZDT4, ZDT6        | Convex, concave, five pieces, convex behind local fronts, and concave with a biased density.                                                                                                              |
+| IMOP (Tian et al., 2019)     | IMOP4–IMOP8                         | A wavy curve, eight discs, a grid with nine holes, a star of three bands and 100 pieces, all with very uneven densities of solutions.                                                                     |
+| TOPO (platform construction) | nine shapes                         | Any shape drawn on the hyperplane Σf = M/2 is exactly the front: a disc, a ring, a figure eight, a disc with 1–6 holes, 2–8 islands; with four objectives a ball, a shell, a sphere and a torus (β₂ = 1). |
 
 | Capability             | What is available                                                                                                                                                                                                      |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

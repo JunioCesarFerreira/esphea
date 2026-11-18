@@ -30,12 +30,24 @@ def test_catalog_lists_defaults(client: TestClient) -> None:
     catalog = client.get("/api/catalog").json()
     assert [p["name"] for p in catalog["problems"]] == [
         "dtlz2",
+        "dtlz1",
         "dtlz2h",
+        "dtlz5",
         "dtlz7",
         "zdt1",
+        "zdt2",
         "zdt3",
         "zdt4",
+        "zdt6",
+        "imop4",
+        "imop5",
+        "imop6",
+        "imop7",
+        "imop8",
+        "topo",
     ]
+    topo = catalog["problems"][-1]
+    assert topo == {"name": "topo", "shape": "holes", "count": 2, "n_obj": 3, "k": 10}
     assert [a["name"] for a in catalog["algorithms"]] == ["nsga2", "nsga3", "smsemoa"]
 
 

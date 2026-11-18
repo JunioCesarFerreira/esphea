@@ -22,13 +22,20 @@ import type {
   ProblemConfig,
   ProblemName,
   SBXConfig,
+  ShapeName,
+  TOPOConfig,
 } from "../../../api/types";
 import {
   ALGORITHM_LABELS,
   PROBLEM_DESCRIPTIONS,
+  PROBLEM_GROUPS,
   PROBLEM_LABELS,
+  TOPO_SHAPES,
   switchAlgorithm,
   switchProblem,
+  switchShape,
+  topoBetti,
+  withProblem,
 } from "../../../lib/configModel";
 import { NumberField } from "./fields";
 import { useIssue } from "./issues";
@@ -107,34 +114,118 @@ function GeneralSection({ config, onChange }: Omit<FormProps, "catalog">) {
   );
 }
 
+/** Problems whose number of objectives is a parameter. */
+const SCALABLE = new Set<ProblemName>(["dtlz1", "dtlz2", "dtlz7"]);
+
+const SHAPE_GROUPS = [
+  { group: "Plane · three objectives", items: ["disc", "ring", "eight", "holes", "islands"] },
+  { group: "Space · four objectives", items: ["ball", "shell", "sphere", "torus"] },
+].map(({ group, items }) => ({
+  group,
+  items: items.map((shape) => ({ value: shape, label: TOPO_SHAPES[shape as ShapeName].label })),
+}));
+
+function bettiLabel(betti: number[]): string {
+  const subscripts = ["₀", "₁", "₂"];
+  return betti.map((value, i) => `β${subscripts[i]} = ${value}`).join(", ");
+}
+
+function TopoFields({
+  problem,
+  update,
+}: {
+  problem: TOPOConfig;
+  update: (next: ProblemConfig) => void;
+}) {
+  const info = TOPO_SHAPES[problem.shape];
+  return (
+    <SimpleGrid cols={{ base: 1, sm: 2 }}>
+      <Select
+        label="Shape of the front"
+        description={`${info.description} ${bettiLabel(topoBetti(problem.shape, problem.count))}; M = ${info.n_obj}`}
+        data={SHAPE_GROUPS}
+        value={problem.shape}
+        allowDeselect={false}
+        onChange={(shape) => shape && update(switchShape(problem, shape as ShapeName))}
+      />
+      {info.count && (
+        <NumberField
+          path="problem.count"
+          label={problem.shape === "holes" ? "Holes" : "Islands"}
+          description={`From ${info.count[0]} to ${info.count[1]}`}
+          min={info.count[0]}
+          max={info.count[1]}
+          allowDecimal={false}
+          value={problem.count ?? info.count[2]}
+          onChange={(count) => update({ ...problem, count })}
+        />
+      )}
+    </SimpleGrid>
+  );
+}
+
 function ProblemSection({ config, catalog, onChange }: FormProps) {
   const problem = config.problem;
-  const update = (next: ProblemConfig) => onChange({ ...config, problem: next });
+  const update = (next: ProblemConfig) => onChange(withProblem(config, next));
+  const available = new Set(catalog.problems.map((p) => p.name));
+  const groups = PROBLEM_GROUPS.map(({ group, names }) => ({
+    group,
+    items: names
+      .filter((name) => available.has(name))
+      .map((name) => ({ value: name, label: PROBLEM_LABELS[name] ?? name })),
+  })).filter((g) => g.items.length > 0);
   return (
     <Section title="Problem" description="Box-constrained multi-objective minimisation benchmark.">
       <Select
         label="Benchmark"
         description={PROBLEM_DESCRIPTIONS[problem.name]}
-        data={catalog.problems.map((p) => ({
-          value: p.name,
-          label: PROBLEM_LABELS[p.name] ?? p.name,
-        }))}
+        data={groups}
         value={problem.name}
         allowDeselect={false}
         onChange={(name) => name && onChange(switchProblem(config, catalog, name as ProblemName))}
       />
-      {problem.name === "dtlz2h" ? (
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+      {problem.name === "topo" && <TopoFields problem={problem} update={update} />}
+      <SimpleGrid cols={{ base: 1, sm: 2 }}>
+        {SCALABLE.has(problem.name) && (
+          <NumberField
+            path="problem.n_obj"
+            label="Objectives (M)"
+            min={2}
+            max={15}
+            allowDecimal={false}
+            value={problem.n_obj}
+            onChange={(n_obj) => update({ ...problem, n_obj } as ProblemConfig)}
+          />
+        )}
+        {"k" in problem && (
           <NumberField
             path="problem.k"
             label="Distance variables (k)"
-            description={`Objectives: M = 3; n_var = k + 2 = ${problem.k + 2}`}
+            description={`${SCALABLE.has(problem.name) ? "" : `Objectives: M = ${problem.n_obj}; `}n_var = M + k − 1 = ${problem.n_obj + problem.k - 1}`}
             min={1}
             max={100}
             allowDecimal={false}
             value={problem.k}
             onChange={(k) => update({ ...problem, k })}
           />
+        )}
+        {"n_var" in problem && (
+          <NumberField
+            path="problem.n_var"
+            label="Decision variables (n)"
+            description={
+              problem.n_obj === 2
+                ? "Objectives: M = 2"
+                : "Objectives: M = 3; 5 position variables, the rest distance ones"
+            }
+            min={problem.n_obj === 2 ? 2 : 6}
+            max={1000}
+            allowDecimal={false}
+            value={problem.n_var}
+            onChange={(n_var) => update({ ...problem, n_var })}
+          />
+        )}
+        {problem.name === "dtlz2h" && (
           <NumberField
             path="problem.radius"
             label="Hole radius (degrees)"
@@ -144,43 +235,8 @@ function ProblemSection({ config, catalog, onChange }: FormProps) {
             value={problem.radius}
             onChange={(radius) => update({ ...problem, radius })}
           />
-        </SimpleGrid>
-      ) : problem.name === "dtlz2" || problem.name === "dtlz7" ? (
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <NumberField
-            path="problem.n_obj"
-            label="Objectives (M)"
-            min={2}
-            max={15}
-            allowDecimal={false}
-            value={problem.n_obj}
-            onChange={(n_obj) => update({ ...problem, n_obj })}
-          />
-          <NumberField
-            path="problem.k"
-            label="Distance variables (k)"
-            description={`n_var = M + k − 1 = ${problem.n_obj + problem.k - 1}`}
-            min={1}
-            max={100}
-            allowDecimal={false}
-            value={problem.k}
-            onChange={(k) => update({ ...problem, k })}
-          />
-        </SimpleGrid>
-      ) : (
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <NumberField
-            path="problem.n_var"
-            label="Decision variables (n)"
-            description="Objectives: M = 2"
-            min={2}
-            max={1000}
-            allowDecimal={false}
-            value={problem.n_var}
-            onChange={(n_var) => update({ ...problem, n_var })}
-          />
-        </SimpleGrid>
-      )}
+        )}
+      </SimpleGrid>
     </Section>
   );
 }

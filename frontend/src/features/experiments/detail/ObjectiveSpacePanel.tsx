@@ -4,6 +4,7 @@ import {
   Card,
   Chip,
   Group,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Slider,
@@ -13,6 +14,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { IconInfoCircle, IconPlayerPause, IconPlayerPlay } from "@tabler/icons-react";
+import type { Data } from "plotly.js";
 import { useEffect, useMemo, useState } from "react";
 
 import type { LiveFront } from "../../../api/events";
@@ -30,6 +32,9 @@ import {
   objectiveSpaceTraces,
   parallelCoordinatesTrace,
   baseLayout,
+  hyperplaneCoordinates,
+  projectSnapshot,
+  PROJECTION_LABELS,
 } from "../../../lib/plots";
 
 const PLAY_INTERVAL_MS = 120;
@@ -94,9 +99,17 @@ interface ObjectiveSpacePanelProps {
   liveFronts: Record<string, LiveFront>;
 }
 
+type View = "projection" | "parallel";
+
 export function ObjectiveSpacePanel({ experiment, liveFronts }: ObjectiveSpacePanelProps) {
   const theme = useChartTheme();
   const nObj = experiment.config.problem.n_obj;
+  // Four objectives can be drawn in 3-D on the hyperplane Σf = 0 (TOPO draws its shapes there).
+  const [view, setView] = useState<View>(
+    experiment.config.problem.name === "topo" ? "projection" : "parallel",
+  );
+  const projected = nObj === 4 && view === "projection";
+  const plotted = projected ? 3 : nObj;
   const [runId, setRunId] = useState<string | null>(experiment.runs[0]?.id ?? null);
   const run = experiment.runs.find((r) => r.id === runId);
   const running = run?.status === "running";
@@ -134,21 +147,28 @@ export function ObjectiveSpacePanel({ experiment, liveFronts }: ObjectiveSpacePa
   const truePoints = front.data?.points ?? null;
   const chart = useMemo(() => {
     const parcoordsLayout = baseLayout(theme, { margin: { l: 48, r: 48, t: 48, b: 24 } });
+    const revision = `${runId}-${view}`;
+    const reference = projected && truePoints ? hyperplaneCoordinates(truePoints) : truePoints;
+    const labels = projected ? PROJECTION_LABELS : undefined;
+    const layout = (traces: Data[]) =>
+      objectiveSpaceLayout(theme, plotted, revision, traces, labels, projected ? "data" : "cube");
     if (live) {
-      if (nObj > 3) {
+      if (plotted > 3) {
         return { data: [liveParallelTrace(live.front, theme)], layout: parcoordsLayout };
       }
-      const traces = liveFrontTraces(live.front, truePoints, layers.has("front"), theme);
-      return { data: traces, layout: objectiveSpaceLayout(theme, nObj, `${runId}`, traces) };
+      const points = projected ? hyperplaneCoordinates(live.front) : live.front;
+      const traces = liveFrontTraces(points, reference, layers.has("front"), theme, labels);
+      return { data: traces, layout: layout(traces) };
     }
     const data = snapshot.data;
     if (!data) return null;
-    if (nObj > 3) {
+    if (plotted > 3) {
       return { data: [parallelCoordinatesTrace(data, layers, theme)], layout: parcoordsLayout };
     }
-    const traces = objectiveSpaceTraces(data, truePoints, layers, theme);
-    return { data: traces, layout: objectiveSpaceLayout(theme, nObj, `${runId}`, traces) };
-  }, [live, snapshot.data, truePoints, layers, theme, nObj, runId]);
+    const shown = projected ? projectSnapshot(data) : data;
+    const traces = objectiveSpaceTraces(shown, reference, layers, theme, labels);
+    return { data: traces, layout: layout(traces) };
+  }, [live, snapshot.data, truePoints, layers, theme, plotted, projected, view, runId]);
 
   const runOptions = experiment.runs.map((r) => ({
     value: r.id,
@@ -166,13 +186,24 @@ export function ObjectiveSpacePanel({ experiment, liveFronts }: ObjectiveSpacePa
           allowDeselect={false}
           w={320}
         />
+        {nObj === 4 && (
+          <SegmentedControl
+            size="xs"
+            value={view}
+            onChange={(value) => setView(value as View)}
+            data={[
+              { value: "projection", label: "3-D projection" },
+              { value: "parallel", label: "Parallel coordinates" },
+            ]}
+          />
+        )}
         <Chip.Group
           multiple
           value={[...layers]}
           onChange={(values) => setLayers(new Set(values as Layer[]))}
         >
           <Group gap={6}>
-            {ALL_LAYERS.filter((layer) => nObj <= 3 || layer !== "front").map((layer) => (
+            {ALL_LAYERS.filter((layer) => plotted <= 3 || layer !== "front").map((layer) => (
               <Chip key={layer} value={layer} size="sm" variant="outline">
                 {LAYER_LABELS[layer]}
               </Chip>
@@ -237,13 +268,20 @@ export function ObjectiveSpacePanel({ experiment, liveFronts }: ObjectiveSpacePa
           <PlotlyChart
             data={chart.data}
             layout={chart.layout}
-            height={nObj === 3 ? 600 : 520}
+            height={plotted === 3 ? 600 : 520}
             ariaLabel={`Objective space of run ${run ? run.index + 1 : ""}, generation ${live?.generation ?? generation ?? ""}`}
           />
-          {nObj <= 3 && !live && (
+          {plotted <= 3 && !live && (
             <Text size="xs" c="dimmed" px="sm" pb="xs">
               Filled markers survived into the next generation; open markers were discarded. Hover a
               point to see its rank and lineage.
+            </Text>
+          )}
+          {projected && (
+            <Text size="xs" c="dimmed" px="sm" pb="xs">
+              Coordinates u on the hyperplane orthogonal to (1, 1, 1, 1). The component along that
+              direction is dropped, so a dominated point is drawn over the point that dominates it.
+              TOPO fronts lie on that hyperplane and keep their exact shape.
             </Text>
           )}
         </Card>

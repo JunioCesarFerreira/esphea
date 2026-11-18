@@ -10,6 +10,7 @@ from typing import Annotated, Literal, Self
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from esphea.problems.topo import COUNT_RANGES, ShapeName, shape_objectives
 from esphea.reference_directions import das_dennis_count, nsga3_population_size
 
 MAX_REFERENCE_DIRECTIONS = 20_000
@@ -21,6 +22,18 @@ class _Model(BaseModel):
 
 
 # --- problems -------------------------------------------------------------------------
+
+
+class DTLZ1Config(_Model):
+    """Linear front (the simplex sum f = 0.5) behind 11^k - 1 local fronts."""
+
+    name: Literal["dtlz1"] = "dtlz1"
+    n_obj: int = Field(default=3, ge=2, le=15, description="Number of objectives (M).")
+    k: int = Field(default=5, ge=1, le=100, description="Distance variables; n_var = M + k - 1.")
+
+    @property
+    def n_var(self) -> int:
+        return self.n_obj + self.k - 1
 
 
 class DTLZ2Config(_Model):
@@ -42,6 +55,20 @@ class DTLZ2HConfig(_Model):
     radius: float = Field(
         default=20.0, ge=5.0, le=25.0, description="Angular radius of the hole, in degrees."
     )
+
+    @property
+    def n_var(self) -> int:
+        return self.n_obj + self.k - 1
+
+
+class DTLZ5Config(_Model):
+    """Degenerate front: an arc of the unit sphere."""
+
+    name: Literal["dtlz5"] = "dtlz5"
+    n_obj: Literal[3] = Field(
+        default=3, description="Three objectives (from four on, the front is no longer a curve)."
+    )
+    k: int = Field(default=10, ge=1, le=100, description="Distance variables; n_var = k + 2.")
 
     @property
     def n_var(self) -> int:
@@ -71,6 +98,12 @@ class ZDT1Config(_ZDTConfig):
     name: Literal["zdt1"] = "zdt1"
 
 
+class ZDT2Config(_ZDTConfig):
+    """Concave, connected front."""
+
+    name: Literal["zdt2"] = "zdt2"
+
+
 class ZDT3Config(_ZDTConfig):
     """Disconnected front (five pieces)."""
 
@@ -84,8 +117,107 @@ class ZDT4Config(_ZDTConfig):
     n_var: int = Field(default=10, ge=2, le=1000, description="Decision variables (n).")
 
 
+class ZDT6Config(_ZDTConfig):
+    """Concave front with a biased density of solutions."""
+
+    name: Literal["zdt6"] = "zdt6"
+    n_var: int = Field(default=10, ge=2, le=1000, description="Decision variables (n).")
+
+
+class _IMOPConfig(_Model):
+    n_obj: Literal[3] = Field(default=3, description="IMOP problems are three-objective.")
+    n_var: int = Field(
+        default=10, ge=6, le=1000, description="Decision variables: 5 position ones, then distance."
+    )
+
+
+class IMOP4Config(_IMOPConfig):
+    """Degenerate front: a wavy curve."""
+
+    name: Literal["imop4"] = "imop4"
+
+
+class IMOP5Config(_IMOPConfig):
+    """Eight disjoint discs."""
+
+    name: Literal["imop5"] = "imop5"
+
+
+class IMOP6Config(_IMOPConfig):
+    """A grid of strips: one piece with nine holes."""
+
+    name: Literal["imop6"] = "imop6"
+
+
+class IMOP7Config(_IMOPConfig):
+    """Three bands of the sphere meeting at its centre."""
+
+    name: Literal["imop7"] = "imop7"
+
+
+class IMOP8Config(_IMOPConfig):
+    """A 10 x 10 array of disconnected patches."""
+
+    name: Literal["imop8"] = "imop8"
+
+
+class TOPOConfig(_Model):
+    """Front with a prescribed shape, hence a known topology (see ``esphea.problems.topo``)."""
+
+    name: Literal["topo"] = "topo"
+    shape: ShapeName = Field(
+        default="holes",
+        description=(
+            "Planar (three objectives): disc, ring, eight, holes, islands. "
+            "Spatial (four objectives): ball, shell, sphere, torus."
+        ),
+    )
+    count: int | None = Field(
+        default=2,
+        ge=1,
+        le=8,
+        description="Holes (holes: 1-6) or islands (islands: 2-8); null for the other shapes.",
+    )
+    n_obj: int = Field(
+        default=3, ge=3, le=4, description="3 for a planar shape, 4 for a spatial one."
+    )
+    k: int = Field(default=10, ge=1, le=100, description="Distance variables; n_var = M - 1 + k.")
+
+    @model_validator(mode="after")
+    def _check_shape(self) -> Self:
+        expected = shape_objectives(self.shape)
+        if self.n_obj != expected:
+            raise ValueError(f"the '{self.shape}' shape needs {expected} objectives")
+        if self.shape in COUNT_RANGES:
+            low, high = COUNT_RANGES[self.shape]
+            if self.count is None or not low <= self.count <= high:
+                raise ValueError(f"the '{self.shape}' shape takes a count from {low} to {high}")
+        elif self.count is not None:
+            raise ValueError(f"the '{self.shape}' shape takes no count")
+        return self
+
+    @property
+    def n_var(self) -> int:
+        return self.n_obj - 1 + self.k
+
+
 ProblemConfig = Annotated[
-    DTLZ2Config | DTLZ2HConfig | DTLZ7Config | ZDT1Config | ZDT3Config | ZDT4Config,
+    DTLZ1Config
+    | DTLZ2Config
+    | DTLZ2HConfig
+    | DTLZ5Config
+    | DTLZ7Config
+    | ZDT1Config
+    | ZDT2Config
+    | ZDT3Config
+    | ZDT4Config
+    | ZDT6Config
+    | IMOP4Config
+    | IMOP5Config
+    | IMOP6Config
+    | IMOP7Config
+    | IMOP8Config
+    | TOPOConfig,
     Field(discriminator="name"),
 ]
 

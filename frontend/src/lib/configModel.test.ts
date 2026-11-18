@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Catalog } from "../api/types";
+import type { Catalog, ProblemName, TOPOConfig } from "../api/types";
 import {
   indicatorAxisTitle,
   indicatorOptions,
@@ -8,8 +8,16 @@ import {
   describeExperiment,
   duplicateConfig,
   issuesByPath,
+  PROBLEM_DESCRIPTIONS,
+  PROBLEM_GROUPS,
+  PROBLEM_LABELS,
+  problemLabel,
   switchAlgorithm,
   switchProblem,
+  switchShape,
+  TOPO_SHAPES,
+  topoBetti,
+  withProblem,
 } from "./configModel";
 
 const catalog: Catalog = {
@@ -17,6 +25,7 @@ const catalog: Catalog = {
     { name: "dtlz2", n_obj: 3, k: 10 },
     { name: "zdt1", n_obj: 2, n_var: 30 },
     { name: "zdt4", n_obj: 2, n_var: 10 },
+    { name: "topo", shape: "holes", count: 2, n_obj: 3, k: 10 },
   ],
   algorithms: [
     {
@@ -109,5 +118,49 @@ describe("indicator options", () => {
     ]);
     expect(indicatorAxisTitle("hv")).toBe("Hypervolume (higher is better)");
     expect(indicatorAxisTitle("mean_distance")).toBe("Mean distance");
+  });
+});
+
+describe("problems", () => {
+  const topo: TOPOConfig = { name: "topo", shape: "holes", count: 2, n_obj: 3, k: 10 };
+
+  it("are all labelled, described and listed once in the selector", () => {
+    const listed = PROBLEM_GROUPS.flatMap((group) => group.names);
+    expect(new Set(listed).size).toBe(listed.length);
+    expect(new Set(listed)).toEqual(new Set(Object.keys(PROBLEM_LABELS)));
+    for (const name of listed) expect(PROBLEM_DESCRIPTIONS[name as ProblemName]).toBeTruthy();
+  });
+
+  it("name TOPO fronts by their shape", () => {
+    expect(problemLabel(topo)).toBe("TOPO-holes2");
+    expect(problemLabel({ ...topo, shape: "torus", count: null, n_obj: 4 })).toBe("TOPO-torus");
+    expect(problemLabel({ name: "dtlz1", n_obj: 3, k: 5 })).toBe("DTLZ1");
+  });
+
+  it("switch shapes with their objectives and counts", () => {
+    expect(switchShape(topo, "torus")).toEqual({ ...topo, shape: "torus", count: null, n_obj: 4 });
+    expect(switchShape(topo, "islands")).toMatchObject({ count: 2, n_obj: 3 });
+    expect(switchShape({ ...topo, count: 6 }, "islands").count).toBe(6);
+    expect(switchShape({ ...topo, shape: "ring", count: null }, "islands").count).toBe(4);
+    expect(switchShape({ ...topo, shape: "islands", count: 8 }, "holes").count).toBe(6);
+  });
+
+  it("know the Betti numbers of every shape", () => {
+    expect(topoBetti("holes", 3)).toEqual([1, 3]);
+    expect(topoBetti("islands", 5)).toEqual([5, 0]);
+    expect(topoBetti("torus", null)).toEqual([1, 2, 1]);
+    for (const [shape, info] of Object.entries(TOPO_SHAPES)) {
+      // planar shapes have β₀, β₁; spatial ones β₀, β₁, β₂
+      expect(topoBetti(shape as keyof typeof TOPO_SHAPES, 2)).toHaveLength(info.n_obj - 1);
+    }
+  });
+
+  it("rename a generated experiment when the problem changes", () => {
+    const config = switchProblem(defaultConfig(catalog), catalog, "topo");
+    expect(config.name).toBe("NSGA-III on TOPO-holes2 (M=3)");
+    const torus = withProblem(config, switchShape(topo, "torus"));
+    expect(torus.name).toBe("NSGA-III on TOPO-torus (M=4)");
+    const custom = withProblem({ ...config, name: "Mine" }, switchShape(topo, "ring"));
+    expect(custom.name).toBe("Mine");
   });
 });

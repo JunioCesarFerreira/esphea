@@ -21,6 +21,41 @@ export const LAYER_LABELS: Record<Layer, string> = {
 };
 
 const objectiveLabel = (i: number) => `f${i + 1}`;
+const OBJECTIVE_LABELS = Array.from({ length: 3 }, (_, i) => objectiveLabel(i));
+
+/** Axes of the projection on the hyperplane Σf = 0 (see ``hyperplaneCoordinates``). */
+export const PROJECTION_LABELS = ["u₁", "u₂", "u₃"];
+
+/**
+ * Coordinates of points in the orthonormal (Helmert) basis of the hyperplane Σf = 0,
+ * u_j = (f_1 + … + f_j − j f_{j+1}) / √(j (j + 1)): the component along (1, …, 1) is
+ * dropped. The backend draws TOPO fronts in this basis, so they appear in the
+ * coordinates of their shape.
+ */
+export function hyperplaneCoordinates(points: number[][]): number[][] {
+  return points.map((point) => {
+    const coordinates: number[] = [];
+    let prefix = 0;
+    for (let j = 1; j < point.length; j++) {
+      prefix += point[j - 1] ?? 0;
+      coordinates.push((prefix - j * (point[j] ?? 0)) / Math.sqrt(j * (j + 1)));
+    }
+    return coordinates;
+  });
+}
+
+/** The same snapshot with every objective vector replaced by its hyperplane coordinates. */
+export function projectSnapshot(snapshot: GenerationSnapshot): GenerationSnapshot {
+  const project = (group: SnapshotGroup): SnapshotGroup => ({
+    ...group,
+    F: hyperplaneCoordinates(group.F),
+  });
+  return {
+    ...snapshot,
+    population: project(snapshot.population),
+    offspring: snapshot.offspring ? project(snapshot.offspring) : snapshot.offspring,
+  };
+}
 
 function column(points: number[][], i: number): number[] {
   return points.map((point) => point[i] ?? Number.NaN);
@@ -36,8 +71,10 @@ function pointsTrace(
     size?: number;
     text?: string[];
     legendgroup?: string;
+    labels?: string[];
   },
 ): Data {
+  const labels = options.labels ?? OBJECTIVE_LABELS;
   const size = options.size ?? (nObj === 2 ? MARKER_SIZE[2] : MARKER_SIZE[3]);
   const marker = {
     color: options.open ? "rgba(0,0,0,0)" : options.color,
@@ -53,7 +90,7 @@ function pointsTrace(
       ? "%{text}<br>" +
         Array.from(
           { length: nObj },
-          (_, i) => `${objectiveLabel(i)}=%{${["x", "y", "z"][i]}:.4f}`,
+          (_, i) => `${labels[i] ?? objectiveLabel(i)}=%{${["x", "y", "z"][i]}:.4f}`,
         ).join("<br>") +
         "<extra></extra>"
       : undefined,
@@ -109,6 +146,7 @@ export function objectiveSpaceTraces(
   front: number[][] | null,
   layers: ReadonlySet<Layer>,
   theme: ChartTheme,
+  labels: string[] = OBJECTIVE_LABELS,
 ): Data[] {
   const nObj = snapshot.population.F[0]?.length ?? 2;
   const traces: Data[] = [];
@@ -118,6 +156,7 @@ export function objectiveSpaceTraces(
         name: LAYER_LABELS.front,
         color: theme.reference,
         size: nObj === 2 ? 3 : 2,
+        labels,
       }),
     );
   }
@@ -134,6 +173,7 @@ export function objectiveSpaceTraces(
         color,
         text: keptText,
         legendgroup: layer,
+        labels,
       }),
     );
     if (layers.has("discarded") && lost.length > 0) {
@@ -144,6 +184,7 @@ export function objectiveSpaceTraces(
           open: true,
           text: lostText,
           legendgroup: layer,
+          labels,
         }),
       );
     }
@@ -213,6 +254,7 @@ export function liveFrontTraces(
   front: number[][] | null,
   showFront: boolean,
   theme: ChartTheme,
+  labels: string[] = OBJECTIVE_LABELS,
 ): Data[] {
   const nObj = points[0]?.length ?? front?.[0]?.length ?? 2;
   const traces: Data[] = [];
@@ -222,11 +264,16 @@ export function liveFrontTraces(
         name: LAYER_LABELS.front,
         color: theme.reference,
         size: nObj === 2 ? 3 : 2,
+        labels,
       }),
     );
   }
   traces.push(
-    pointsTrace(points, nObj, { name: "Current first front", color: seriesColor(theme, 0) }),
+    pointsTrace(points, nObj, {
+      name: "Current first front",
+      color: seriesColor(theme, 0),
+      labels,
+    }),
   );
   return traces;
 }
@@ -353,9 +400,12 @@ export function objectiveSpaceLayout(
   nObj: number,
   revision: string,
   traces: Data[] = [],
+  labels: string[] = OBJECTIVE_LABELS,
+  /** "data" keeps the geometry (equal scales), as for a projection. */
+  aspect: "cube" | "data" = "cube",
 ): Partial<Layout> {
   const titled = (i: number) => ({
-    title: { text: objectiveLabel(i), font: { color: theme.inkSecondary } },
+    title: { text: labels[i] ?? objectiveLabel(i), font: { color: theme.inkSecondary } },
   });
   const sceneAxis = (i: number) => ({
     ...titled(i),
@@ -374,7 +424,7 @@ export function objectiveSpaceLayout(
         xaxis: sceneAxis(0),
         yaxis: sceneAxis(1),
         zaxis: sceneAxis(2),
-        aspectmode: "cube",
+        aspectmode: aspect,
         camera: { eye: { x: 1.5, y: 1.5, z: 1.1 } },
       },
     };

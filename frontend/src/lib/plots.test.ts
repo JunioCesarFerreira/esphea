@@ -4,6 +4,8 @@ import type { GenerationSnapshot, SnapshotGroup } from "../api/types";
 import { chartTheme } from "./chartTheme";
 import { formatBytes, formatNumber } from "./format";
 import {
+  hyperplaneCoordinates,
+  projectSnapshot,
   bandTraces,
   comparableSpans,
   objectiveSpaceLayout,
@@ -135,5 +137,40 @@ describe("objective space scales", () => {
   it("ignores gaps and degenerate clouds", () => {
     expect(comparableSpans(cloud([0, NaN, 1], [0, 1, 2]))).toBe(true);
     expect(comparableSpans([])).toBe(true);
+  });
+});
+
+describe("hyperplane projection", () => {
+  it("uses the Helmert basis of the backend's TOPO problems", () => {
+    // u_1 = (f_1 − f_2)/√2, u_2 = (f_1 + f_2 − 2 f_3)/√6, u_3 = (f_1 + f_2 + f_3 − 3 f_4)/√12
+    const [u] = hyperplaneCoordinates([[1, 0, 0, 0]]);
+    expect(u?.[0]).toBeCloseTo(1 / Math.SQRT2);
+    expect(u?.[1]).toBeCloseTo(1 / Math.sqrt(6));
+    expect(u?.[2]).toBeCloseTo(1 / Math.sqrt(12));
+    // the direction (1, 1, 1, 1) is dropped
+    expect(hyperplaneCoordinates([[0.5, 0.5, 0.5, 0.5]])[0]).toEqual([0, 0, 0]);
+  });
+
+  it("keeps distances within the hyperplane", () => {
+    const a = [0.2, 0.6, 0.5, 0.7];
+    const b = [0.4, 0.3, 0.8, 0.5]; // both sum to 2
+    const [ua, ub] = hyperplaneCoordinates([a, b]);
+    const distance = (p: number[], q: number[]) =>
+      Math.hypot(...p.map((value, i) => value - (q[i] ?? 0)));
+    expect(distance(ua ?? [], ub ?? [])).toBeCloseTo(distance(a, b));
+  });
+
+  it("projects every group of a snapshot", () => {
+    const four = group(
+      [
+        [0.5, 0.5, 0.5, 0.5],
+        [1, 0, 0, 0],
+      ],
+      [true, false],
+    );
+    const projected = projectSnapshot({ ...snapshot, population: four, offspring: four });
+    expect(projected.population.F[0]).toEqual([0, 0, 0]);
+    expect(projected.offspring?.F[1]).toHaveLength(3);
+    expect(projected.population.survived).toEqual([true, false]);
   });
 });

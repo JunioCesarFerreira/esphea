@@ -1,13 +1,16 @@
 from pathlib import Path
 
+import numpy as np
 import pyarrow.dataset as ds
 import pytest
 
+from esphea.api.schemas import default_catalog
 from esphea.experiments.config import (
     ExperimentConfig,
     MetricsConfig,
     NSGA2Config,
     NSGA3Config,
+    ProblemConfig,
     SnapshotConfig,
     ZDT1Config,
     ZDT3Config,
@@ -85,6 +88,27 @@ def test_executes_bi_objective_problems(
     assert outcome.generations == 5
     assert set(sink.rows[-1].values) == QUALITY | {"hv_offspring"} | DIVERSITY
     assert all(value >= 0 for value in sink.rows[-1].values.values())
+
+
+@pytest.mark.parametrize("problem", default_catalog().problems, ids=lambda problem: problem.name)
+def test_executes_every_problem_of_the_catalog(
+    executor: RunExecutor, problem: ProblemConfig, tmp_path: Path
+) -> None:
+    """Indicators and snapshots work on every front (planar, curved, degenerate, M = 4)."""
+    algorithm = NSGA2Config(pop_size=20)
+    config = ExperimentConfig(name="t", problem=problem, algorithm=algorithm, n_gen=3)
+    sink = ListSink()
+    outcome = executor.execute(
+        config, seed=1, metrics_sink=sink, progress=ListReporter(), snapshot_dir=tmp_path / "s"
+    )
+    assert outcome.generations == 3
+    values = sink.rows[-1].values
+    # spacing and spread need two points in the first front, which a strongly biased
+    # problem may not have yet (IMOP5 crowds its solutions at the centres of the discs)
+    assert QUALITY | {"hv_offspring", "mean_distance", "decision_inertia"} <= set(values)
+    assert set(values) <= QUALITY | {"hv_offspring"} | DIVERSITY
+    assert all(np.isfinite(value) and value >= 0 for value in values.values())
+    assert SnapshotReader(tmp_path / "s").generations() == [0, 1, 2, 3]
 
 
 def test_cancellation_stops_early(executor: RunExecutor) -> None:

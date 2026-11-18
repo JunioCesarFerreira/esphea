@@ -5,12 +5,10 @@ type Schemas = components["schemas"];
 
 export type Catalog = Schemas["CatalogOut"];
 export type ExperimentConfig = Schemas["ExperimentConfig"];
-export type DTLZ2Config = Schemas["DTLZ2Config"];
-export type DTLZ2HConfig = Schemas["DTLZ2HConfig"];
-export type DTLZ7Config = Schemas["DTLZ7Config"];
-export type ZDTConfig = Schemas["ZDT1Config"] | Schemas["ZDT3Config"] | Schemas["ZDT4Config"];
-export type ProblemConfig = DTLZ2Config | DTLZ2HConfig | DTLZ7Config | ZDTConfig;
+export type ProblemConfig = ExperimentConfig["problem"];
 export type ProblemName = ProblemConfig["name"];
+export type TOPOConfig = Schemas["TOPOConfig"];
+export type ShapeName = Schemas["ShapeName"];
 export type NSGA2Config = Schemas["NSGA2Config"];
 export type NSGA3Config = Schemas["NSGA3Config"];
 export type SMSEMOAConfig = Schemas["SMSEMOAConfig"];

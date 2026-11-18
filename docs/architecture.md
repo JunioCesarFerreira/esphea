@@ -91,7 +91,7 @@ flowchart TB
 | Package         | Responsibility                                                                                     |
 | --------------- | -------------------------------------------------------------------------------------------------- |
 | `core`          | Problem and population contracts, operator interfaces, records, termination and generational loop. |
-| `problems`      | DTLZ2, DTLZ2-H, DTLZ7, ZDT1, ZDT3 and ZDT4 benchmarks.                                             |
+| `problems`      | DTLZ, ZDT and IMOP benchmarks, and TOPO fronts of prescribed topology (see below).                 |
 | `operators`     | Sampling, mating selection, SBX, polynomial mutation and survival strategies.                      |
 | `algorithms`    | NSGA-II, NSGA-III and generational SMS-EMOA assembled from strategies.                             |
 | `metrics`       | Quality indicators and classical diversity metrics.                                                |
@@ -101,6 +101,54 @@ flowchart TB
 | `messaging`     | Protocols for jobs, events and cancellation, plus Redis/RQ adapters.                               |
 | `services`      | Experiment and analysis use cases, result queries, leases, recovery and process supervision.       |
 | `api`, `worker` | HTTP/WebSocket endpoints, dependency wiring, RQ tasks and watchdog entry point.                    |
+
+### Benchmark problems
+
+Every problem knows its front (`KnownParetoFront`): a sample of it for IGD, IGD+, GD and the
+reference of the hypervolume, and its ideal and nadir points for normalisation. The tests check
+each front's topology with the persistence of an alpha complex on a dense sample
+(`tests/problems/homology.py`).
+
+| Problem      | M     | Front                                          | Betti numbers  |
+| ------------ | ----- | ---------------------------------------------- | -------------- |
+| DTLZ1        | 2–15  | Simplex Σf = 0.5, behind 11^k − 1 local fronts | β₀ = 1         |
+| DTLZ2        | 2–15  | Octant of the unit sphere                      | β₀ = 1         |
+| DTLZ2-H      | 3     | The octant without a cap                       | β₀ = 1, β₁ = 1 |
+| DTLZ5        | 3     | An arc of the sphere (degenerate)              | β₀ = 1         |
+| DTLZ7        | 2–15  | 2^(M−1) pieces                                 | β₀ = 2^(M−1)   |
+| ZDT1, 2, 4   | 2     | Convex (ZDT1, ZDT4) or concave (ZDT2) arc      | β₀ = 1         |
+| ZDT3         | 2     | Five arcs                                      | β₀ = 5         |
+| ZDT6         | 2     | Concave arc, biased density                    | β₀ = 1         |
+| IMOP4        | 3     | A wavy curve (degenerate)                      | β₀ = 1         |
+| IMOP5        | 3     | Eight discs on a plane                         | β₀ = 8         |
+| IMOP6        | 3     | A grid of strips on a plane                    | β₀ = 1, β₁ = 9 |
+| IMOP7        | 3     | Three bands of the sphere meeting at a point   | β₀ = 1         |
+| IMOP8        | 3     | A 10 × 10 array of patches                     | β₀ = 100       |
+| TOPO (shape) | 3 / 4 | The shape                                      | The shape's    |
+
+DTLZ5 is restricted to three objectives: with more, its front is no longer a curve (Ishibuchi,
+Masuda and Nojima, 2016). The IMOP problems follow Tian, Cheng, Zhang, Li and Jin (IEEE CIM, 2019) and the authors' PlatEMO implementation; their position variables pass through
+`mean(x)^0.05` and `mean(x)^10`, which crowd uniform samples in a corner of the front.
+
+**TOPO** (`problems/topo.py`) is a construction of this platform for fronts of prescribed
+topology. The points of the hyperplane Σf = M/2 are mutually non-dominated, so any closed shape
+S drawn on it can be a front. With positions y on the hyperplane (orthonormal basis B), distance
+variables z and the Euclidean distance d(y, S),
+
+    f = c + B y + (g(z) + d(y, S)) 1,    g(z) = Σ (z_j − 0.5)².
+
+Points with y in S and g > 0 are dominated by the same y with g = 0. Now take a point with y
+outside S, and let s be its nearest point of S. Then f(y) − f(s) = B(y − s) + (g + d) 1. The
+first term sums to 0 and has norm d, so none of its components is below −d √((M − 1)/M).
+Every component of the difference is therefore positive. The front is exactly an isometric copy
+of S and has its homology:
+
+- **Planar shapes (M = 3):** a disc, a ring (a 1-D loop), a figure eight, a disc with 1–6 holes,
+  and 2–8 islands.
+- **Spatial shapes (M = 4):** a ball, a shell (a cavity), a sphere and a torus. These give
+  ground truth for H₂.
+
+Positions are uniform in the box, so unlike IMOP, no part of the shape is favoured.
 
 ### The evolutionary loop
 
@@ -485,6 +533,9 @@ state and Plotly for scientific charts (loaded lazily).
   contract is checked at compile time.
 - Configuration is validated by the server: the editor sends every change (debounced) to
   `POST /api/experiments/preview`, which returns derived quantities or field-level errors.
+- With four objectives, the objective space is drawn either in parallel coordinates or in 3-D,
+  on the hyperplane orthogonal to (1, 1, 1, 1) (`hyperplaneCoordinates`, the basis of TOPO).
+  The 3-D view is the default for TOPO, whose fronts keep their exact shape there.
 - The tab of an experiment page is kept in the URL (`?tab=runs`, `?tab=topology`, ...), so the
   Activity page links each job to the tab where its results appear.
 - Chart colours come from a palette validated for colour-vision deficiency in both themes.

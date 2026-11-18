@@ -18,10 +18,15 @@ from esphea.core.types import FloatArray, frozen
 
 FRONT_RESOLUTION = 100_001
 """Samples of ``f_1`` from which the Pareto front is extracted (resolution 1e-5)."""
+ZDT6_LOWEST_F1 = 0.2807753188
+"""Smallest ``f_1 = 1 - exp(-4 x_1) sin^6(6 pi x_1)`` of ZDT6 (at ``x_1 ~ 0.0815``)."""
 
 
 class ZDT(Problem):
     """Common structure of the ZDT problems; subclasses define ``g`` and ``h``."""
+
+    _f1_range: tuple[float, float] = (0.0, 1.0)
+    """Values ``f_1`` takes on the front."""
 
     def __init__(self, n_var: int, lower: FloatArray | float, upper: FloatArray | float) -> None:
         if n_var < 2:
@@ -36,15 +41,19 @@ class ZDT(Problem):
     def _h(self, f1: FloatArray, g: FloatArray) -> FloatArray:
         """Shape function; ``h(f_1, 1)`` traces the Pareto front."""
 
+    def _f1(self, x1: FloatArray) -> FloatArray:
+        """First objective; ``x_1`` itself except for ZDT6."""
+        return x1
+
     def _evaluate(self, X: FloatArray) -> FloatArray:
-        f1 = X[:, 0]
+        f1 = self._f1(X[:, 0])
         g = self._g(X[:, 1:])
         return np.column_stack((f1, g * self._h(f1, g)))
 
     @cached_property
     def _front(self) -> FloatArray:
         """Dense Pareto front: the non-dominated part of the curve ``g = 1``."""
-        f1 = np.linspace(0.0, 1.0, FRONT_RESOLUTION)
+        f1 = np.linspace(*self._f1_range, FRONT_RESOLUTION)
         f2 = self._h(f1, np.ones_like(f1))
         # f1 increases, so a point is non-dominated iff its f2 is below every earlier f2
         earlier = np.minimum.accumulate(np.concatenate(([np.inf], f2[:-1])))
@@ -90,6 +99,23 @@ class ZDT1(ZDT):
         return _convex_h(f1, g)
 
 
+class ZDT2(ZDT):
+    """Concave, connected front ``f_2 = 1 - f_1^2``."""
+
+    def __init__(self, n_var: int = 30) -> None:
+        super().__init__(n_var, lower=0.0, upper=1.0)
+
+    @property
+    def name(self) -> str:
+        return "ZDT2"
+
+    def _g(self, tail: FloatArray) -> FloatArray:
+        return _linear_g(tail)
+
+    def _h(self, f1: FloatArray, g: FloatArray) -> FloatArray:
+        return 1.0 - (f1 / g) ** 2
+
+
 class ZDT3(ZDT):
     """Disconnected front: five pieces of ``f_2 = 1 - sqrt(f_1) - f_1 sin(10 pi f_1)``."""
 
@@ -128,3 +154,31 @@ class ZDT4(ZDT):
 
     def _h(self, f1: FloatArray, g: FloatArray) -> FloatArray:
         return _convex_h(f1, g)
+
+
+class ZDT6(ZDT):
+    """Concave front ``f_2 = 1 - f_1^2`` on ``f_1 >= 0.2808``, with a biased density.
+
+    ``f_1 = 1 - exp(-4 x_1) sin^6(6 pi x_1)`` maps most of ``x_1`` close to
+    ``f_1 = 1``, and ``g = 1 + 9 (mean x_2..x_n)^0.25`` makes the front hard to reach.
+    """
+
+    _f1_range = (ZDT6_LOWEST_F1, 1.0)
+
+    def __init__(self, n_var: int = 10) -> None:
+        super().__init__(n_var, lower=0.0, upper=1.0)
+
+    @property
+    def name(self) -> str:
+        return "ZDT6"
+
+    def _f1(self, x1: FloatArray) -> FloatArray:
+        f1: FloatArray = 1.0 - np.exp(-4.0 * x1) * np.sin(6.0 * np.pi * x1) ** 6
+        return f1
+
+    def _g(self, tail: FloatArray) -> FloatArray:
+        g: FloatArray = 1.0 + 9.0 * tail.mean(axis=1) ** 0.25
+        return g
+
+    def _h(self, f1: FloatArray, g: FloatArray) -> FloatArray:
+        return 1.0 - (f1 / g) ** 2

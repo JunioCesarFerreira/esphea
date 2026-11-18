@@ -778,11 +778,34 @@ export interface components {
          */
         CatalogOut: {
             /** Problems */
-            problems: (components["schemas"]["DTLZ2Config"] | components["schemas"]["DTLZ2HConfig"] | components["schemas"]["DTLZ7Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"])[];
+            problems: (components["schemas"]["DTLZ1Config"] | components["schemas"]["DTLZ2Config"] | components["schemas"]["DTLZ2HConfig"] | components["schemas"]["DTLZ5Config"] | components["schemas"]["DTLZ7Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT2Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"] | components["schemas"]["ZDT6Config"] | components["schemas"]["IMOP4Config"] | components["schemas"]["IMOP5Config"] | components["schemas"]["IMOP6Config"] | components["schemas"]["IMOP7Config"] | components["schemas"]["IMOP8Config"] | components["schemas"]["TOPOConfig"])[];
             /** Algorithms */
             algorithms: (components["schemas"]["NSGA2Config"] | components["schemas"]["NSGA3Config"] | components["schemas"]["SMSEMOAConfig"])[];
             metrics: components["schemas"]["MetricsConfig"];
             snapshots: components["schemas"]["SnapshotConfig"];
+        };
+        /**
+         * DTLZ1Config
+         * @description Linear front (the simplex sum f = 0.5) behind 11^k - 1 local fronts.
+         */
+        DTLZ1Config: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "dtlz1";
+            /**
+             * N Obj
+             * @description Number of objectives (M).
+             * @default 3
+             */
+            n_obj: number;
+            /**
+             * K
+             * @description Distance variables; n_var = M + k - 1.
+             * @default 5
+             */
+            k: number;
         };
         /** DTLZ2Config */
         DTLZ2Config: {
@@ -833,6 +856,30 @@ export interface components {
              * @default 20
              */
             radius: number;
+        };
+        /**
+         * DTLZ5Config
+         * @description Degenerate front: an arc of the unit sphere.
+         */
+        DTLZ5Config: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "dtlz5";
+            /**
+             * N Obj
+             * @description Three objectives (from four on, the front is no longer a curve).
+             * @default 3
+             * @constant
+             */
+            n_obj: 3;
+            /**
+             * K
+             * @description Distance variables; n_var = k + 2.
+             * @default 10
+             */
+            k: number;
         };
         /**
          * DTLZ7Config
@@ -933,7 +980,7 @@ export interface components {
              *       "k": 10
              *     }
              */
-            problem: components["schemas"]["DTLZ2Config"] | components["schemas"]["DTLZ2HConfig"] | components["schemas"]["DTLZ7Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"];
+            problem: components["schemas"]["DTLZ1Config"] | components["schemas"]["DTLZ2Config"] | components["schemas"]["DTLZ2HConfig"] | components["schemas"]["DTLZ5Config"] | components["schemas"]["DTLZ7Config"] | components["schemas"]["ZDT1Config"] | components["schemas"]["ZDT2Config"] | components["schemas"]["ZDT3Config"] | components["schemas"]["ZDT4Config"] | components["schemas"]["ZDT6Config"] | components["schemas"]["IMOP4Config"] | components["schemas"]["IMOP5Config"] | components["schemas"]["IMOP6Config"] | components["schemas"]["IMOP7Config"] | components["schemas"]["IMOP8Config"] | components["schemas"]["TOPOConfig"];
             /** Algorithm */
             algorithm: components["schemas"]["NSGA2Config"] | components["schemas"]["NSGA3Config"] | components["schemas"]["SMSEMOAConfig"];
             /**
@@ -1107,6 +1154,126 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * IMOP4Config
+         * @description Degenerate front: a wavy curve.
+         */
+        IMOP4Config: {
+            /**
+             * N Obj
+             * @description IMOP problems are three-objective.
+             * @default 3
+             * @constant
+             */
+            n_obj: 3;
+            /**
+             * N Var
+             * @description Decision variables: 5 position ones, then distance.
+             * @default 10
+             */
+            n_var: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "imop4";
+        };
+        /**
+         * IMOP5Config
+         * @description Eight disjoint discs.
+         */
+        IMOP5Config: {
+            /**
+             * N Obj
+             * @description IMOP problems are three-objective.
+             * @default 3
+             * @constant
+             */
+            n_obj: 3;
+            /**
+             * N Var
+             * @description Decision variables: 5 position ones, then distance.
+             * @default 10
+             */
+            n_var: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "imop5";
+        };
+        /**
+         * IMOP6Config
+         * @description A grid of strips: one piece with nine holes.
+         */
+        IMOP6Config: {
+            /**
+             * N Obj
+             * @description IMOP problems are three-objective.
+             * @default 3
+             * @constant
+             */
+            n_obj: 3;
+            /**
+             * N Var
+             * @description Decision variables: 5 position ones, then distance.
+             * @default 10
+             */
+            n_var: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "imop6";
+        };
+        /**
+         * IMOP7Config
+         * @description Three bands of the sphere meeting at its centre.
+         */
+        IMOP7Config: {
+            /**
+             * N Obj
+             * @description IMOP problems are three-objective.
+             * @default 3
+             * @constant
+             */
+            n_obj: 3;
+            /**
+             * N Var
+             * @description Decision variables: 5 position ones, then distance.
+             * @default 10
+             */
+            n_var: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "imop7";
+        };
+        /**
+         * IMOP8Config
+         * @description A 10 x 10 array of disconnected patches.
+         */
+        IMOP8Config: {
+            /**
+             * N Obj
+             * @description IMOP problems are three-objective.
+             * @default 3
+             * @constant
+             */
+            n_obj: 3;
+            /**
+             * N Var
+             * @description Decision variables: 5 position ones, then distance.
+             * @default 10
+             */
+            n_var: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "imop8";
         };
         /** IndicatorSummaryOut */
         IndicatorSummaryOut: {
@@ -1573,6 +1740,8 @@ export interface components {
             /** Q3 */
             q3: (number | null)[];
         };
+        /** @enum {string} */
+        ShapeName: "disc" | "ring" | "eight" | "holes" | "islands" | "ball" | "shell" | "sphere" | "torus";
         /** SnapshotConfig */
         SnapshotConfig: {
             /**
@@ -1659,6 +1828,40 @@ export interface components {
             analysis: (components["schemas"]["TopologyAnalysisConfig"] | components["schemas"]["ZigzagAnalysisConfig"]) | null;
             /** Batch Id */
             batch_id: string | null;
+        };
+        /**
+         * TOPOConfig
+         * @description Front with a prescribed shape, hence a known topology (see ``esphea.problems.topo``).
+         */
+        TOPOConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "topo";
+            /**
+             * @description Planar (three objectives): disc, ring, eight, holes, islands. Spatial (four objectives): ball, shell, sphere, torus.
+             * @default holes
+             */
+            shape: components["schemas"]["ShapeName"];
+            /**
+             * Count
+             * @description Holes (holes: 1-6) or islands (islands: 2-8); null for the other shapes.
+             * @default 2
+             */
+            count: number | null;
+            /**
+             * N Obj
+             * @description 3 for a planar shape, 4 for a spatial one.
+             * @default 3
+             */
+            n_obj: number;
+            /**
+             * K
+             * @description Distance variables; n_var = M - 1 + k.
+             * @default 10
+             */
+            k: number;
         };
         /**
          * TopologyAnalysisConfig
@@ -1919,6 +2122,30 @@ export interface components {
             name: "zdt1";
         };
         /**
+         * ZDT2Config
+         * @description Concave, connected front.
+         */
+        ZDT2Config: {
+            /**
+             * N Obj
+             * @description ZDT problems are bi-objective.
+             * @default 2
+             * @constant
+             */
+            n_obj: 2;
+            /**
+             * N Var
+             * @description Decision variables (n).
+             * @default 30
+             */
+            n_var: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "zdt2";
+        };
+        /**
          * ZDT3Config
          * @description Disconnected front (five pieces).
          */
@@ -1965,6 +2192,30 @@ export interface components {
              * @enum {string}
              */
             name: "zdt4";
+        };
+        /**
+         * ZDT6Config
+         * @description Concave front with a biased density of solutions.
+         */
+        ZDT6Config: {
+            /**
+             * N Obj
+             * @description ZDT problems are bi-objective.
+             * @default 2
+             * @constant
+             */
+            n_obj: 2;
+            /**
+             * N Var
+             * @description Decision variables (n).
+             * @default 10
+             */
+            n_var: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            name: "zdt6";
         };
         /**
          * ZigzagAnalysisConfig

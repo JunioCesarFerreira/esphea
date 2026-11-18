@@ -1,5 +1,6 @@
 """DTLZ benchmark problems (Deb, Thiele, Laumanns and Zitzler, 2005)."""
 
+from collections.abc import Callable
 from functools import cached_property
 
 import numpy as np
@@ -7,6 +8,60 @@ import numpy as np
 from esphea.core.problem import Problem
 from esphea.core.types import FloatArray, frozen
 from esphea.reference_directions import das_dennis, das_dennis_partitions_for
+
+
+class DTLZ1(Problem):
+    """Scalable DTLZ1: a linear front behind ``11^k - 1`` local fronts.
+
+    ``n_var = n_obj + k - 1``. With ``g = 100 (k + sum((x_j - 0.5)^2 - cos(20 pi (x_j - 0.5))))``
+    over the ``k`` distance variables,
+
+        f_1 = 0.5 (1 + g) x_1 ... x_{M-1},
+        f_i = 0.5 (1 + g) x_1 ... x_{M-i} (1 - x_{M-i+1}),   1 < i < M,
+        f_M = 0.5 (1 + g) (1 - x_1),
+
+    so the front (``g = 0``: every distance variable equals 0.5) is the simplex
+    ``sum f = 0.5`` of the positive orthant: a flat, connected front.
+    """
+
+    def __init__(self, n_obj: int = 3, k: int = 5) -> None:
+        if n_obj < 2:
+            raise ValueError(f"DTLZ1 needs at least 2 objectives, got {n_obj}")
+        if k < 1:
+            raise ValueError(f"k must be positive, got {k}")
+        super().__init__(n_var=n_obj + k - 1, n_obj=n_obj, lower=0.0, upper=1.0)
+        self.k = k
+        # f_i multiplies x_0..x_{M-2-i} and, for i > 0, (1 - x_{M-1-i}).
+        self._index = n_obj - 1 - np.arange(n_obj)
+
+    @property
+    def name(self) -> str:
+        return "DTLZ1"
+
+    def _evaluate(self, X: FloatArray) -> FloatArray:
+        m = self.n_obj
+        tail = X[:, m - 1 :] - 0.5
+        g = 100.0 * (self.k + np.sum(tail**2 - np.cos(20.0 * np.pi * tail), axis=1))
+        x = X[:, : m - 1]
+        # prefix[:, j] = prod_{l < j} x_l, with prefix[:, 0] = 1
+        prefix = np.ones((X.shape[0], m))
+        np.cumprod(x, axis=1, out=prefix[:, 1:])
+        F = prefix[:, self._index]
+        F[:, 1:] *= 1.0 - x[:, self._index[1:]]
+        F *= (0.5 * (1.0 + g))[:, None]
+        return F
+
+    def pareto_front(self, n_points: int) -> FloatArray:
+        partitions = das_dennis_partitions_for(self.n_obj, n_points)
+        return 0.5 * das_dennis(self.n_obj, partitions)
+
+    @property
+    def ideal_point(self) -> FloatArray:
+        return frozen(np.zeros(self.n_obj))
+
+    @property
+    def nadir_point(self) -> FloatArray:
+        return frozen(np.full(self.n_obj, 0.5))
 
 
 class DTLZ2(Problem):
@@ -110,8 +165,80 @@ class DTLZ2H(DTLZ2):
             partitions += 1
 
 
+class DTLZ5(Problem):
+    """DTLZ5 with three objectives: a degenerate front, one arc of the unit sphere.
+
+    ``n_var = k + 2``. With ``g = sum((x_j - 0.5)^2)`` over the distance variables,
+    ``theta_1 = x_1 pi / 2`` and ``theta_2 = pi (1 + 2 g x_2) / (4 (1 + g))``,
+
+        f = (1 + g) (cos theta_1 cos theta_2, cos theta_1 sin theta_2, sin theta_1).
+
+    At ``g = 0`` every ``x_2`` gives ``theta_2 = pi / 4``: the front is the curve
+    ``(cos t, cos t, sqrt(2) sin t) / sqrt(2)``, ``t`` in ``[0, pi / 2]``, from
+    ``(1, 1, 0) / sqrt(2)`` to ``(0, 0, 1)``. Every other point is dominated by a point
+    of that arc (``sqrt(2) (1 + g) sin(pi / (4 (1 + g))) >= 1``; checked by the tests).
+    With four or more objectives the front of DTLZ5 is no longer a curve (Ishibuchi,
+    Masuda and Nojima, IEEE TEVC 2016), so the platform keeps three.
+    """
+
+    def __init__(self, k: int = 10) -> None:
+        if k < 1:
+            raise ValueError(f"k must be positive, got {k}")
+        super().__init__(n_var=k + 2, n_obj=3, lower=0.0, upper=1.0)
+        self.k = k
+
+    @property
+    def name(self) -> str:
+        return "DTLZ5"
+
+    def _evaluate(self, X: FloatArray) -> FloatArray:
+        g = np.sum((X[:, 2:] - 0.5) ** 2, axis=1)
+        theta1 = X[:, 0] * (np.pi / 2.0)
+        theta2 = np.pi * (1.0 + 2.0 * g * X[:, 1]) / (4.0 * (1.0 + g))
+        F = np.column_stack(
+            (
+                np.cos(theta1) * np.cos(theta2),
+                np.cos(theta1) * np.sin(theta2),
+                np.sin(theta1),
+            )
+        )
+        return F * (1.0 + g)[:, None]
+
+    def pareto_front(self, n_points: int) -> FloatArray:
+        t = np.linspace(0.0, np.pi / 2.0, max(n_points, 2))
+        return np.column_stack((np.cos(t) / np.sqrt(2.0), np.cos(t) / np.sqrt(2.0), np.sin(t)))
+
+    @property
+    def ideal_point(self) -> FloatArray:
+        return frozen(np.zeros(3))
+
+    @property
+    def nadir_point(self) -> FloatArray:
+        return frozen(np.array([1.0 / np.sqrt(2.0), 1.0 / np.sqrt(2.0), 1.0]))
+
+
 DTLZ7_RESOLUTION = 100_001
 """Samples of ``f_i`` in [0, 1] from which the Pareto-optimal intervals are extracted."""
+
+
+def separable_optimal_values(phi: Callable[[FloatArray], FloatArray]) -> FloatArray:
+    """Values ``f`` in [0, 1] whose ``phi(f)`` exceeds ``phi`` at every smaller ``f``.
+
+    For a last objective ``c - sum_i phi(f_i)`` (DTLZ7, IMOP8), a point is Pareto
+    optimal iff each of its other coordinates is one of these values.
+    """
+    f = np.linspace(0.0, 1.0, DTLZ7_RESOLUTION)
+    values = phi(f)
+    earlier = np.maximum.accumulate(np.concatenate(([-np.inf], values[:-1])))
+    return frozen(f[values > earlier])
+
+
+def separable_front(values: FloatArray, n_obj: int, n_points: int) -> FloatArray:
+    """Grid of about ``n_points`` combinations of ``values`` (one column per coordinate)."""
+    per_axis = max(2, int(np.ceil(max(n_points, 2) ** (1.0 / n_obj))))
+    index = np.unique(np.linspace(0, len(values) - 1, per_axis).round().astype(np.intp))
+    grid = np.meshgrid(*[values[index]] * n_obj, indexing="ij")
+    return np.column_stack([axis.ravel() for axis in grid])
 
 
 class DTLZ7(Problem):
@@ -154,17 +281,10 @@ class DTLZ7(Problem):
     @cached_property
     def _optimal_coordinates(self) -> FloatArray:
         """Values of one ``f_i`` on the front: ``phi`` exceeds its value at every smaller ``f``."""
-        f = np.linspace(0.0, 1.0, DTLZ7_RESOLUTION)
-        phi = self._phi(f)
-        earlier = np.maximum.accumulate(np.concatenate(([-np.inf], phi[:-1])))
-        return frozen(f[phi > earlier])
+        return separable_optimal_values(self._phi)
 
     def pareto_front(self, n_points: int) -> FloatArray:
-        values = self._optimal_coordinates
-        per_axis = max(2, int(np.ceil(max(n_points, 2) ** (1.0 / (self.n_obj - 1)))))
-        index = np.unique(np.linspace(0, len(values) - 1, per_axis).round().astype(np.intp))
-        grid = np.meshgrid(*[values[index]] * (self.n_obj - 1), indexing="ij")
-        f = np.column_stack([axis.ravel() for axis in grid])
+        f = separable_front(self._optimal_coordinates, self.n_obj - 1, n_points)
         last = 2.0 * self.n_obj - np.sum(self._phi(f), axis=1)
         return np.column_stack((f, last))
 

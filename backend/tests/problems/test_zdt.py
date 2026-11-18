@@ -4,10 +4,16 @@ import numpy as np
 import pytest
 from pymoo.problems import get_problem
 
-from esphea.problems import ZDT1, ZDT3, ZDT4
-from esphea.problems.zdt import ZDT
+from esphea.problems import ZDT1, ZDT2, ZDT3, ZDT4, ZDT6
+from esphea.problems.zdt import ZDT, ZDT6_LOWEST_F1
 
-PROBLEMS: dict[str, Callable[..., ZDT]] = {"zdt1": ZDT1, "zdt3": ZDT3, "zdt4": ZDT4}
+PROBLEMS: dict[str, Callable[..., ZDT]] = {
+    "zdt1": ZDT1,
+    "zdt2": ZDT2,
+    "zdt3": ZDT3,
+    "zdt4": ZDT4,
+    "zdt6": ZDT6,
+}
 
 
 def _random_decisions(problem: ZDT, rng: np.random.Generator, n: int) -> np.ndarray:
@@ -27,13 +33,15 @@ def test_matches_pymoo_reference_implementation(
     np.testing.assert_allclose(problem.evaluate(X), reference.evaluate(X), rtol=1e-12)
 
 
-@pytest.mark.parametrize(("name", "n_var"), [("zdt1", 30), ("zdt3", 30), ("zdt4", 10)])
+@pytest.mark.parametrize(
+    ("name", "n_var"), [("zdt1", 30), ("zdt2", 30), ("zdt3", 30), ("zdt4", 10), ("zdt6", 10)]
+)
 def test_defaults(name: str, n_var: int) -> None:
     problem = PROBLEMS[name]()
     assert (problem.n_var, problem.n_obj, problem.name) == (n_var, 2, name.upper())
 
 
-@pytest.mark.parametrize("name", PROBLEMS)
+@pytest.mark.parametrize("name", ["zdt1", "zdt2", "zdt3", "zdt4"])
 def test_front_is_attained_by_the_pareto_set(name: str) -> None:
     """Front points are images of decisions with x_2..x_n at their optimum (g = 1)."""
     problem = PROBLEMS[name]()
@@ -54,6 +62,17 @@ def test_front_matches_pymoo(name: str) -> None:
     assert gaps.min(axis=0).max() < 0.02
 
 
+def test_zdt6_front_is_reached_from_its_whole_first_variable(rng: np.random.Generator) -> None:
+    """With x_2..x_n = 0 (g = 1) every x_1 lands on the front f_2 = 1 - f_1^2, f_1 >= 0.2808."""
+    problem = ZDT6()
+    X = np.zeros((2000, problem.n_var))
+    X[:, 0] = rng.random(2000)
+    F = problem.evaluate(X)
+    np.testing.assert_allclose(F[:, 1], 1.0 - F[:, 0] ** 2, atol=1e-12)
+    assert F[:, 0].min() >= ZDT6_LOWEST_F1 - 1e-9
+    assert np.mean(F[:, 0] > 0.9) > 0.5  # the bias: most of x_1 maps close to f_1 = 1
+
+
 def test_front_is_non_dominated_and_sized() -> None:
     front = ZDT3().pareto_front(1000)
     assert 990 <= len(front) <= 1000
@@ -71,8 +90,10 @@ def test_zdt3_front_has_five_pieces() -> None:
     ("name", "ideal", "nadir"),
     [
         ("zdt1", (0.0, 0.0), (1.0, 1.0)),
+        ("zdt2", (0.0, 0.0), (1.0, 1.0)),
         ("zdt3", (0.0, -0.773369), (0.851833, 1.0)),
         ("zdt4", (0.0, 0.0), (1.0, 1.0)),
+        ("zdt6", (0.280775, 0.0), (1.0, 0.921165)),
     ],
 )
 def test_ideal_and_nadir(name: str, ideal: tuple[float, float], nadir: tuple[float, float]) -> None:

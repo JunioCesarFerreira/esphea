@@ -44,13 +44,36 @@ def test_dtlz7_config() -> None:
     assert ExperimentConfig.model_validate(config.model_dump(mode="json")) == config
 
 
-@pytest.mark.parametrize(("name", "n_var"), [("zdt1", 30), ("zdt3", 30), ("zdt4", 10)])
-def test_problem_is_discriminated_by_name(name: str, n_var: int) -> None:
+@pytest.mark.parametrize(
+    ("name", "n_obj", "n_var"),
+    [
+        ("zdt1", 2, 30),
+        ("zdt2", 2, 30),
+        ("zdt3", 2, 30),
+        ("zdt4", 2, 10),
+        ("zdt6", 2, 10),
+        ("dtlz1", 3, 7),
+        ("dtlz5", 3, 12),
+        ("imop4", 3, 10),
+        ("imop8", 3, 10),
+        ("topo", 3, 12),
+    ],
+)
+def test_problem_is_discriminated_by_name(name: str, n_obj: int, n_var: int) -> None:
     config = ExperimentConfig.model_validate(
         {"name": "x", "problem": {"name": name}, "algorithm": {"name": "nsga2"}}
     )
     assert config.problem.name == name
-    assert (config.problem.n_obj, config.problem.n_var) == (2, n_var)
+    assert (config.problem.n_obj, config.problem.n_var) == (n_obj, n_var)
+    assert ExperimentConfig.model_validate(config.model_dump(mode="json")) == config
+
+
+@pytest.mark.parametrize(("name", "n_obj"), [("dtlz5", 4), ("imop5", 2)])
+def test_fixed_objective_counts(name: str, n_obj: int) -> None:
+    with pytest.raises(ValidationError, match="n_obj"):
+        ExperimentConfig.model_validate(
+            {"name": "x", "problem": {"name": name, "n_obj": n_obj}, "algorithm": {"name": "nsga2"}}
+        )
 
 
 def test_zdt_problems_are_bi_objective() -> None:

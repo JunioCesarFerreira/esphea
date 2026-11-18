@@ -8,19 +8,29 @@ from pydantic import BaseModel, Field
 
 from esphea.experiments.config import (
     AlgorithmConfig,
+    DTLZ1Config,
     DTLZ2Config,
     DTLZ2HConfig,
+    DTLZ5Config,
     DTLZ7Config,
     ExperimentConfig,
+    IMOP4Config,
+    IMOP5Config,
+    IMOP6Config,
+    IMOP7Config,
+    IMOP8Config,
     MetricsConfig,
     NSGA2Config,
     NSGA3Config,
     ProblemConfig,
     SMSEMOAConfig,
     SnapshotConfig,
+    TOPOConfig,
     ZDT1Config,
+    ZDT2Config,
     ZDT3Config,
     ZDT4Config,
+    ZDT6Config,
 )
 from esphea.experiments.storage import GenerationSnapshot, SnapshotGroup
 from esphea.persistence.models import ExperimentRow, RunRow, RunStatus
@@ -39,13 +49,23 @@ class CatalogOut(BaseModel):
 
 def default_catalog() -> CatalogOut:
     return CatalogOut(
-        problems=[
+        problems=[  # the first one is the default of a new experiment
             DTLZ2Config(),
+            DTLZ1Config(),
             DTLZ2HConfig(),
+            DTLZ5Config(),
             DTLZ7Config(),
             ZDT1Config(),
+            ZDT2Config(),
             ZDT3Config(),
             ZDT4Config(),
+            ZDT6Config(),
+            IMOP4Config(),
+            IMOP5Config(),
+            IMOP6Config(),
+            IMOP7Config(),
+            IMOP8Config(),
+            TOPOConfig(),
         ],
         algorithms=[NSGA2Config(), NSGA3Config(), SMSEMOAConfig()],
         metrics=MetricsConfig(),

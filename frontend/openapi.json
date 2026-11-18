@@ -2364,10 +2364,16 @@
             "items": {
               "oneOf": [
                 {
+                  "$ref": "#/components/schemas/DTLZ1Config"
+                },
+                {
                   "$ref": "#/components/schemas/DTLZ2Config"
                 },
                 {
                   "$ref": "#/components/schemas/DTLZ2HConfig"
+                },
+                {
+                  "$ref": "#/components/schemas/DTLZ5Config"
                 },
                 {
                   "$ref": "#/components/schemas/DTLZ7Config"
@@ -2376,21 +2382,55 @@
                   "$ref": "#/components/schemas/ZDT1Config"
                 },
                 {
+                  "$ref": "#/components/schemas/ZDT2Config"
+                },
+                {
                   "$ref": "#/components/schemas/ZDT3Config"
                 },
                 {
                   "$ref": "#/components/schemas/ZDT4Config"
+                },
+                {
+                  "$ref": "#/components/schemas/ZDT6Config"
+                },
+                {
+                  "$ref": "#/components/schemas/IMOP4Config"
+                },
+                {
+                  "$ref": "#/components/schemas/IMOP5Config"
+                },
+                {
+                  "$ref": "#/components/schemas/IMOP6Config"
+                },
+                {
+                  "$ref": "#/components/schemas/IMOP7Config"
+                },
+                {
+                  "$ref": "#/components/schemas/IMOP8Config"
+                },
+                {
+                  "$ref": "#/components/schemas/TOPOConfig"
                 }
               ],
               "discriminator": {
                 "propertyName": "name",
                 "mapping": {
+                  "dtlz1": "#/components/schemas/DTLZ1Config",
                   "dtlz2": "#/components/schemas/DTLZ2Config",
                   "dtlz2h": "#/components/schemas/DTLZ2HConfig",
+                  "dtlz5": "#/components/schemas/DTLZ5Config",
                   "dtlz7": "#/components/schemas/DTLZ7Config",
+                  "imop4": "#/components/schemas/IMOP4Config",
+                  "imop5": "#/components/schemas/IMOP5Config",
+                  "imop6": "#/components/schemas/IMOP6Config",
+                  "imop7": "#/components/schemas/IMOP7Config",
+                  "imop8": "#/components/schemas/IMOP8Config",
+                  "topo": "#/components/schemas/TOPOConfig",
                   "zdt1": "#/components/schemas/ZDT1Config",
+                  "zdt2": "#/components/schemas/ZDT2Config",
                   "zdt3": "#/components/schemas/ZDT3Config",
-                  "zdt4": "#/components/schemas/ZDT4Config"
+                  "zdt4": "#/components/schemas/ZDT4Config",
+                  "zdt6": "#/components/schemas/ZDT6Config"
                 }
               }
             },
@@ -2438,6 +2478,36 @@
         ],
         "title": "CatalogOut",
         "description": "Available components with their default parameters."
+      },
+      "DTLZ1Config": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "const": "dtlz1",
+            "title": "Name",
+            "default": "dtlz1"
+          },
+          "n_obj": {
+            "type": "integer",
+            "maximum": 15.0,
+            "minimum": 2.0,
+            "title": "N Obj",
+            "description": "Number of objectives (M).",
+            "default": 3
+          },
+          "k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "K",
+            "description": "Distance variables; n_var = M + k - 1.",
+            "default": 5
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DTLZ1Config",
+        "description": "Linear front (the simplex sum f = 0.5) behind 11^k - 1 local fronts."
       },
       "DTLZ2Config": {
         "properties": {
@@ -2504,6 +2574,35 @@
         "type": "object",
         "title": "DTLZ2HConfig",
         "description": "DTLZ2 with a dominated cap at the centre of the octant: a front with one hole."
+      },
+      "DTLZ5Config": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "const": "dtlz5",
+            "title": "Name",
+            "default": "dtlz5"
+          },
+          "n_obj": {
+            "type": "integer",
+            "const": 3,
+            "title": "N Obj",
+            "description": "Three objectives (from four on, the front is no longer a curve).",
+            "default": 3
+          },
+          "k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "K",
+            "description": "Distance variables; n_var = k + 2.",
+            "default": 10
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DTLZ5Config",
+        "description": "Degenerate front: an arc of the unit sphere."
       },
       "DTLZ7Config": {
         "properties": {
@@ -2724,10 +2823,16 @@
           "problem": {
             "oneOf": [
               {
+                "$ref": "#/components/schemas/DTLZ1Config"
+              },
+              {
                 "$ref": "#/components/schemas/DTLZ2Config"
               },
               {
                 "$ref": "#/components/schemas/DTLZ2HConfig"
+              },
+              {
+                "$ref": "#/components/schemas/DTLZ5Config"
               },
               {
                 "$ref": "#/components/schemas/DTLZ7Config"
@@ -2736,10 +2841,34 @@
                 "$ref": "#/components/schemas/ZDT1Config"
               },
               {
+                "$ref": "#/components/schemas/ZDT2Config"
+              },
+              {
                 "$ref": "#/components/schemas/ZDT3Config"
               },
               {
                 "$ref": "#/components/schemas/ZDT4Config"
+              },
+              {
+                "$ref": "#/components/schemas/ZDT6Config"
+              },
+              {
+                "$ref": "#/components/schemas/IMOP4Config"
+              },
+              {
+                "$ref": "#/components/schemas/IMOP5Config"
+              },
+              {
+                "$ref": "#/components/schemas/IMOP6Config"
+              },
+              {
+                "$ref": "#/components/schemas/IMOP7Config"
+              },
+              {
+                "$ref": "#/components/schemas/IMOP8Config"
+              },
+              {
+                "$ref": "#/components/schemas/TOPOConfig"
               }
             ],
             "title": "Problem",
@@ -2751,12 +2880,22 @@
             "discriminator": {
               "propertyName": "name",
               "mapping": {
+                "dtlz1": "#/components/schemas/DTLZ1Config",
                 "dtlz2": "#/components/schemas/DTLZ2Config",
                 "dtlz2h": "#/components/schemas/DTLZ2HConfig",
+                "dtlz5": "#/components/schemas/DTLZ5Config",
                 "dtlz7": "#/components/schemas/DTLZ7Config",
+                "imop4": "#/components/schemas/IMOP4Config",
+                "imop5": "#/components/schemas/IMOP5Config",
+                "imop6": "#/components/schemas/IMOP6Config",
+                "imop7": "#/components/schemas/IMOP7Config",
+                "imop8": "#/components/schemas/IMOP8Config",
+                "topo": "#/components/schemas/TOPOConfig",
                 "zdt1": "#/components/schemas/ZDT1Config",
+                "zdt2": "#/components/schemas/ZDT2Config",
                 "zdt3": "#/components/schemas/ZDT3Config",
-                "zdt4": "#/components/schemas/ZDT4Config"
+                "zdt4": "#/components/schemas/ZDT4Config",
+                "zdt6": "#/components/schemas/ZDT6Config"
               }
             }
           },
@@ -3173,6 +3312,151 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "IMOP4Config": {
+        "properties": {
+          "n_obj": {
+            "type": "integer",
+            "const": 3,
+            "title": "N Obj",
+            "description": "IMOP problems are three-objective.",
+            "default": 3
+          },
+          "n_var": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 6.0,
+            "title": "N Var",
+            "description": "Decision variables: 5 position ones, then distance.",
+            "default": 10
+          },
+          "name": {
+            "type": "string",
+            "const": "imop4",
+            "title": "Name",
+            "default": "imop4"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "IMOP4Config",
+        "description": "Degenerate front: a wavy curve."
+      },
+      "IMOP5Config": {
+        "properties": {
+          "n_obj": {
+            "type": "integer",
+            "const": 3,
+            "title": "N Obj",
+            "description": "IMOP problems are three-objective.",
+            "default": 3
+          },
+          "n_var": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 6.0,
+            "title": "N Var",
+            "description": "Decision variables: 5 position ones, then distance.",
+            "default": 10
+          },
+          "name": {
+            "type": "string",
+            "const": "imop5",
+            "title": "Name",
+            "default": "imop5"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "IMOP5Config",
+        "description": "Eight disjoint discs."
+      },
+      "IMOP6Config": {
+        "properties": {
+          "n_obj": {
+            "type": "integer",
+            "const": 3,
+            "title": "N Obj",
+            "description": "IMOP problems are three-objective.",
+            "default": 3
+          },
+          "n_var": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 6.0,
+            "title": "N Var",
+            "description": "Decision variables: 5 position ones, then distance.",
+            "default": 10
+          },
+          "name": {
+            "type": "string",
+            "const": "imop6",
+            "title": "Name",
+            "default": "imop6"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "IMOP6Config",
+        "description": "A grid of strips: one piece with nine holes."
+      },
+      "IMOP7Config": {
+        "properties": {
+          "n_obj": {
+            "type": "integer",
+            "const": 3,
+            "title": "N Obj",
+            "description": "IMOP problems are three-objective.",
+            "default": 3
+          },
+          "n_var": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 6.0,
+            "title": "N Var",
+            "description": "Decision variables: 5 position ones, then distance.",
+            "default": 10
+          },
+          "name": {
+            "type": "string",
+            "const": "imop7",
+            "title": "Name",
+            "default": "imop7"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "IMOP7Config",
+        "description": "Three bands of the sphere meeting at its centre."
+      },
+      "IMOP8Config": {
+        "properties": {
+          "n_obj": {
+            "type": "integer",
+            "const": 3,
+            "title": "N Obj",
+            "description": "IMOP problems are three-objective.",
+            "default": 3
+          },
+          "n_var": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 6.0,
+            "title": "N Var",
+            "description": "Decision variables: 5 position ones, then distance.",
+            "default": 10
+          },
+          "name": {
+            "type": "string",
+            "const": "imop8",
+            "title": "Name",
+            "default": "imop8"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "IMOP8Config",
+        "description": "A 10 x 10 array of disconnected patches."
       },
       "IndicatorSummaryOut": {
         "properties": {
@@ -4278,6 +4562,20 @@
         ],
         "title": "SeriesQuartilesOut"
       },
+      "ShapeName": {
+        "type": "string",
+        "enum": [
+          "disc",
+          "ring",
+          "eight",
+          "holes",
+          "islands",
+          "ball",
+          "shell",
+          "sphere",
+          "torus"
+        ]
+      },
       "SnapshotConfig": {
         "properties": {
           "enabled": {
@@ -4502,6 +4800,56 @@
           "batch_id"
         ],
         "title": "SubjectOut"
+      },
+      "TOPOConfig": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "const": "topo",
+            "title": "Name",
+            "default": "topo"
+          },
+          "shape": {
+            "$ref": "#/components/schemas/ShapeName",
+            "description": "Planar (three objectives): disc, ring, eight, holes, islands. Spatial (four objectives): ball, shell, sphere, torus.",
+            "default": "holes"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 8.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count",
+            "description": "Holes (holes: 1-6) or islands (islands: 2-8); null for the other shapes.",
+            "default": 2
+          },
+          "n_obj": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 3.0,
+            "title": "N Obj",
+            "description": "3 for a planar shape, 4 for a spatial one.",
+            "default": 3
+          },
+          "k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "K",
+            "description": "Distance variables; n_var = M - 1 + k.",
+            "default": 10
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TOPOConfig",
+        "description": "Front with a prescribed shape, hence a known topology (see ``esphea.problems.topo``)."
       },
       "TopologyAnalysisConfig": {
         "properties": {
@@ -5112,6 +5460,35 @@
         "title": "ZDT1Config",
         "description": "Convex, connected front."
       },
+      "ZDT2Config": {
+        "properties": {
+          "n_obj": {
+            "type": "integer",
+            "const": 2,
+            "title": "N Obj",
+            "description": "ZDT problems are bi-objective.",
+            "default": 2
+          },
+          "n_var": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 2.0,
+            "title": "N Var",
+            "description": "Decision variables (n).",
+            "default": 30
+          },
+          "name": {
+            "type": "string",
+            "const": "zdt2",
+            "title": "Name",
+            "default": "zdt2"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ZDT2Config",
+        "description": "Concave, connected front."
+      },
       "ZDT3Config": {
         "properties": {
           "n_obj": {
@@ -5169,6 +5546,35 @@
         "type": "object",
         "title": "ZDT4Config",
         "description": "Convex front behind many local fronts (multimodal)."
+      },
+      "ZDT6Config": {
+        "properties": {
+          "n_obj": {
+            "type": "integer",
+            "const": 2,
+            "title": "N Obj",
+            "description": "ZDT problems are bi-objective.",
+            "default": 2
+          },
+          "n_var": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 2.0,
+            "title": "N Var",
+            "description": "Decision variables (n).",
+            "default": 10
+          },
+          "name": {
+            "type": "string",
+            "const": "zdt6",
+            "title": "Name",
+            "default": "zdt6"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ZDT6Config",
+        "description": "Concave front with a biased density of solutions."
       },
       "ZigzagAnalysisConfig": {
         "properties": {
